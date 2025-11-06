@@ -1,0 +1,23 @@
+.dndTarget { 
+  transition: background-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease; 
+}
+.dragOver { 
+  background-color: rgba(var(--primary-rgb), 0.1); 
+  box-shadow: inset 0 0 0 2px var(--primary); 
+}
+.dropFlash { 
+  animation: dropFlash var(--transition-slow) ease; 
+}
+@keyframes dropFlash { 
+  from { background-color: rgba(var(--success-rgb), 0.2); } 
+  to { background-color: transparent; } 
+}
+
+.common-lesson-teacher-row {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--primary);
+}
+
+.common-lesson-teacher-row .sticky-col {
+  background: var(--bg-secondary);
+}

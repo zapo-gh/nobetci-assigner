@@ -1,0 +1,204 @@
+.assignmentTextContainer {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+}
+
+.title {
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-4);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+  font-family: var(--font-family-sans);
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+.toolbar {
+  margin-top: var(--space-3);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.printOnly {
+  display: none !important;
+}
+
+/* JPG export için iki sütun stilleri (print media dışında) */
+.printHeader {
+  display: block;
+  margin: 0 0 2px 0;
+  padding: 0;
+  font-size: 8.5pt;
+  line-height: 1.15;
+}
+
+.printTwoCols {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.printColLeft {
+  display: block;
+  width: 48%;
+  float: left;
+  margin: 0;
+  padding: 0 2% 0 0;
+  box-sizing: border-box;
+}
+
+.printColRight {
+  display: block;
+  width: 48%;
+  float: right;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.printLineBlock {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: 8.5pt;
+  line-height: 1.15;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  clear: both;
+}
+
+@media print {
+  .assignmentTextContainer {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .screenOnly {
+    display: none !important;
+  }
+
+  .printOnly {
+    display: block !important;
+    font-family: 'Times New Roman', serif;
+    font-size: 8.5pt !important; /* Daha kompakt metin */
+    color: #000000 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    page-break-inside: avoid;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .printLine {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.15 !important; /* Daha sıkı satır yüksekliği */
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    font-size: 8.5pt !important;
+  }
+
+  .title {
+    color: #000000 !important;
+    margin: 0 0 2px 0 !important; /* Başlık alt boşluğu minimize */
+    font-size: 10pt !important;
+    padding: 0 !important;
+  }
+
+  /* İki kolon düzeni - satır arası akış kontrollü */
+  .printColumns {
+    display: flex;
+    gap: 4mm !important; /* Minimum boşluk */
+    width: 100%;
+    page-break-inside: avoid;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .printCol {
+    flex: 1 1 0;
+    page-break-inside: avoid;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* İki kolon düzeni için basit div yapısı */
+  .printHeader {
+    display: block !important;
+    margin: 0 0 2px 0 !important;
+    padding: 0 !important;
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+  }
+
+  .printTwoCols {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+  }
+
+  .printColLeft {
+    display: block !important;
+    width: 48% !important;
+    float: left !important;
+    margin: 0 !important;
+    padding: 0 2% 0 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .printColRight {
+    display: block !important;
+    width: 48% !important;
+    float: right !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .printLineBlock {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    clear: both !important;
+  }
+}
