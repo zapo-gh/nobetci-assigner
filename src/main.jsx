@@ -10,13 +10,24 @@ createRoot(document.getElementById('root')).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const assetBase = APP_ENV.assetsBaseUrl || ''
-    const params = assetBase ? `?assetsBase=${encodeURIComponent(assetBase)}` : ''
+  if (APP_ENV.isDevelopment) {
     navigator.serviceWorker
-      .register(`/service-worker.js${params}`)
-      .catch((err) => {
-        console.error('Service worker registration failed:', err)
+      .getRegistrations()
+      .then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister().catch(() => {})
+        })
       })
-  })
+      .catch(() => {})
+  } else if (APP_ENV.isProduction) {
+    window.addEventListener('load', () => {
+      const assetBase = APP_ENV.assetsBaseUrl || ''
+      const params = assetBase ? `?assetsBase=${encodeURIComponent(assetBase)}` : ''
+      navigator.serviceWorker
+        .register(`/service-worker.js${params}`)
+        .catch((err) => {
+          console.error('Service worker registration failed:', err)
+        })
+    })
+  }
 }

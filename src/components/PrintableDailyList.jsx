@@ -65,9 +65,6 @@ export default function PrintableDailyList({
                 <tr key={t.teacherId}>
                   <td className="teacher-name">
                     <strong className="nowrap">{t.teacherName}</strong>
-                    {!t.teacherId.startsWith('auto_') && (
-                      <small className="muted nowrap teacher-id"> {t.teacherId}</small>
-                    )}
                   </td>
 
                   {(periods || []).map(p => {
