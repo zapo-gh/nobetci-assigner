@@ -20,6 +20,8 @@ export const APP_ENV = {
   apiBaseUrl: env.VITE_API_BASE_URL || '',
   assetsBaseUrl: normalizeUrl(env.VITE_ASSETS_BASE_URL || ''),
   enableAnalytics: toBoolean(env.VITE_ENABLE_ANALYTICS),
+  supabaseUrl: env.VITE_SUPABASE_URL || '',
+  supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || '',
 };
 
 export const getAssetUrl = (path = '') => {

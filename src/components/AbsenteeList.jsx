@@ -1,4 +1,5 @@
 import React from 'react';
+import EmptyState from './EmptyState.jsx';
 
 const DAY_LABELS = {
   Mon: 'Pazartesi',
@@ -11,9 +12,14 @@ const DAY_LABELS = {
 export default function AbsenteeList({ absentPeople, onDelete, IconComponent }) {
   if (!absentPeople || absentPeople.length === 0) {
     return (
-      <div className="text-center p-8 text-muted">
-        <p>Henüz mazeretli kimse eklenmedi.</p>
-      </div>
+      <EmptyState
+        IconComponent={IconComponent}
+        icon="userX"
+        title="Henüz Mazeret Eklenmedi"
+        description=''
+        size={42}
+        className="empty-state-card"
+      />
     );
   }
 

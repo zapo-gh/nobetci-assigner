@@ -1,18 +1,6 @@
 import React, { memo } from 'react'
 import styles from './ModernAvailabilityGrid.module.css';
-
-// Bu bileşenin App.jsx'ten Icon bileşenini alması gerekecek
-function EmptyState({ IconComponent }) {
-  return (
-    <div className="text-center p-8">
-      {IconComponent && <IconComponent name="users" size={48} />}
-      <h3 className="mt-4 text-lg font-medium">Henüz Öğretmen Eklenmedi</h3>
-      <p className="mt-2 text-sm text-muted">
-        Başlamak için lütfen "Öğretmenler" sekmesinden bir CSV dosyası yükleyin veya manuel olarak öğretmen ekleyin.
-      </p>
-    </div>
-  );
-}
+import EmptyState from './EmptyState.jsx';
 
 function ModernAvailabilityGrid({
   rows,
@@ -72,7 +60,13 @@ function ModernAvailabilityGrid({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={periods.length + 3}>
-                  <EmptyState IconComponent={IconComponent} />
+                  <EmptyState
+                    IconComponent={IconComponent}
+                    icon="users"
+                    title="Henüz NöbetçiÖğretmen Eklenmedi"
+                    description=''
+                    className="empty-state-card"
+                  />
                 </td>
               </tr>
             ) : (
