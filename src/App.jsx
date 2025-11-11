@@ -677,7 +677,7 @@ export default function App() {
           });
       upsertClassAbsence({ day, period: p, classId: cid, absentId: null }).catch((err) => {
         logger.error('Class absence cleanup error:', err);
-      });
+          });
       
       setCommonLessons((prevCommon) => {
         const out = { ...prevCommon };
@@ -801,34 +801,34 @@ export default function App() {
     ));
 
     setTeachers(prev => [...prev, ...insertedTeachers]);
-    setTeacherFree((prev) => {
-      const next = { ...prev };
-      for (const p of periods) {
-        if (!next[p]) next[p] = new Set();
-      }
-      return next;
-    });
+      setTeacherFree((prev) => {
+        const next = { ...prev };
+        for (const p of periods) {
+          if (!next[p]) next[p] = new Set();
+        }
+        return next;
+      });
 
     let newPdfSchedule = {};
-    if (dayTeachers && dayTeachers.size > 0) {
-      const dayMapping = {
-        'PAZARTESİ': 'monday',
-        'SALI': 'tuesday',
-        'ÇARŞAMBA': 'wednesday',
-        'PERŞEMBE': 'thursday',
-        'CUMA': 'friday'
-      };
+      if (dayTeachers && dayTeachers.size > 0) {
+        const dayMapping = {
+          'PAZARTESİ': 'monday',
+          'SALI': 'tuesday', 
+          'ÇARŞAMBA': 'wednesday',
+          'PERŞEMBE': 'thursday',
+          'CUMA': 'friday'
+        };
       dayTeachers.forEach((list, day) => {
-        const systemDay = dayMapping[day.toUpperCase()];
-        if (systemDay) {
-          newPdfSchedule[systemDay] = {};
-          for (const period of periods) {
+          const systemDay = dayMapping[day.toUpperCase()];
+          if (systemDay) {
+            newPdfSchedule[systemDay] = {};
+            for (const period of periods) {
             newPdfSchedule[systemDay][period] = [...list];
+            }
           }
-        }
-      });
+        });
       await replacePdfSchedule(newPdfSchedule);
-      setPdfSchedule(newPdfSchedule);
+        setPdfSchedule(newPdfSchedule);
     } else {
       await replacePdfSchedule({});
       setPdfSchedule({});
@@ -962,7 +962,7 @@ export default function App() {
     } = importData;
 
     setPdfSchedule(schedule);
-
+    
     if (!schedule || !matchingResults) {
       addNotification("Geçersiz PDF verisi", "error");
       return;
@@ -1038,28 +1038,28 @@ export default function App() {
     }
 
     const allMatches = new Map();
-
+    
     if (Array.isArray(autoAddedTeachers)) {
       autoAddedTeachers.forEach((teacher) => {
         allMatches.set(teacher.teacherName, teacher);
       });
     }
-
+    
     if (Array.isArray(results?.matched)) {
       results.matched.forEach((match) => {
         if (match?.pdfName && match.teacher) {
-          allMatches.set(match.pdfName, match.teacher);
+        allMatches.set(match.pdfName, match.teacher);
         }
       });
     }
-
+    
     Object.entries(manualMappings || {}).forEach(([pdfName, teacherId]) => {
       const teacher = teachers.find((t) => t.teacherId === teacherId);
       if (teacher) {
         allMatches.set(pdfName, teacher);
       }
     });
-
+    
     const noteParts = [];
     if (unmatchedCount > 0) {
       noteParts.push(`${unmatchedCount} isim eşleşmedi`);
@@ -1101,8 +1101,8 @@ export default function App() {
       }
     });
 
-    let assignmentCount = 0;
-    let conflictCount = 0;
+      let assignmentCount = 0;
+      let conflictCount = 0;
 
     setLocked((prev) => {
       const next = { ...prev };
@@ -1128,10 +1128,10 @@ export default function App() {
                   );
                   return;
                 }
-
+                
                 const classId = availableClasses[index].classId;
                 const key = `${dayKey}|${period}|${classId}`;
-
+                
                 if (resolvedConflicts.has(key)) {
                   const conflictTeacherId = resolvedConflicts.get(key);
                   if (teachers.some((t) => t.teacherId === conflictTeacherId)) {
@@ -1197,7 +1197,7 @@ export default function App() {
     try {
       const created = await insertTeacher({ teacherName: data.teacherName, maxDutyPerDay: data.maxDutyPerDay });
       setTeachers((prev) => [...prev, created]);
-      addNotification(`${data.teacherName} eklendi`, "success");
+    addNotification(`${data.teacherName} eklendi`, "success");
     } catch (error) {
       logger.error('Teacher insert error:', error);
       addNotification("Öğretmen eklenemedi", "error");
@@ -1212,7 +1212,7 @@ export default function App() {
     try {
       const created = await insertClass({ className: data.className });
       setClasses((prev) => [...prev, created]);
-      addNotification(`${data.className} eklendi`, "success");
+    addNotification(`${data.className} eklendi`, "success");
     } catch (error) {
       logger.error('Class insert error:', error);
       addNotification("Sınıf eklenemedi", "error");
@@ -1440,7 +1440,7 @@ export default function App() {
   const deleteTeacher = async (teacherIdToDelete) => {
     try {
       await deleteTeacherById(teacherIdToDelete)
-      setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
+    setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
       setTeacherFree(prev => {
         const next = { ...prev };
         Object.keys(next).forEach(period => {
@@ -1451,7 +1451,7 @@ export default function App() {
         });
         return next;
       });
-      addNotification("Öğretmen silindi", "info");
+    addNotification("Öğretmen silindi", "info");
     } catch (error) {
       logger.error('Teacher delete error:', error)
       addNotification('Öğretmen silinemedi', 'error')
@@ -1481,7 +1481,7 @@ export default function App() {
         });
         return next;
       });
-      addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
+    addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
     } catch (error) {
       logger.error('PDF teachers bulk delete error:', error);
       addNotification('PDF öğretmenler silinemedi', 'error');
@@ -1491,7 +1491,7 @@ export default function App() {
   const deleteClass = async (classIdToDelete) => {
     try {
       await deleteClassById(classIdToDelete)
-      setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
+    setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
       setClassFree(prev => {
         const next = { ...prev };
         Object.keys(next).forEach(dayKey => {
@@ -1508,7 +1508,7 @@ export default function App() {
         });
         return next;
       });
-      addNotification("Sınıf silindi", "info");
+    addNotification("Sınıf silindi", "info");
     } catch (error) {
       logger.error('Class delete error:', error)
       addNotification('Sınıf silinemedi', 'error')
@@ -1952,29 +1952,6 @@ export default function App() {
 
     return summary
   }, [assignment, day, teachers, classes, classFree, teacherFree, locked, options, periods])
-
-  const toggleLock = useCallback(({ day, period, classId, teacherId }) => {
-    const key = `${day}|${period}|${classId}`
-    setLocked(prev => {
-      const next = { ...prev }
-      // Eğer teacherId boş veya geçersizse, kaydı sil
-      if (!teacherId || !teachers.some(t => t.teacherId === teacherId)) {
-        delete next[key]
-        upsertLock({ day, period, classId, teacherId: null }).catch(err => logger.error('Lock remove error:', err))
-        return next
-      }
-      // Normal toggle işlemi
-      if (next[key] === teacherId) {
-        delete next[key]
-        upsertLock({ day, period, classId, teacherId: null }).catch(err => logger.error('Lock remove error:', err))
-      }
-      else {
-        next[key] = teacherId
-        upsertLock({ day, period, classId, teacherId }).catch(err => logger.error('Lock upsert error:', err))
-      }
-      return next
-    })
-  }, [teachers])
 
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
@@ -3072,11 +3049,11 @@ export default function App() {
                 onRestore={restoreSnapshot}
                 onDelete={(id) => {
                   const snapshot = snapshots.find((s) => s.id === id)
-                  showConfirmation(
-                    'Anlık Görüntü Sil',
-                    `"${snapshot?.name || 'Bu anlık görüntü'}" silinsin mi?`,
-                    'warning',
-                    () => deleteSnapshot(id)
+                        showConfirmation(
+                          'Anlık Görüntü Sil',
+                          `"${snapshot?.name || 'Bu anlık görüntü'}" silinsin mi?`,
+                          'warning',
+                          () => deleteSnapshot(id)
                   )
                 }}
                 onDeleteAll={snapshots.length > 0 ? confirmDeleteAllSnapshots : undefined}
@@ -3257,7 +3234,7 @@ export default function App() {
                   className="empty-state-card"
                 />
               ) : null}
-
+              
               {Object.keys(teacherSchedules).length > 0 && (
                 <div className="schedule-preview">
                   <div className="schedule-preview-header">
@@ -3634,7 +3611,6 @@ export default function App() {
               availableTeachersByPeriod={freeTeachersByDay[day] || {}}
               assignment={assignment}
               locked={locked}
-              onToggleLock={toggleLock}
               onDropAssign={dropAssign}
               onManualAssign={handleManualAssign}
               onManualClear={handleManualClear}

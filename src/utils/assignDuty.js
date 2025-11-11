@@ -142,6 +142,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
   const byDay = {}
   const unassignedByDay = {}
   const dutyCount = {}
+  const lastAssignedPeriod = {}
   const maxPerDay = Object.fromEntries(teachers.map(t => [t.teacherId, toInt(t.maxDutyPerDay, 6)]))
   const parsed = parseInt(options?.maxClassesPerSlot, 10)
   const maxPerSlot = Number.isFinite(parsed) && parsed > 0 ? parsed : 1
@@ -169,6 +170,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
   for (const day of Object.keys(freeTeachers || {})) {
     byDay[day] = {}
     dutyCount[day] = {}
+    lastAssignedPeriod[day] = {}
     const slotUsage = {} // slotUsage[period][teacherId] = count (aynı saatte kaç sınıf)
 
     for (const p of Object.keys(freeTeachers[day] || {})) {
@@ -199,7 +201,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
           continue
         }
         if (freeC.has(classId)) {
-          pushAssign(day, p, classId, tId, byDay, dutyCount, slotUsage)
+          pushAssign(day, p, classId, tId, byDay, dutyCount, slotUsage, lastAssignedPeriod)
           freeC.delete(classId) // sınıfı havuzdan çıkar (görevlendirildi)
         }
       }
@@ -222,6 +224,12 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
           pick = candidates[0]
         } else if (candidates.length > 1) {
           const scores = candidates.map((tid) => {
+            const currentDuty = dutyCount[day]?.[tid] || 0
+            const lastPeriod = lastAssignedPeriod[day]?.[tid]
+            const consecutivePenalty =
+              Number.isFinite(lastPeriod) && Number.isFinite(period) && period - lastPeriod === 1
+                ? 50
+                : 0
             const { remainingClasses, dutyDifference } = simulateAssignment({
               day,
               startPeriod: period,
@@ -239,14 +247,22 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
               commonLessons,
               validTeacherIds,
             })
-            return { tid, remainingClasses, dutyDifference }
+            const scoreValue = (remainingClasses * 200) + (dutyDifference * 50) + consecutivePenalty + (currentDuty * 5)
+            return { tid, scoreValue, remainingClasses, dutyDifference, currentDuty, consecutivePenalty }
           })
           pick = scores
-            .sort((a, b) => a.remainingClasses - b.remainingClasses || a.dutyDifference - b.dutyDifference || a.tid.localeCompare(b.tid))[0]
+            .sort((a, b) =>
+              a.scoreValue - b.scoreValue ||
+              a.remainingClasses - b.remainingClasses ||
+              a.dutyDifference - b.dutyDifference ||
+              a.currentDuty - b.currentDuty ||
+              a.consecutivePenalty - b.consecutivePenalty ||
+              a.tid.localeCompare(b.tid)
+            )[0]
             ?.tid || null
         }
         if (pick) {
-          pushAssign(day, p, classId, pick, byDay, dutyCount, slotUsage)
+          pushAssign(day, p, classId, pick, byDay, dutyCount, slotUsage, lastAssignedPeriod)
           freeC.delete(classId) // Sınıfı havuzdan çıkar (görevlendirildi)
         } else {
           remaining1.push(classId)
@@ -277,7 +293,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
               canAssign({ day, period, teacherId: tid, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit })
           )
           if (pick) {
-            pushAssign(day, p, classId, pick, byDay, dutyCount, slotUsage)
+            pushAssign(day, p, classId, pick, byDay, dutyCount, slotUsage, lastAssignedPeriod)
             freeC.delete(classId) // Sınıfı havuzdan çıkar (görevlendirildi)
             progress = true
           } else {
@@ -296,12 +312,17 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
   return { schedule: byDay, unassigned: unassignedByDay }
 }
 
-function pushAssign(day, p, classId, teacherId, byDay, dutyCount, slotUsage) {
+function pushAssign(day, p, classId, teacherId, byDay, dutyCount, slotUsage, lastAssignedPeriod) {
   byDay[day][p].push({ classId, teacherId })
   dutyCount[day][teacherId] = (dutyCount[day][teacherId] || 0) + 1
   const period = +p
   if (!slotUsage[period]) slotUsage[period] = {}
   slotUsage[period][teacherId] = (slotUsage[period][teacherId] || 0) + 1
+  if (!lastAssignedPeriod[day]) lastAssignedPeriod[day] = {}
+  lastAssignedPeriod[day][teacherId] = Math.max(
+    lastAssignedPeriod[day][teacherId] ?? -Infinity,
+    Number.isFinite(period) ? period : parseInt(p, 10)
+  )
 }
 
 function canAssign({ day, period, teacherId, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit }) {

@@ -12,7 +12,6 @@ function AssignmentEditor({
   availableTeachersByPeriod,
   assignment,
   locked,
-  onToggleLock,
   onDropAssign,
   onManualAssign,
   onManualClear,
@@ -170,7 +169,7 @@ function AssignmentEditor({
   return (
     <div className="table-container">
       <div className="scrollX">
-        <table className="tbl table-center">
+        <table className={`tbl table-center ${styles.assignmentTable}`}>
           <thead>
             <tr>
               <th className="sticky-col text-left stuck-shadow">Sınıf</th>
@@ -194,7 +193,6 @@ function AssignmentEditor({
                   }
 
                   const t = teacherId ? teacherById[teacherId] : null
-                  const isLocked = !!(teacherId && lockValue && lockValue === teacherId && teacherById[lockValue])
                   const isManualEmpty = lockValue === MANUAL_EMPTY_TEACHER_ID
                   const isEditing = editingContext?.key === k
                   const manualInitialValue = lockValue || teacherId || AUTO_OPTION
@@ -222,27 +220,13 @@ function AssignmentEditor({
                         ) : t ? (
                           <div className={styles.teacherRow}>
                             <span
+                              className={`${styles.teacherNameText} ${styles.teacherDraggable}`}
                               draggable
                               onDragStart={(e) => handleDragStart(e, p, cls.classId, teacherId)}
                               title="Sürükleyerek başka sınıfa taşıyın"
-                              className="hover-raise"
                             >
                               {t.teacherName}
                             </span>
-                            <button
-                              className="btn-ghost btn-sm"
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                onToggleLock && onToggleLock({ day, period: p, classId: cls.classId, teacherId })
-                              }}
-                              disabled={!teacherId}
-                              title={isLocked ? 'Kilidi kaldır' : 'Kilitle'}
-                              aria-label={isLocked ? `${t?.teacherName || 'Bu görev'} kilidini kaldır` : `${t?.teacherName || 'Bu görev'} kilitle`}
-                            >
-                              {IconComponent && (isLocked ? <IconComponent name="lock" size={14} /> : <IconComponent name="unlock" size={14} />)}
-                            </button>
                           </div>
                         ) : isManualEmpty ? (
                           <span className={styles.manualEmptyLabel}>Manuel olarak boş bırakıldı</span>
@@ -257,10 +241,7 @@ function AssignmentEditor({
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
-                                const key = getKey(p, cls.classId);
-                                if (locked?.[key] === teacherId) {
-                                  onToggleLock && onToggleLock({ day, period: p, classId: cls.classId, teacherId: '' });
-                                }
+                                onManualRelease && onManualRelease({ day, period: p, classId: cls.classId })
                               }}
                               title="Geçersiz kaydı temizle"
                               aria-label="Geçersiz kaydı temizle"
