@@ -21,3 +21,58 @@
 .common-lesson-teacher-row .sticky-col {
   background: var(--bg-secondary);
 }
+
+.cellContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.teacherRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.manualEmptyLabel {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.manualEditor {
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.manualEditorControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.manualSelect {
+  min-width: 160px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+}
+
+.manualHint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}

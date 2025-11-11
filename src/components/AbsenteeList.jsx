@@ -45,10 +45,11 @@ export default function AbsenteeList({ absentPeople, onDelete, IconComponent }) 
               </td>
               <td>{person.reason}</td>
               <td className="text-center">
-                <button 
-                  className="btn-danger btn-sm" 
+                <button
+                  className="btn-danger btn-sm"
                   onClick={() => onDelete(person.absentId)}
                   title={`${person.name} adlı kişiyi sil`}
+                  aria-label={`${person.name} adlı kişiyi sil`}
                 >
                   {IconComponent && <IconComponent name="trash" size={14} />}
                 </button>

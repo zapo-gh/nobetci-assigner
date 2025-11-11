@@ -66,7 +66,15 @@ const DutyTeacherExcelImportModal = ({ isOpen, onClose, onImport }) => {
     // Call the import function with updated data
     onImport({
       ...preview,
-      dutyTeachers: validTeachers
+      dutyTeachers: validTeachers,
+      fileMeta: file
+        ? {
+            name: file.name,
+            size: file.size,
+            lastModified: file.lastModified,
+            type: file.type,
+          }
+        : null,
     });
     onClose();
   }, [preview, maxDutyValues, onImport, onClose]);

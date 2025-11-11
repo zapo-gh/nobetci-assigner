@@ -25,6 +25,21 @@ function ModernAvailabilityGrid({
     return styles.bgSuccess;
   };
 
+  const handleDragStart = (event, row) => {
+    if (!event || !row) return
+    const payload = {
+      type: 'teacher-roster',
+      teacherId: row[rowKey],
+      teacherName: row[rowNameKey],
+    }
+    try {
+      event.dataTransfer.setData('text/plain', JSON.stringify(payload))
+      event.dataTransfer.effectAllowed = 'copyMove'
+    } catch {
+      event.dataTransfer.setData('text', JSON.stringify(payload))
+    }
+  }
+
   return (
     <div className="table-container">
       <div className="scrollX">
@@ -83,7 +98,14 @@ function ModernAvailabilityGrid({
                     <td className="text-left sticky-col">
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col">
-                          <span className="font-medium">{rowName}</span>
+                          <span
+                            className="font-medium draggable-teacher"
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, row)}
+                            title="Planlama tablosuna sürükleyip bırakın"
+                          >
+                            {rowName}
+                          </span>
                           {extraCol && <div className="text-xs text-secondary mt-1">{extraCol(row)}</div>}
                         </div>
                         <span className="badge badge-info ml-2">
@@ -97,6 +119,7 @@ function ModernAvailabilityGrid({
                           className="btn-danger btn-sm"
                           onClick={() => onDelete(rowId)}
                           title={`${rowName} adlı öğretmeni sil`}
+                          aria-label={`${rowName} adlı öğretmeni sil`}
                         >
                           {IconComponent && <IconComponent name="trash" size={14} />}
                         </button>

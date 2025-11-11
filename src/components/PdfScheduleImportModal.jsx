@@ -108,7 +108,15 @@ const PdfScheduleImportModal = ({
           matchingResults: { results, summary },
           manualMappings: {},
           conflicts: [],
-          autoAddedTeachers
+          autoAddedTeachers,
+          fileMeta: selectedFile
+            ? {
+                name: selectedFile.name,
+                size: selectedFile.size,
+                lastModified: selectedFile.lastModified,
+                type: selectedFile.type,
+              }
+            : null,
         });
         // Modal'ı kapat
         handleClose();
@@ -213,13 +221,21 @@ const PdfScheduleImportModal = ({
       schedule: scheduleData,
       matchingResults: matchingResults.results,
       manualMappings,
-      conflicts: conflicts.filter(c => c.resolution === 'use_pdf')
+      conflicts: conflicts.filter(c => c.resolution === 'use_pdf'),
+      fileMeta: selectedFile
+        ? {
+            name: selectedFile.name,
+            size: selectedFile.size,
+            lastModified: selectedFile.lastModified,
+            type: selectedFile.type,
+          }
+        : null,
     };
 
 
     onImport(importData);
     handleClose();
-  }, [scheduleData, matchingResults, manualMappings, conflicts, onImport, handleClose]);
+  }, [scheduleData, matchingResults, manualMappings, conflicts, onImport, handleClose, selectedFile]);
 
   const getStepMessage = () => {
     switch (currentStep) {

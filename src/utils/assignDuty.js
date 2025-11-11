@@ -1,8 +1,146 @@
 import { toInt } from './helpers.js';
 
+export const MANUAL_EMPTY_TEACHER_ID = '__MANUAL_EMPTY__'
+
+function cloneSetMap(setMap = {}) {
+  const out = {}
+  Object.keys(setMap).forEach((key) => {
+    const value = setMap[key]
+    if (value instanceof Set) {
+      out[key] = new Set(value)
+    } else if (Array.isArray(value)) {
+      out[key] = new Set(value)
+    } else if (value && typeof value === 'object') {
+      out[key] = cloneSetMap(value)
+    } else {
+      out[key] = value
+    }
+  })
+  return out
+}
+
+function simulateAssignment({
+  day,
+  startPeriod,
+  teacherId,
+  classId,
+  freeTeachersByDay,
+  freeClassesByDay,
+  byDay,
+  dutyCount,
+  maxPerDay,
+  options,
+  maxPerSlot,
+  ignoreConsecutiveLimit,
+  slotUsage,
+  commonLessons,
+  validTeacherIds,
+}) {
+  const simByDay = JSON.parse(JSON.stringify(byDay))
+  const simDutyCount = JSON.parse(JSON.stringify(dutyCount))
+  const simSlotUsage = JSON.parse(JSON.stringify(slotUsage))
+  const simFreeTeachers = cloneSetMap(freeTeachersByDay[day] || {})
+  const simFreeClasses = cloneSetMap(freeClassesByDay[day] || {})
+
+  if (!simFreeTeachers[startPeriod]) simFreeTeachers[startPeriod] = new Set()
+  if (!simFreeClasses[startPeriod]) simFreeClasses[startPeriod] = new Set()
+
+  // Apply initial assignment
+  if (!simByDay[day]) simByDay[day] = {}
+  if (!simByDay[day][startPeriod]) simByDay[day][startPeriod] = []
+  simByDay[day][startPeriod].push({ classId, teacherId })
+  simDutyCount[day] = simDutyCount[day] || {}
+  simDutyCount[day][teacherId] = (simDutyCount[day][teacherId] || 0) + 1
+  simSlotUsage[startPeriod] = simSlotUsage[startPeriod] || {}
+  simSlotUsage[startPeriod][teacherId] = (simSlotUsage[startPeriod][teacherId] || 0) + 1
+  simFreeClasses[startPeriod].delete(classId)
+
+  const periods = Object.keys(simFreeClasses)
+    .map((p) => Number(p))
+    .filter((num) => Number.isFinite(num))
+    .sort((a, b) => a - b)
+
+  for (const period of periods) {
+    const freeClassSet = simFreeClasses[period] || new Set()
+    if (freeClassSet.size === 0) continue
+
+    const freeTeachers = new Set(simFreeTeachers[period] || [])
+
+    // Remove teachers already assigned or absent because of simulation
+    if (simByDay[day]?.[period]) {
+      simByDay[day][period].forEach(({ teacherId: tid, classId: cid }) => {
+        freeClassSet.delete(cid)
+        freeTeachers.delete(tid)
+      })
+    }
+
+    // Remove common lesson classes
+    if (commonLessons?.[day]?.[period]) {
+      Object.keys(commonLessons[day][period]).forEach((cid) => freeClassSet.delete(cid))
+    }
+
+    if (freeClassSet.size === 0) continue
+
+    const classList = Array.from(freeClassSet)
+    const teacherList = Array.from(freeTeachers).filter((tid) => validTeacherIds.has(tid))
+
+    for (const cid of classList) {
+      const candidate = teacherList
+        .filter((tid) => canAssign({
+          day,
+          period,
+          teacherId: tid,
+          byDay: simByDay,
+          dutyCount: simDutyCount,
+          maxPerDay,
+          options,
+          slotUsage: simSlotUsage,
+          maxPerSlot,
+          ignoreConsecutiveLimit,
+        }))
+        .sort((a, b) => {
+          const dutyA = simDutyCount[day]?.[a] || 0
+          const dutyB = simDutyCount[day]?.[b] || 0
+          return dutyA - dutyB || a.localeCompare(b)
+        })[0]
+
+      if (!candidate) continue
+
+      if (!simByDay[day][period]) simByDay[day][period] = []
+      simByDay[day][period].push({ classId: cid, teacherId: candidate })
+      simDutyCount[day][candidate] = (simDutyCount[day][candidate] || 0) + 1
+      simSlotUsage[period] = simSlotUsage[period] || {}
+      simSlotUsage[period][candidate] = (simSlotUsage[period][candidate] || 0) + 1
+      freeClassSet.delete(cid)
+    }
+  }
+
+  const remainingClasses = periods.reduce((total, p) => {
+    const set = simFreeClasses[p]
+    if (!set) return total
+    const remaining = Array.from(set).filter((cid) => {
+      const alreadyAssigned = (simByDay[day]?.[p] || []).some(({ classId: classAssigned }) => classAssigned === cid)
+      return !alreadyAssigned
+    })
+    return total + remaining.length
+  }, 0)
+
+  const duties = Object.values(simDutyCount[day] || {})
+  const maxDuty = Math.max(...duties, 0)
+  const minDuty = Math.min(...duties, maxDuty)
+  const dutyDifference = maxDuty - minDuty
+
+  return { remainingClasses, dutyDifference }
+}
+
 // Çoklu sınıf/saat ve kurallar: preventConsecutive, maxClassesPerSlot, ignoreConsecutiveLimit
 export function assignDuties({ teachers, freeTeachers, freeClasses, locked, options, commonLessons }) {
+  if (!Array.isArray(teachers) || !teachers.length) {
+    return { schedule: {}, unassigned: {} }
+  }
+
   const byDay = {}
+  const unassignedByDay = {}
   const dutyCount = {}
   const maxPerDay = Object.fromEntries(teachers.map(t => [t.teacherId, toInt(t.maxDutyPerDay, 6)]))
   const parsed = parseInt(options?.maxClassesPerSlot, 10)
@@ -11,7 +149,22 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
   const ignoreConsecutiveLimit = !!options?.ignoreConsecutiveLimit
 
   // Geçerli teacherId'leri bir Set'te tut (O(1) lookup için)
-  const validTeacherIds = new Set(teachers.map(t => t.teacherId))
+  const validTeacherIds = new Set()
+  const duplicateTeacherIds = new Set()
+  teachers.forEach((teacher) => {
+    if (!teacher?.teacherId) return
+    if (validTeacherIds.has(teacher.teacherId)) {
+      duplicateTeacherIds.add(teacher.teacherId)
+    }
+    validTeacherIds.add(teacher.teacherId)
+  })
+
+  if (duplicateTeacherIds.size > 0) {
+    console.warn(
+      '[assignDuties] Yinelenen teacherId tespit edildi:',
+      Array.from(duplicateTeacherIds.values())
+    )
+  }
 
   for (const day of Object.keys(freeTeachers || {})) {
     byDay[day] = {}
@@ -36,16 +189,16 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
       // 1) Kilitli atamalar - sadece geçerli teacherId'leri işle
       const locksForSlot = Object.entries(locked || {}).filter(([k]) => k.startsWith(`${day}|${period}|`))
       for (const [key, tId] of locksForSlot) {
+        const classId = key.split('|')[2]
+        if (tId === MANUAL_EMPTY_TEACHER_ID) {
+          freeC.delete(classId)
+          continue
+        }
         // Geçersiz teacherId'yi atla
         if (!validTeacherIds.has(tId)) {
           continue
         }
-        const classId = key.split('|')[2]
-        if (
-          freeT.has(tId) &&
-          freeC.has(classId) &&
-          canAssign({ day, period, teacherId: tId, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit })
-        ) {
+        if (freeC.has(classId)) {
           pushAssign(day, p, classId, tId, byDay, dutyCount, slotUsage)
           freeC.delete(classId) // sınıfı havuzdan çıkar (görevlendirildi)
         }
@@ -59,11 +212,39 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
       // 2) İlk tur: her öğretmene en fazla 1 sınıf (slotUsage==0)
       const remaining1 = []
       for (const classId of Array.from(freeC)) {
-        const pick = baseSorted.find(
+        const candidates = baseSorted.filter(
           tid =>
             (slotUsage[period]?.[tid] || 0) === 0 &&
             canAssign({ day, period, teacherId: tid, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit })
         )
+        let pick = null
+        if (candidates.length === 1) {
+          pick = candidates[0]
+        } else if (candidates.length > 1) {
+          const scores = candidates.map((tid) => {
+            const { remainingClasses, dutyDifference } = simulateAssignment({
+              day,
+              startPeriod: period,
+              teacherId: tid,
+              classId,
+              freeTeachersByDay: freeTeachers,
+              freeClassesByDay: freeClasses,
+              byDay,
+              dutyCount,
+              maxPerDay,
+              options,
+              maxPerSlot,
+              ignoreConsecutiveLimit,
+              slotUsage,
+              commonLessons,
+              validTeacherIds,
+            })
+            return { tid, remainingClasses, dutyDifference }
+          })
+          pick = scores
+            .sort((a, b) => a.remainingClasses - b.remainingClasses || a.dutyDifference - b.dutyDifference || a.tid.localeCompare(b.tid))[0]
+            ?.tid || null
+        }
         if (pick) {
           pushAssign(day, p, classId, pick, byDay, dutyCount, slotUsage)
           freeC.delete(classId) // Sınıfı havuzdan çıkar (görevlendirildi)
@@ -105,9 +286,14 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
         }
         remaining = nextRemaining
       }
+
+      if (freeC.size > 0) {
+        if (!unassignedByDay[day]) unassignedByDay[day] = {}
+        unassignedByDay[day][period] = Array.from(freeC)
+      }
     }
   }
-  return byDay
+  return { schedule: byDay, unassigned: unassignedByDay }
 }
 
 function pushAssign(day, p, classId, teacherId, byDay, dutyCount, slotUsage) {
@@ -128,6 +314,8 @@ function canAssign({ day, period, teacherId, byDay, dutyCount, maxPerDay, option
   
   // 3. Ardışık saat engeli (ignoreConsecutiveLimit=true ise bu kontrol atlanır)
   // Not: Aynı periyotta birden fazla sınıf atanırken ardışık saat kuralı engel olmamalı
+  // Ardışık görev kontrolü sadece öğretmene bu saatte yeni bir sınıf verilecekse uygulanır (used === 0).
+  // Aynı saatte birden fazla sınıf veriliyorsa ardışık kavramı geçerli değildir.
   if (options?.preventConsecutive && !ignoreConsecutiveLimit && used === 0) {
     const prev = byDay[day]?.[period - 1] || []
     const next = byDay[day]?.[period + 1] || []

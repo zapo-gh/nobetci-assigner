@@ -123,6 +123,7 @@ export default function ModernClassAvailabilityGrid({
                           className="btn-danger btn-sm"
                           onClick={() => onDelete(cls.classId)}
                           title={`${cls.className} sınıfını sil`}
+                          aria-label={`${cls.className} sınıfını sil`}
                         >
                           {IconComponent && <IconComponent name="trash" size={14} />}
                         </button>
