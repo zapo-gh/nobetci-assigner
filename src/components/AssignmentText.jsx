@@ -34,7 +34,10 @@ export default function AssignmentText({
     const lines = [];
     // Güvenlik kontrolü: Gerekli veriler yoksa boş metin döndür
     if (!assignment || !assignment[day] || !periods || !classes || !teachers) {
-      return `Tarih: ${displayDate}\n(Görevlendirme verisi bulunmuyor)`;
+      return [
+        `Tarih: ${displayDate}`,
+        `(Görevlendirme verisi bulunmuyor)`
+      ];
     }
 
     for (const p of periods) {
