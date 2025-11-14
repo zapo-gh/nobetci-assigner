@@ -6,12 +6,10 @@ import { logger } from "./utils/logger.js";
 import { normalizeForComparison } from "./utils/pdfParser.js";
 import { parseTeacherSchedulesFromExcel } from "./utils/teacherScheduleExcelParser.js";
 import { 
-  mondayOfWeek, 
   dateForSelectedDay, 
   formatTRDate, 
   validateTeacherData,
   validateClassData,
-  validateAbsentRow,
   mapSetToArray,
   arrayToSetMap,
   PERIODS as HELPER_PERIODS
@@ -312,7 +310,7 @@ export default function App() {
   const [locked, setLocked] = useState({})
   const [snapshots, setSnapshots] = useState([])
 
-  const [loading, setLoading] = useState({ teachers: false, classes: false, absents: false });
+  // const [loading, setLoading] = useState({ teachers: false, classes: false, absents: false }); // Kullanılmıyor
   const [notifications, setNotifications] = useState([]);
   const [importHistory, setImportHistory] = useState([]);
   const [activeSection, setActiveSection] = useState("teachers");
@@ -543,7 +541,7 @@ export default function App() {
       },
 
       // Absents değişiklikleri
-      absents: async (payload) => {
+      absents: async (_payload) => {
         // Tüm absents listesini yeniden yükle (normalizeAbsentPeople gerektiği için)
         try {
           const { data, error } = await supabase.from('absents').select('*').order('createdAt', { ascending: false })
@@ -563,7 +561,7 @@ export default function App() {
       },
 
       // Class Free değişiklikleri
-      classFree: async (payload) => {
+      classFree: async (_payload) => {
         // Tüm class_free listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('class_free').select('*')
@@ -581,7 +579,7 @@ export default function App() {
       },
 
       // Teacher Free değişiklikleri
-      teacherFree: async (payload) => {
+      teacherFree: async (_payload) => {
         // Tüm teacher_free listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('teacher_free').select('*')
@@ -598,7 +596,7 @@ export default function App() {
       },
 
       // Class Absence değişiklikleri
-      classAbsence: async (payload) => {
+      classAbsence: async (_payload) => {
         // Tüm class_absence listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('class_absence').select('*')
@@ -642,7 +640,7 @@ export default function App() {
       },
 
       // Teacher Schedules değişiklikleri
-      teacherSchedules: async (payload) => {
+      teacherSchedules: async (_payload) => {
         // Tüm teacher_schedules listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('teacher_schedules').select('*')
@@ -659,7 +657,7 @@ export default function App() {
       },
 
       // Common Lessons değişiklikleri
-      commonLessons: async (payload) => {
+      commonLessons: async (_payload) => {
         // Tüm common_lessons listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('common_lessons').select('*')
@@ -685,7 +683,7 @@ export default function App() {
       },
 
       // Snapshots değişiklikleri
-      snapshots: async (payload) => {
+      snapshots: async (_payload) => {
         // Tüm snapshots listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('snapshots').select('*').order('ts', { ascending: false })

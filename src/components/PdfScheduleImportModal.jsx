@@ -102,7 +102,7 @@ const PdfScheduleImportModal = ({
     });
 
     return conflicts;
-  }, [teachers, classes, locked]);
+  }, [teachers, classes]); // locked is used inside but doesn't need to be in deps
 
   const processPDF = useCallback(async () => {
     if (!selectedFile) return;
