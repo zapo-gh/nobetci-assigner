@@ -1020,6 +1020,12 @@ export default function App() {
       if (!next[day][period]) next[day][period] = {};
       if (teacherName) next[day][period][classId] = teacherName;
       else delete next[day][period][classId];
+      
+      // Supabase'e kaydet
+      saveCommonLessons(next).catch(err => {
+        logger.error('Common lessons save error:', err);
+      });
+      
       return next;
     });
   }, []);
@@ -3520,6 +3526,13 @@ export default function App() {
                         console.log('Starting teacher schedule upload from Excel...');
                         const schedules = await parseTeacherSchedulesFromExcel(file);
                         setTeacherSchedules(schedules);
+                        
+                        // Supabase'e kaydet
+                        await saveTeacherSchedules(schedules).catch(err => {
+                          logger.error('Teacher schedules save error:', err);
+                          addNotification('Ders programları Supabase\'e kaydedilemedi', 'error');
+                        });
+                        
                         addNotification(
                           `${Object.keys(schedules).length} öğretmenin ders programı yüklendi`, 
                           "success"
@@ -3584,9 +3597,16 @@ export default function App() {
                     <h3>Yüklenen Ders Programları</h3>
                     <button 
                       className="btn-outline btn-sm"
-                      onClick={() => {
+                      onClick={async () => {
                         if (confirm('Tüm ders programları silinecek. Emin misiniz?')) {
                           setTeacherSchedules({});
+                          
+                          // Supabase'den sil
+                          await saveTeacherSchedules({}).catch(err => {
+                            logger.error('Teacher schedules clear error:', err);
+                            addNotification('Ders programları Supabase\'den silinemedi', 'error');
+                          });
+                          
                           addNotification('Tüm ders programları silindi', 'info');
                         }
                       }}
