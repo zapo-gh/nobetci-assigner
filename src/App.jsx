@@ -38,6 +38,8 @@ import {
   saveImportHistory,
   saveSnapshots,
 } from './services/supabaseDataService.js';
+import { realtimeSync } from './services/realtimeSync.js';
+import { supabase } from './services/supabaseClient.js';
 
 import Tabs from "./components/Tabs.jsx";
 import PrintableDailyList from "./components/PrintableDailyList.jsx";
@@ -499,6 +501,206 @@ export default function App() {
       isMounted = false
     }
   }, [])
+
+  // Realtime senkronizasyon - Supabase'deki değişiklikleri dinle
+  useEffect(() => {
+    if (!hydratedRef.current || initialDataLoading) return // İlk yükleme tamamlanana kadar bekle
+
+    const unsubscribe = realtimeSync.subscribe({
+      // Teachers değişiklikleri
+      teachers: async (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setTeachers(prev => {
+            const exists = prev.find(t => t.teacherId === payload.new.teacherId)
+            if (exists) return prev
+            return [...prev, payload.new]
+          })
+        } else if (payload.eventType === 'UPDATE') {
+          setTeachers(prev => prev.map(t => 
+            t.teacherId === payload.new.teacherId ? payload.new : t
+          ))
+        } else if (payload.eventType === 'DELETE') {
+          setTeachers(prev => prev.filter(t => t.teacherId !== payload.old.teacherId))
+        }
+      },
+
+      // Classes değişiklikleri
+      classes: async (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setClasses(prev => {
+            const exists = prev.find(c => c.classId === payload.new.classId)
+            if (exists) return prev
+            return [...prev, payload.new]
+          })
+        } else if (payload.eventType === 'UPDATE') {
+          setClasses(prev => prev.map(c => 
+            c.classId === payload.new.classId ? payload.new : c
+          ))
+        } else if (payload.eventType === 'DELETE') {
+          setClasses(prev => prev.filter(c => c.classId !== payload.old.classId))
+        }
+      },
+
+      // Absents değişiklikleri
+      absents: async (payload) => {
+        // Tüm absents listesini yeniden yükle (normalizeAbsentPeople gerektiği için)
+        try {
+          const { data, error } = await supabase.from('absents').select('*').order('createdAt', { ascending: false })
+          if (!error && data) {
+            const { data: classAbsenceData } = await supabase.from('class_absence').select('*')
+            const classAbsence = {}
+            classAbsenceData?.forEach(item => {
+              if (!classAbsence[item.day]) classAbsence[item.day] = {}
+              if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
+              classAbsence[item.day][item.period][item.classId] = item.absentId
+            })
+            setAbsentPeople(normalizeAbsentPeople(data, classAbsence))
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading absents:', err)
+        }
+      },
+
+      // Class Free değişiklikleri
+      classFree: async (payload) => {
+        // Tüm class_free listesini yeniden yükle
+        try {
+          const { data, error } = await supabase.from('class_free').select('*')
+          if (!error && data) {
+            const classFree = {}
+            data.forEach(item => {
+              if (!classFree[item.day]) classFree[item.day] = {}
+              classFree[item.day][item.period] = item.classIds || []
+            })
+            setClassFree(migrateClassFree(classFree))
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading classFree:', err)
+        }
+      },
+
+      // Teacher Free değişiklikleri
+      teacherFree: async (payload) => {
+        // Tüm teacher_free listesini yeniden yükle
+        try {
+          const { data, error } = await supabase.from('teacher_free').select('*')
+          if (!error && data) {
+            const teacherFree = {}
+            data.forEach(item => {
+              teacherFree[item.period] = item.teacherIds || []
+            })
+            setTeacherFree(arrayToSetMap(teacherFree))
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading teacherFree:', err)
+        }
+      },
+
+      // Class Absence değişiklikleri
+      classAbsence: async (payload) => {
+        // Tüm class_absence listesini yeniden yükle
+        try {
+          const { data, error } = await supabase.from('class_absence').select('*')
+          if (!error && data) {
+            const classAbsence = {}
+            data.forEach(item => {
+              if (!classAbsence[item.day]) classAbsence[item.day] = {}
+              if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
+              classAbsence[item.day][item.period][item.classId] = item.absentId
+            })
+            setClassAbsence(migrateClassAbsence(classAbsence))
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading classAbsence:', err)
+        }
+      },
+
+      // Locks değişiklikleri
+      locks: async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const key = `${payload.new.day}|${payload.new.period}|${payload.new.classId}`
+          setLocked(prev => ({
+            ...prev,
+            [key]: payload.new.teacherId
+          }))
+        } else if (payload.eventType === 'DELETE') {
+          const key = `${payload.old.day}|${payload.old.period}|${payload.old.classId}`
+          setLocked(prev => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+        }
+      },
+
+      // PDF Schedule değişiklikleri
+      pdfSchedule: async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          setPdfSchedule(payload.new.schedule || {})
+        }
+      },
+
+      // Teacher Schedules değişiklikleri
+      teacherSchedules: async (payload) => {
+        // Tüm teacher_schedules listesini yeniden yükle
+        try {
+          const { data, error } = await supabase.from('teacher_schedules').select('*')
+          if (!error && data) {
+            const teacherSchedules = {}
+            data.forEach(item => {
+              teacherSchedules[item.teacher_name] = item.schedule
+            })
+            setTeacherSchedules(teacherSchedules)
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading teacherSchedules:', err)
+        }
+      },
+
+      // Common Lessons değişiklikleri
+      commonLessons: async (payload) => {
+        // Tüm common_lessons listesini yeniden yükle
+        try {
+          const { data, error } = await supabase.from('common_lessons').select('*')
+          if (!error && data) {
+            const commonLessons = {}
+            data.forEach(item => {
+              if (!commonLessons[item.day]) commonLessons[item.day] = {}
+              if (!commonLessons[item.day][item.period]) commonLessons[item.day][item.period] = {}
+              commonLessons[item.day][item.period][item.class_id] = item.teacher_name
+            })
+            setCommonLessons(commonLessons)
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading commonLessons:', err)
+        }
+      },
+
+      // Import History değişiklikleri
+      importHistory: async (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setImportHistory(prev => [payload.new, ...prev].slice(0, 20))
+        }
+      },
+
+      // Snapshots değişiklikleri
+      snapshots: async (payload) => {
+        // Tüm snapshots listesini yeniden yükle
+        try {
+          const { data, error } = await supabase.from('snapshots').select('*').order('ts', { ascending: false })
+          if (!error && data) {
+            setSnapshots(data)
+          }
+        } catch (err) {
+          logger.error('[RealtimeSync] Error reloading snapshots:', err)
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [initialDataLoading])
 
   // Otomatik kaydet
   useEffect(() => {
