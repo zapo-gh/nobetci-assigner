@@ -964,6 +964,12 @@ export default function App() {
           if (Object.keys(out[day][p]).length === 0) delete out[day][p];
           if (Object.keys(out[day]).length === 0) delete out[day];
         }
+        
+        // Supabase'e kaydet
+        saveCommonLessons(out).catch(err => {
+          logger.error('Common lessons cleanup error:', err);
+        });
+        
         return out;
       });
     }
