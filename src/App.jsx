@@ -725,6 +725,7 @@ export default function App() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
       // Save to Supabase as well
+      replacePdfSchedule(pdfSchedule).catch(err => logger.error('Auto save pdfSchedule error:', err));
       saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
       saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
       saveImportHistory(importHistory).catch(err => logger.error('Auto save importHistory error:', err));
@@ -1238,6 +1239,12 @@ export default function App() {
     } = importData;
 
     setPdfSchedule(schedule);
+    
+    // Supabase'e kaydet
+    replacePdfSchedule(schedule).catch(err => {
+      logger.error('PDF schedule save error:', err);
+      addNotification("PDF programı Supabase'e kaydedilemedi", "error");
+    });
     
     if (!schedule || !matchingResults) {
       addNotification("Geçersiz PDF verisi", "error");
