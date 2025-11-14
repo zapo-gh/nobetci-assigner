@@ -310,7 +310,7 @@ export default function App() {
   const [locked, setLocked] = useState({})
   const [snapshots, setSnapshots] = useState([])
 
-  // const [loading, setLoading] = useState({ teachers: false, classes: false, absents: false }); // Kullanılmıyor
+  const [loading, setLoading] = useState({ teachers: false, classes: false, absents: false });
   const [notifications, setNotifications] = useState([]);
   const [importHistory, setImportHistory] = useState([]);
   const [activeSection, setActiveSection] = useState("teachers");
@@ -541,7 +541,7 @@ export default function App() {
       },
 
       // Absents değişiklikleri
-      absents: async (_payload) => {
+      absents: async () => {
         // Tüm absents listesini yeniden yükle (normalizeAbsentPeople gerektiği için)
         try {
           const { data, error } = await supabase.from('absents').select('*').order('createdAt', { ascending: false })
@@ -561,7 +561,7 @@ export default function App() {
       },
 
       // Class Free değişiklikleri
-      classFree: async (_payload) => {
+      classFree: async () => {
         // Tüm class_free listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('class_free').select('*')
@@ -579,7 +579,7 @@ export default function App() {
       },
 
       // Teacher Free değişiklikleri
-      teacherFree: async (_payload) => {
+      teacherFree: async () => {
         // Tüm teacher_free listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('teacher_free').select('*')
@@ -596,7 +596,7 @@ export default function App() {
       },
 
       // Class Absence değişiklikleri
-      classAbsence: async (_payload) => {
+      classAbsence: async () => {
         // Tüm class_absence listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('class_absence').select('*')
@@ -640,7 +640,7 @@ export default function App() {
       },
 
       // Teacher Schedules değişiklikleri
-      teacherSchedules: async (_payload) => {
+      teacherSchedules: async () => {
         // Tüm teacher_schedules listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('teacher_schedules').select('*')
@@ -657,7 +657,7 @@ export default function App() {
       },
 
       // Common Lessons değişiklikleri
-      commonLessons: async (_payload) => {
+      commonLessons: async () => {
         // Tüm common_lessons listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('common_lessons').select('*')
@@ -683,7 +683,7 @@ export default function App() {
       },
 
       // Snapshots değişiklikleri
-      snapshots: async (_payload) => {
+      snapshots: async () => {
         // Tüm snapshots listesini yeniden yükle
         try {
           const { data, error } = await supabase.from('snapshots').select('*').order('ts', { ascending: false })
@@ -1153,7 +1153,7 @@ export default function App() {
     } finally {
       setLoading((s) => ({ ...s, teachers: false }));
     }
-  }, [excelReplaceModal, addNotification, importDutyTeachersData, setActiveSection, setLoading, recordImportEvent]);
+  }, [excelReplaceModal, addNotification, importDutyTeachersData, setActiveSection, recordImportEvent]);
 
   const handleExcelReplaceCancel = useCallback(() => {
     setExcelReplaceModal({ isOpen: false, data: null });
@@ -1221,7 +1221,7 @@ export default function App() {
         setLoading((s) => ({ ...s, teachers: false }));
       }
     },
-    [addNotification, setLoading, teachers, importDutyTeachersData, setActiveSection, recordImportEvent]
+    [addNotification, teachers, importDutyTeachersData, setActiveSection, recordImportEvent]
   );
 
 
