@@ -42,198 +42,151 @@ export class RealtimeSyncService {
     })
 
     const unsubscribeFunctions = []
+    
+    // Hata yakalama wrapper'ı
+    const safeCallback = (callback, channelName) => {
+      return (payload) => {
+        try {
+          if (callback) {
+            const result = callback(payload)
+            // Eğer promise dönerse hataları yakala
+            if (result && typeof result.catch === 'function') {
+              result.catch(err => {
+                logger.error(`[RealtimeSync] Error in ${channelName} callback:`, err)
+              })
+            }
+          }
+        } catch (err) {
+          logger.error(`[RealtimeSync] Error in ${channelName} callback:`, err)
+        }
+      }
+    }
+    
+    // Channel subscription helper
+    const createChannel = (channelName, tableName, callback) => {
+      const channel = supabase
+        .channel(`${channelName}-changes`)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: tableName },
+          safeCallback(callback, channelName)
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            logger.info(`[RealtimeSync] ${channelName} channel subscribed`)
+          } else if (status === 'CHANNEL_ERROR') {
+            logger.error(`[RealtimeSync] ${channelName} channel error`)
+          } else if (status === 'TIMED_OUT') {
+            logger.warn(`[RealtimeSync] ${channelName} channel timed out`)
+          } else if (status === 'CLOSED') {
+            logger.warn(`[RealtimeSync] ${channelName} channel closed`)
+          }
+        })
+      this.channels.push(channel)
+      unsubscribeFunctions.push(() => {
+        try {
+          channel.unsubscribe()
+        } catch (err) {
+          logger.error(`[RealtimeSync] Error unsubscribing ${channelName} channel:`, err)
+        }
+      })
+      return channel
+    }
 
     // Teachers subscription
-    const teachersChannel = supabase
-      .channel('teachers-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'teachers' },
-        (payload) => {
-          logger.info('[RealtimeSync] Teachers changed:', payload.eventType)
-          if (this.callbacks.teachers) {
-            this.callbacks.teachers(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(teachersChannel)
-    unsubscribeFunctions.push(() => teachersChannel.unsubscribe())
+    createChannel('teachers', 'teachers', (payload) => {
+      logger.info('[RealtimeSync] Teachers changed:', payload.eventType)
+      if (this.callbacks.teachers) {
+        this.callbacks.teachers(payload)
+      }
+    })
 
     // Classes subscription
-    const classesChannel = supabase
-      .channel('classes-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'classes' },
-        (payload) => {
-          logger.info('[RealtimeSync] Classes changed:', payload.eventType)
-          if (this.callbacks.classes) {
-            this.callbacks.classes(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(classesChannel)
-    unsubscribeFunctions.push(() => classesChannel.unsubscribe())
+    createChannel('classes', 'classes', (payload) => {
+      logger.info('[RealtimeSync] Classes changed:', payload.eventType)
+      if (this.callbacks.classes) {
+        this.callbacks.classes(payload)
+      }
+    })
 
     // Absents subscription
-    const absentsChannel = supabase
-      .channel('absents-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'absents' },
-        (payload) => {
-          logger.info('[RealtimeSync] Absents changed:', payload.eventType)
-          if (this.callbacks.absents) {
-            this.callbacks.absents(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(absentsChannel)
-    unsubscribeFunctions.push(() => absentsChannel.unsubscribe())
+    createChannel('absents', 'absents', (payload) => {
+      logger.info('[RealtimeSync] Absents changed:', payload.eventType)
+      if (this.callbacks.absents) {
+        this.callbacks.absents(payload)
+      }
+    })
 
     // Class Free subscription
-    const classFreeChannel = supabase
-      .channel('class-free-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'class_free' },
-        (payload) => {
-          logger.info('[RealtimeSync] Class Free changed:', payload.eventType)
-          if (this.callbacks.classFree) {
-            this.callbacks.classFree(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(classFreeChannel)
-    unsubscribeFunctions.push(() => classFreeChannel.unsubscribe())
+    createChannel('class-free', 'class_free', (payload) => {
+      logger.info('[RealtimeSync] Class Free changed:', payload.eventType)
+      if (this.callbacks.classFree) {
+        this.callbacks.classFree(payload)
+      }
+    })
 
     // Teacher Free subscription
-    const teacherFreeChannel = supabase
-      .channel('teacher-free-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'teacher_free' },
-        (payload) => {
-          logger.info('[RealtimeSync] Teacher Free changed:', payload.eventType)
-          if (this.callbacks.teacherFree) {
-            this.callbacks.teacherFree(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(teacherFreeChannel)
-    unsubscribeFunctions.push(() => teacherFreeChannel.unsubscribe())
+    createChannel('teacher-free', 'teacher_free', (payload) => {
+      logger.info('[RealtimeSync] Teacher Free changed:', payload.eventType)
+      if (this.callbacks.teacherFree) {
+        this.callbacks.teacherFree(payload)
+      }
+    })
 
     // Class Absence subscription
-    const classAbsenceChannel = supabase
-      .channel('class-absence-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'class_absence' },
-        (payload) => {
-          logger.info('[RealtimeSync] Class Absence changed:', payload.eventType)
-          if (this.callbacks.classAbsence) {
-            this.callbacks.classAbsence(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(classAbsenceChannel)
-    unsubscribeFunctions.push(() => classAbsenceChannel.unsubscribe())
+    createChannel('class-absence', 'class_absence', (payload) => {
+      logger.info('[RealtimeSync] Class Absence changed:', payload.eventType)
+      if (this.callbacks.classAbsence) {
+        this.callbacks.classAbsence(payload)
+      }
+    })
 
     // Locks subscription
-    const locksChannel = supabase
-      .channel('locks-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'locks' },
-        (payload) => {
-          logger.info('[RealtimeSync] Locks changed:', payload.eventType)
-          if (this.callbacks.locks) {
-            this.callbacks.locks(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(locksChannel)
-    unsubscribeFunctions.push(() => locksChannel.unsubscribe())
+    createChannel('locks', 'locks', (payload) => {
+      logger.info('[RealtimeSync] Locks changed:', payload.eventType)
+      if (this.callbacks.locks) {
+        this.callbacks.locks(payload)
+      }
+    })
 
     // PDF Schedule subscription
-    const pdfScheduleChannel = supabase
-      .channel('pdf-schedule-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'pdf_schedule' },
-        (payload) => {
-          logger.info('[RealtimeSync] PDF Schedule changed:', payload.eventType)
-          if (this.callbacks.pdfSchedule) {
-            this.callbacks.pdfSchedule(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(pdfScheduleChannel)
-    unsubscribeFunctions.push(() => pdfScheduleChannel.unsubscribe())
+    createChannel('pdf-schedule', 'pdf_schedule', (payload) => {
+      logger.info('[RealtimeSync] PDF Schedule changed:', payload.eventType)
+      if (this.callbacks.pdfSchedule) {
+        this.callbacks.pdfSchedule(payload)
+      }
+    })
 
     // Teacher Schedules subscription
-    const teacherSchedulesChannel = supabase
-      .channel('teacher-schedules-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'teacher_schedules' },
-        (payload) => {
-          logger.info('[RealtimeSync] Teacher Schedules changed:', payload.eventType)
-          if (this.callbacks.teacherSchedules) {
-            this.callbacks.teacherSchedules(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(teacherSchedulesChannel)
-    unsubscribeFunctions.push(() => teacherSchedulesChannel.unsubscribe())
+    createChannel('teacher-schedules', 'teacher_schedules', (payload) => {
+      logger.info('[RealtimeSync] Teacher Schedules changed:', payload.eventType)
+      if (this.callbacks.teacherSchedules) {
+        this.callbacks.teacherSchedules(payload)
+      }
+    })
 
     // Common Lessons subscription
-    const commonLessonsChannel = supabase
-      .channel('common-lessons-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'common_lessons' },
-        (payload) => {
-          logger.info('[RealtimeSync] Common Lessons changed:', payload.eventType)
-          if (this.callbacks.commonLessons) {
-            this.callbacks.commonLessons(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(commonLessonsChannel)
-    unsubscribeFunctions.push(() => commonLessonsChannel.unsubscribe())
+    createChannel('common-lessons', 'common_lessons', (payload) => {
+      logger.info('[RealtimeSync] Common Lessons changed:', payload.eventType)
+      if (this.callbacks.commonLessons) {
+        this.callbacks.commonLessons(payload)
+      }
+    })
 
     // Import History subscription
-    const importHistoryChannel = supabase
-      .channel('import-history-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'import_history' },
-        (payload) => {
-          logger.info('[RealtimeSync] Import History changed:', payload.eventType)
-          if (this.callbacks.importHistory) {
-            this.callbacks.importHistory(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(importHistoryChannel)
-    unsubscribeFunctions.push(() => importHistoryChannel.unsubscribe())
+    createChannel('import-history', 'import_history', (payload) => {
+      logger.info('[RealtimeSync] Import History changed:', payload.eventType)
+      if (this.callbacks.importHistory) {
+        this.callbacks.importHistory(payload)
+      }
+    })
 
     // Snapshots subscription
-    const snapshotsChannel = supabase
-      .channel('snapshots-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'snapshots' },
-        (payload) => {
-          logger.info('[RealtimeSync] Snapshots changed:', payload.eventType)
-          if (this.callbacks.snapshots) {
-            this.callbacks.snapshots(payload)
-          }
-        }
-      )
-      .subscribe()
-    this.channels.push(snapshotsChannel)
-    unsubscribeFunctions.push(() => snapshotsChannel.unsubscribe())
+    createChannel('snapshots', 'snapshots', (payload) => {
+      logger.info('[RealtimeSync] Snapshots changed:', payload.eventType)
+      if (this.callbacks.snapshots) {
+        this.callbacks.snapshots(payload)
+      }
+    })
 
     this.isConnected = true
     logger.info('[RealtimeSync] All subscriptions active')

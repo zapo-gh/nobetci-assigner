@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient.js'
+import { retry } from '../utils/retry.js'
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -11,21 +12,23 @@ const createId = () => {
 
 export async function loadInitialData() {
   try {
-    // Load all data in parallel
-    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, importHistoryRes, snapshotsRes] = await Promise.all([
-      supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
-      supabase.from('classes').select('*').order('createdAt', { ascending: false }),
-      supabase.from('absents').select('*').order('createdAt', { ascending: false }),
-      supabase.from('class_free').select('*'),
-      supabase.from('teacher_free').select('*'),
-      supabase.from('class_absence').select('*'),
-      supabase.from('locks').select('*'),
-      supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
-      supabase.from('teacher_schedules').select('*'),
-      supabase.from('common_lessons').select('*'),
-      supabase.from('import_history').select('*').order('createdAt', { ascending: false }),
-      supabase.from('snapshots').select('*').order('ts', { ascending: false })
-    ])
+    // Load all data in parallel with retry
+    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, importHistoryRes, snapshotsRes] = await retry(async () => {
+      return await Promise.all([
+        supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
+        supabase.from('classes').select('*').order('createdAt', { ascending: false }),
+        supabase.from('absents').select('*').order('createdAt', { ascending: false }),
+        supabase.from('class_free').select('*'),
+        supabase.from('teacher_free').select('*'),
+        supabase.from('class_absence').select('*'),
+        supabase.from('locks').select('*'),
+        supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
+        supabase.from('teacher_schedules').select('*'),
+        supabase.from('common_lessons').select('*'),
+        supabase.from('import_history').select('*').order('createdAt', { ascending: false }),
+        supabase.from('snapshots').select('*').order('ts', { ascending: false })
+      ])
+    }, { maxRetries: 3, delay: 1000 })
 
     if (teachersRes.error) throw teachersRes.error
     if (classesRes.error) throw classesRes.error
