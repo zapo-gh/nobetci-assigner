@@ -1677,22 +1677,22 @@ export default function App() {
     });
 
     // 3) Seçili günlerde bu sınıflarda başka mazeretli kalmadıysa sınıfı sil
-    setClasses(prevClasses => {
-      const stillHasAbsent = new Set();
-      fallbackDays.forEach((dayKey) => {
-        const dayRecords = classAbsence?.[dayKey] || {};
-        Object.values(dayRecords).forEach(byClass => {
-          Object.entries(byClass || {}).forEach(([cid, aId]) => {
-            if (aId !== absentIdToDelete) {
-              stillHasAbsent.add(cid);
-            }
-          });
+    const stillHasAbsent = new Set();
+    fallbackDays.forEach((dayKey) => {
+      const dayRecords = classAbsence?.[dayKey] || {};
+      Object.values(dayRecords).forEach(byClass => {
+        Object.entries(byClass || {}).forEach(([cid, aId]) => {
+          if (aId !== absentIdToDelete) {
+            stillHasAbsent.add(cid);
+          }
         });
       });
+    });
 
-      const toDelete = Array.from(affectedClassIds).filter(cid => !stillHasAbsent.has(cid));
+    const toDelete = Array.from(affectedClassIds).filter(cid => !stillHasAbsent.has(cid));
 
-      if (toDelete.length > 0) {
+    if (toDelete.length > 0) {
+      try {
         // Sınıfları Supabase'den sil
         await Promise.all(toDelete.map(classId => deleteClassById(classId)));
         
@@ -1723,14 +1723,16 @@ export default function App() {
         await Promise.all(classFreeUpdates.map(({ day, period, classId }) =>
           upsertClassFree({ day, period, classId, isSelected: false })
         ));
-      }
-
-      const filtered = prevClasses.filter(c => !toDelete.includes(c.classId));
-      if (toDelete.length > 0) {
+        
+        // State'ten sınıfları kaldır
+        setClasses(prevClasses => prevClasses.filter(c => !toDelete.includes(c.classId)));
+        
         addNotification(`${toDelete.length} sınıf otomatik kaldırıldı (mazeretli kalmadı)`, 'info');
+      } catch (error) {
+        logger.error('Auto delete classes error:', error);
+        addNotification('Sınıflar silinirken hata oluştu', 'error');
       }
-      return filtered;
-    });
+    }
 
     // 4) Mazeret kaydını kaldır
     setAbsentPeople(prev => prev.filter(p => p.absentId !== absentIdToDelete));
