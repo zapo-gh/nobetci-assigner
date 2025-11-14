@@ -376,8 +376,13 @@ export default function App() {
 
         // Önce Supabase'den veri çekmeyi dene
         try {
+          console.log('[App] Attempting to load data from Supabase...')
+          logger.info('[App] Attempting to load data from Supabase...')
           const supabaseData = await loadInitialData()
           if (!isMounted) return
+
+          console.log('[App] ✓ Data loaded from Supabase successfully')
+          logger.info('[App] ✓ Data loaded from Supabase successfully')
 
           // Supabase verilerini state'e yükle
           setTeachers(supabaseData.teachers || [])
@@ -418,14 +423,14 @@ export default function App() {
             logger.warn('LocalStorage update failed:', storageError)
           }
 
-          logger.info('Data loaded from Supabase successfully')
           if (isMounted) {
             hydratedRef.current = true
             setInitialDataLoading(false)
           }
           return
         } catch (supabaseError) {
-          logger.warn('Supabase load failed, falling back to localStorage:', supabaseError.message)
+          console.warn('[App] ✗ Supabase load failed, falling back to localStorage:', supabaseError.message)
+          logger.warn('[App] ✗ Supabase load failed, falling back to localStorage:', supabaseError.message)
         }
 
         // Supabase başarısız olduysa localStorage'dan yükle
@@ -504,6 +509,9 @@ export default function App() {
   // Realtime senkronizasyon - Supabase'deki değişiklikleri dinle
   useEffect(() => {
     if (!hydratedRef.current || initialDataLoading) return // İlk yükleme tamamlanana kadar bekle
+
+    console.log('[App] Setting up Realtime subscriptions...')
+    logger.info('[App] Setting up Realtime subscriptions...')
 
     const unsubscribe = realtimeSync.subscribe({
       // Teachers değişiklikleri

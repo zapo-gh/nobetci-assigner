@@ -189,7 +189,8 @@ export class RealtimeSyncService {
     })
 
     this.isConnected = true
-    logger.info('[RealtimeSync] All subscriptions active')
+    console.log('[RealtimeSync] ✓ All subscriptions active')
+    logger.info('[RealtimeSync] ✓ All subscriptions active')
 
     // Unsubscribe fonksiyonunu döndür
     return () => {
