@@ -20,6 +20,7 @@ import "./styles.css";
 import styles from './components/Tabs.module.css'; // Tabs.module.css dosyasını import et
 import { APP_ENV } from './config/index.js';
 import {
+  loadInitialData,
   insertTeacher,
   deleteTeacherById,
   insertClass,
@@ -32,6 +33,10 @@ import {
   upsertClassAbsence,
   upsertLock,
   replacePdfSchedule,
+  saveTeacherSchedules,
+  saveCommonLessons,
+  saveImportHistory,
+  saveSnapshots,
 } from './services/supabaseDataService.js';
 
 import Tabs from "./components/Tabs.jsx";
@@ -361,62 +366,126 @@ export default function App() {
     }
   }, [theme]);
 
-  // İlk yüklemede localStorage'dan çek
+  // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
     let isMounted = true
 
-    const hydrateFromLocalStorage = () => {
+    const loadData = async () => {
       try {
         setInitialDataLoading(true)
-        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
-        if (!raw) return
 
-        const parsed = JSON.parse(raw || '{}') || {}
-        if (!isMounted) return
+        // Önce Supabase'den veri çekmeyi dene
+        try {
+          const supabaseData = await loadInitialData()
+          if (!isMounted) return
 
-        if (parsed.day) setDay(parsed.day)
-        if (Array.isArray(parsed.periods) && parsed.periods.length) setPeriods(parsed.periods)
-        if (Array.isArray(parsed.teachers)) setTeachers(parsed.teachers)
-        if (Array.isArray(parsed.classes)) setClasses(parsed.classes)
+          // Supabase verilerini state'e yükle
+          setTeachers(supabaseData.teachers || [])
+          setClasses(supabaseData.classes || [])
+          setAbsentPeople(normalizeAbsentPeople(supabaseData.absents || [], supabaseData.classAbsence || {}))
+          setTeacherFree(arrayToSetMap(supabaseData.teacherFree || {}))
+          setClassFree(migrateClassFree(supabaseData.classFree || {}))
+          setClassAbsence(migrateClassAbsence(supabaseData.classAbsence || {}))
+          setLocked(supabaseData.locked || {})
+          setPdfSchedule(supabaseData.pdfSchedule || {})
+          setTeacherSchedules(supabaseData.teacherSchedules || {})
+          setCommonLessons(supabaseData.commonLessons || {})
+          setImportHistory(supabaseData.importHistory || [])
+          setSnapshots(supabaseData.snapshots || [])
 
-        setTeacherFree(arrayToSetMap(parsed.teacherFree || {}))
+          // Supabase'den başarılı veri çekildi, localStorage'i güncelle
+          const localStoragePayload = {
+            day,
+            periods,
+            teachers: supabaseData.teachers || [],
+            classes: supabaseData.classes || [],
+            teacherFree: mapSetToArray(supabaseData.teacherFree || {}),
+            classFree: mapSetToArray(migrateClassFree(supabaseData.classFree || {})),
+            absentPeople: normalizeAbsentPeople(supabaseData.absents || [], supabaseData.classAbsence || {}),
+            classAbsence: migrateClassAbsence(supabaseData.classAbsence || {}),
+            commonLessons: supabaseData.commonLessons || {},
+            options,
+            locked: supabaseData.locked || {},
+            snapshots: supabaseData.snapshots || [],
+            pdfSchedule: supabaseData.pdfSchedule || {},
+            teacherSchedules: supabaseData.teacherSchedules || {},
+            importHistory: supabaseData.importHistory || [],
+            lastSaved: Date.now(),
+          }
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(localStoragePayload))
+          } catch (storageError) {
+            logger.warn('LocalStorage update failed:', storageError)
+          }
 
-        const migratedClassFree = migrateClassFree(parsed.classFree || {})
-        setClassFree(migratedClassFree)
-
-        const migratedClassAbsence = migrateClassAbsence(parsed.classAbsence || {})
-        setClassAbsence(migratedClassAbsence)
-        setAbsentPeople(normalizeAbsentPeople(parsed.absentPeople || [], parsed.classAbsence || {}))
-
-        if (parsed.options && typeof parsed.options === 'object') {
-          setOptions((prev) => ({ ...prev, ...parsed.options }))
+          logger.info('Data loaded from Supabase successfully')
+          if (isMounted) {
+            hydratedRef.current = true
+            setInitialDataLoading(false)
+          }
+          return
+        } catch (supabaseError) {
+          logger.warn('Supabase load failed, falling back to localStorage:', supabaseError.message)
         }
 
-        if (parsed.locked && typeof parsed.locked === 'object') {
-          setLocked(parsed.locked)
+        // Supabase başarısız olduysa localStorage'dan yükle
+        const hydrateFromLocalStorage = () => {
+          try {
+            const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+            if (!raw) return
+
+            const parsed = JSON.parse(raw || '{}') || {}
+            if (!isMounted) return
+
+            if (parsed.day) setDay(parsed.day)
+            if (Array.isArray(parsed.periods) && parsed.periods.length) setPeriods(parsed.periods)
+            if (Array.isArray(parsed.teachers)) setTeachers(parsed.teachers)
+            if (Array.isArray(parsed.classes)) setClasses(parsed.classes)
+
+            setTeacherFree(arrayToSetMap(parsed.teacherFree || {}))
+
+            const migratedClassFree = migrateClassFree(parsed.classFree || {})
+            setClassFree(migratedClassFree)
+
+            const migratedClassAbsence = migrateClassAbsence(parsed.classAbsence || {})
+            setClassAbsence(migratedClassAbsence)
+            setAbsentPeople(normalizeAbsentPeople(parsed.absentPeople || [], parsed.classAbsence || {}))
+
+            if (parsed.options && typeof parsed.options === 'object') {
+              setOptions((prev) => ({ ...prev, ...parsed.options }))
+            }
+
+            if (parsed.locked && typeof parsed.locked === 'object') {
+              setLocked(parsed.locked)
+            }
+
+            if (Array.isArray(parsed.snapshots)) {
+              setSnapshots(parsed.snapshots)
+            }
+
+            if (parsed.pdfSchedule && typeof parsed.pdfSchedule === 'object') {
+              setPdfSchedule(parsed.pdfSchedule)
+            }
+
+            if (parsed.teacherSchedules && typeof parsed.teacherSchedules === 'object') {
+              setTeacherSchedules(parsed.teacherSchedules)
+            }
+
+            if (parsed.commonLessons && typeof parsed.commonLessons === 'object') {
+              setCommonLessons(parsed.commonLessons)
+            }
+
+            if (Array.isArray(parsed.importHistory)) {
+              setImportHistory(parsed.importHistory)
+            }
+          } catch (error) {
+            logger.error('Local data hydrate failed:', error)
+          }
         }
 
-        if (Array.isArray(parsed.snapshots)) {
-          setSnapshots(parsed.snapshots)
-        }
-
-        if (parsed.pdfSchedule && typeof parsed.pdfSchedule === 'object') {
-          setPdfSchedule(parsed.pdfSchedule)
-        }
-
-        if (parsed.teacherSchedules && typeof parsed.teacherSchedules === 'object') {
-          setTeacherSchedules(parsed.teacherSchedules)
-        }
-
-        if (parsed.commonLessons && typeof parsed.commonLessons === 'object') {
-          setCommonLessons(parsed.commonLessons)
-        }
-
-        if (Array.isArray(parsed.importHistory)) {
-          setImportHistory(parsed.importHistory)
-        }
+        hydrateFromLocalStorage()
       } catch (error) {
-        logger.error('Local data hydrate failed:', error)
+        logger.error('Data loading failed:', error)
       } finally {
         if (isMounted) {
           hydratedRef.current = true
@@ -425,7 +494,7 @@ export default function App() {
       }
     }
 
-    hydrateFromLocalStorage()
+    loadData()
     return () => {
       isMounted = false
     }
@@ -453,6 +522,12 @@ export default function App() {
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+      // Save to Supabase as well
+      saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+      saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
+      saveImportHistory(importHistory).catch(err => logger.error('Auto save importHistory error:', err));
+      saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
     } catch (e) {
       logger.warn("Otomatik kaydetme hatası:", e);
     }
