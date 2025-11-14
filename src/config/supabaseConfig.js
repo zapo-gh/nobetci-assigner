@@ -3,6 +3,6 @@
 // You can find these in your Supabase dashboard under Settings > API
 
 export const SUPABASE_CONFIG = {
-  url: 'https://your-project-id.supabase.co',
-  anonKey: 'your-anon-key-here'
+  url: 'https://wawbtddztyvqfoviseja.supabase.co',
+  anonKey: 'sb_publishable__IixNwJnBfWeSif0UDOJgQ_vL5V_1qx'
 };
