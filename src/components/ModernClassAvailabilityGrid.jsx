@@ -29,7 +29,7 @@ export default function ModernClassAvailabilityGrid({
 
   const normalizeWhiteSpace = (value = '') => value.trim().replace(/\s+/g, ' ')
 
-  const removeTrailingHyphen = (value = '') => value.replace(/[\-\s]+$/, '')
+  const removeTrailingHyphen = (value = '') => value.replace(/[-\s]+$/, '')
 
   const formatTeacherName = (name = '', teacherId) => {
     const fromTeacher = teacherId ? teacherMap.get(teacherId)?.teacherName : ''

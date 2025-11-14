@@ -310,7 +310,7 @@ export default function App() {
   const [locked, setLocked] = useState({})
   const [snapshots, setSnapshots] = useState([])
 
-  const [loading, setLoading] = useState({ teachers: false, classes: false, absents: false });
+  const [_loading, setLoading] = useState({ teachers: false, classes: false, absents: false });
   const [notifications, setNotifications] = useState([]);
   const [importHistory, setImportHistory] = useState([]);
   const [activeSection, setActiveSection] = useState("teachers");
@@ -1111,7 +1111,6 @@ export default function App() {
     }
 
     return { insertedCount: insertedTeachers.length, removedCount: existingDutyTeachers.length };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teachers, periods, setPdfSchedule]); // replacePdfSchedule is a stable import
 
   const handleExcelReplaceConfirm = useCallback(async () => {
@@ -1941,7 +1940,7 @@ export default function App() {
     if (!teachers.length || !locked || Object.keys(locked).length === 0) return;
     
     const validTeacherIds = new Set(teachers.map(t => t.teacherId));
-    const invalidEntries = Object.entries(locked).filter(([key, teacherId]) => {
+    const invalidEntries = Object.entries(locked).filter(([, teacherId]) => {
       return teacherId && !validTeacherIds.has(teacherId);
     });
     
@@ -1955,7 +1954,7 @@ export default function App() {
       });
       
       addNotification({
-        message: `${invalidEntries.length} geçersiz öğretmen kaydı temizlendi (${invalidEntries.map(([k, tid]) => tid).join(', ')})`,
+        message: `${invalidEntries.length} geçersiz öğretmen kaydı temizlendi (${invalidEntries.map(([, tid]) => tid).join(', ')})`,
         type: 'info',
         duration: 4000
       });
@@ -1974,7 +1973,7 @@ export default function App() {
     });
     
     // Geçersiz teacherId'ye sahip olanları bul
-    const invalidDayEntries = dayEntries.filter(([key, teacherId]) => {
+    const invalidDayEntries = dayEntries.filter(([, teacherId]) => {
       return teacherId && !validTeacherIds.has(teacherId);
     });
     
@@ -2144,7 +2143,7 @@ export default function App() {
       const teacherId = teacher.teacherId
       const assignmentsForTeacher = teacherAssignmentDetails[teacherId] || []
       const reasons = []
-      const dailyCount = teacherAssignmentCount[teacherId] || 0
+      // const dailyCount = teacherAssignmentCount[teacherId] || 0 // Kullanılmıyor
 
       periods.forEach((period) => {
         const freeSet = teacherFree?.[period] instanceof Set
@@ -2510,6 +2509,7 @@ export default function App() {
 
   /* ============================= Çıktılar (Excel/JSON) ============================= */
 
+  // eslint-disable-next-line no-unused-vars
   function exportExcel() {
     try {
       const rows = [];

@@ -46,7 +46,7 @@ const PdfImportConflictModal = ({
   };
 
   const getConflictDescription = (conflict) => {
-    const { day, period, classId, existingTeacher, pdfTeacher } = conflict;
+    const { day, period, classId } = conflict; // existingTeacher, pdfTeacher kullanılmıyor (conflict objesinden alınıyor)
     
     const dayNames = {
       monday: 'Pazartesi',

@@ -134,7 +134,7 @@ function findHeaderRow(sheetData) {
  * @param {string} sheetName - Name of the sheet
  * @returns {Array} Array of parsed duty teachers
  */
-function parseDataRows(sheetData, headerRowIndex, sheetName) {
+function parseDataRows(sheetData, headerRowIndex) { // sheetName kullanılmıyor
   const dutyTeachers = [];
   const headerRow = sheetData[headerRowIndex];
   
@@ -285,7 +285,7 @@ function isDutyScheduleFormat(sheetData) {
   
   // Check for common duty schedule indicators
   const firstRow = sheetData[0] || [];
-  const secondRow = sheetData[1] || [];
+  // const secondRow = sheetData[1] || []; // Kullanılmıyor
   
   // Look for "ÖĞRETMEN NÖBET ÇİZELGESİ" or similar patterns
   const titleText = firstRow[0] ? String(firstRow[0]).toLowerCase() : '';
@@ -425,7 +425,7 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
   console.log(`Day teachers map:`, dayTeachers);
   
   // Convert Set to Array and create teacher objects
-  const uniqueTeachers = Array.from(teacherNames).map((name, index) => {
+  const uniqueTeachers = Array.from(teacherNames).map((name) => { // index kullanılmıyor
     const teacherId = generateTeacherId(name);
     return {
       teacherId: teacherId,
@@ -471,7 +471,7 @@ function isDayNameRow(cellValue) {
  * @param {string} currentDay - Current day name
  * @returns {Array} Array of teacher names found in this row
  */
-function extractTeachersFromRow(row, isDayRow, currentDay) {
+function extractTeachersFromRow(row, isDayRow) { // currentDay kullanılmıyor
   const teachers = [];
   
   // Determine column range
@@ -539,7 +539,7 @@ function isValidTeacherName(name) {
   }
   
   // Check if it's only numbers or special characters
-  if (/^[0-9\s\-\.]+$/.test(trimmedName)) {
+  if (/^[0-9\s-.]+$/.test(trimmedName)) {
     console.log(`    Rejected: "${name}" is only numbers/special chars`);
     return false;
   }

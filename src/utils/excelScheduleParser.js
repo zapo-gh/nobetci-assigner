@@ -76,7 +76,7 @@ export async function parseExcelSchedule(file) {
  * @param {string} sheetName - Name of the sheet
  * @returns {Object} Parsed schedule data
  */
-function parseScheduleFormat(sheetData, sheetName) {
+function parseScheduleFormat(sheetData) { // sheetName kullanılmıyor
   const schedule = {};
 
   // Day mapping: Turkish day names to English keys

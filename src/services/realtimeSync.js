@@ -36,7 +36,7 @@ export class RealtimeSyncService {
 
     // Callback'leri kaydet
     Object.keys(callbacks).forEach(key => {
-      if (this.callbacks.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(this.callbacks, key)) {
         this.callbacks[key] = callbacks[key]
       }
     })

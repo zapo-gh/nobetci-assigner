@@ -3,7 +3,7 @@ import React from 'react'
 export default function AssignmentInsights({ insights, IconComponent }) {
   if (!insights) return null
 
-  const { coverageByPeriod = [], teacherSummaries = [] } = insights
+  const { teacherSummaries = [] } = insights // coverageByPeriod kullanılmıyor
   const hasCoverage = false
   const hasTeachers = teacherSummaries.some(
     (summary) =>

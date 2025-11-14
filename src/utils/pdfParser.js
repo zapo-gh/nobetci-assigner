@@ -111,7 +111,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 1: Tab-separated format
   console.log('Trying Tab-separated format...');
-  schedule = parseTabSeparatedFormat(lines, dayMapping, periodMapping);
+  schedule = parseTabSeparatedFormat(lines, dayMapping);
   console.log('Tab-separated result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Tab-separated format successful!');
@@ -120,7 +120,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 2: Space-separated format
   console.log('Trying Space-separated format...');
-  schedule = parseSpaceSeparatedFormat(lines, dayMapping, periodMapping);
+  schedule = parseSpaceSeparatedFormat(lines, dayMapping);
   console.log('Space-separated result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Space-separated format successful!');
@@ -129,7 +129,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 3: Regex-based parsing
   console.log('Trying Regex-based format...');
-  schedule = parseRegexFormat(text, dayMapping, periodMapping);
+  schedule = parseRegexFormat(text, dayMapping);
   console.log('Regex-based result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Regex-based format successful!');
@@ -147,7 +147,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 5: Akıllı tablo parsing
   console.log('Trying Smart table format...');
-  schedule = parseSmartTable(text, dayMapping, periodMapping);
+  schedule = parseSmartTable(text, dayMapping);
   console.log('Smart table result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Smart table format successful!');
@@ -156,7 +156,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 6: Tek satır parsing (PDF'den gelen bozuk format için)
   console.log('Trying Single line format...');
-  schedule = parseSingleLineFormat(text, dayMapping, periodMapping);
+  schedule = parseSingleLineFormat(text, dayMapping);
   console.log('Single line result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Single line format successful!');
@@ -165,7 +165,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 7: Gelişmiş tek satır parsing (gerçek PDF yapısı için)
   console.log('Trying Advanced single line format...');
-  schedule = parseAdvancedSingleLineFormat(text, dayMapping, periodMapping);
+  schedule = parseAdvancedSingleLineFormat(text, dayMapping);
   console.log('Advanced single line result:', schedule);
   console.log('Advanced single line validation:', hasValidData(schedule));
   if (hasValidData(schedule)) {
@@ -179,7 +179,7 @@ export function parseScheduleTable(text) {
 /**
  * Tab-separated format'ı parse eder
  */
-function parseTabSeparatedFormat(lines, dayMapping, periodMapping) {
+function parseTabSeparatedFormat(lines, dayMapping) { // periodMapping kullanılmıyor
   const schedule = {};
   
   // Başlık satırını bul
@@ -239,7 +239,7 @@ function parseTabSeparatedFormat(lines, dayMapping, periodMapping) {
 /**
  * Space-separated format'ı parse eder
  */
-function parseSpaceSeparatedFormat(lines, dayMapping, periodMapping) {
+function parseSpaceSeparatedFormat(lines, dayMapping) { // periodMapping kullanılmıyor
   const schedule = {};
   
   // Her gün için veri topla
@@ -291,7 +291,7 @@ function parseSpaceSeparatedFormat(lines, dayMapping, periodMapping) {
 /**
  * Regex-based parsing
  */
-function parseRegexFormat(text, dayMapping, periodMapping) {
+function parseRegexFormat(text, dayMapping) { // periodMapping kullanılmıyor
   const schedule = {};
   
   // Her gün için regex ile arama yap
@@ -450,7 +450,7 @@ function parseGeneralPattern(text, dayMapping, periodMapping) {
 /**
  * Akıllı tablo parsing - tablo başlıklarını filtreler
  */
-function parseSmartTable(text, dayMapping, periodMapping) {
+function parseSmartTable(text, dayMapping) { // periodMapping kullanılmıyor
   const schedule = {};
   
   // Metni satırlara böl
@@ -524,7 +524,7 @@ function parseSmartTable(text, dayMapping, periodMapping) {
 /**
  * Tek satır format'ı parse eder (PDF'den gelen bozuk format için)
  */
-function parseSingleLineFormat(text, dayMapping, periodMapping) {
+function parseSingleLineFormat(text, dayMapping) { // periodMapping kullanılmıyor
   const schedule = {};
   
   console.log('Parsing single line format...');
@@ -609,7 +609,7 @@ function parseSingleLineFormat(text, dayMapping, periodMapping) {
 /**
  * Gelişmiş tek satır parsing - gerçek PDF yapısını parse eder
  */
-function parseAdvancedSingleLineFormat(text, dayMapping, periodMapping) {
+function parseAdvancedSingleLineFormat(text, dayMapping) { // periodMapping kullanılmıyor
   const schedule = {};
   
   console.log('Parsing advanced single line format...');

@@ -7,7 +7,7 @@ const createId = () => {
   return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
 
-const now = () => new Date().toISOString()
+// const now = () => new Date().toISOString() // Kullanılmıyor
 
 export async function loadInitialData() {
   try {
