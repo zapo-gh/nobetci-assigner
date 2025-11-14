@@ -20,6 +20,7 @@ import "./styles.css";
 import styles from './components/Tabs.module.css'; // Tabs.module.css dosyasını import et
 import { APP_ENV } from './config/index.js';
 import {
+  loadInitialData,
   insertTeacher,
   deleteTeacherById,
   insertClass,
