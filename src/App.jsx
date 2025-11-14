@@ -1693,19 +1693,36 @@ export default function App() {
       const toDelete = Array.from(affectedClassIds).filter(cid => !stillHasAbsent.has(cid));
 
       if (toDelete.length > 0) {
-        setClassFree(prev => {
-          const next = { ...prev };
-          fallbackDays.forEach((dayKey) => {
-            if (!next[dayKey]) return;
-            Object.keys(next[dayKey]).forEach(pk => {
-              const set = next[dayKey][pk];
-              if (set instanceof Set) {
-                toDelete.forEach(cid => set.delete(cid));
+        // Sınıfları Supabase'den sil
+        await Promise.all(toDelete.map(classId => deleteClassById(classId)));
+        
+        // ClassFree'dan kaldır ve Supabase'e kaydet
+        const updatedClassFree = { ...classFree };
+        const classFreeUpdates = [];
+        
+        fallbackDays.forEach((dayKey) => {
+          if (!updatedClassFree[dayKey]) return;
+          Object.keys(updatedClassFree[dayKey]).forEach(pk => {
+            const set = new Set(updatedClassFree[dayKey][pk] || []);
+            let changed = false;
+            toDelete.forEach(cid => {
+              if (set.delete(cid)) {
+                changed = true;
+                classFreeUpdates.push({ day: dayKey, period: Number(pk), classId: cid });
               }
             });
+            if (changed) {
+              updatedClassFree[dayKey][pk] = set;
+            }
           });
-          return next;
         });
+        
+        setClassFree(updatedClassFree);
+        
+        // Supabase'e kaydet
+        await Promise.all(classFreeUpdates.map(({ day, period, classId }) =>
+          upsertClassFree({ day, period, classId, isSelected: false })
+        ));
       }
 
       const filtered = prevClasses.filter(c => !toDelete.includes(c.classId));
@@ -1723,18 +1740,27 @@ export default function App() {
   const deleteTeacher = async (teacherIdToDelete) => {
     try {
       await deleteTeacherById(teacherIdToDelete)
-    setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
-      setTeacherFree(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(period => {
-          const set = new Set(next[period] || []);
-          if (set.delete(teacherIdToDelete)) {
-            next[period] = set;
-          }
-        });
-        return next;
+      setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
+      
+      // TeacherFree'dan kaldır ve Supabase'e kaydet
+      const updatedTeacherFree = { ...teacherFree };
+      const periodsToUpdate = [];
+      Object.keys(updatedTeacherFree).forEach(period => {
+        const set = new Set(updatedTeacherFree[period] || []);
+        if (set.delete(teacherIdToDelete)) {
+          updatedTeacherFree[period] = set;
+          periodsToUpdate.push(Number(period));
+        }
       });
-    addNotification("Öğretmen silindi", "info");
+      
+      setTeacherFree(updatedTeacherFree);
+      
+      // Supabase'e kaydet
+      await Promise.all(periodsToUpdate.map(period => 
+        upsertTeacherFree({ period, teacherId: teacherIdToDelete, isSelected: false })
+      ));
+      
+      addNotification("Öğretmen silindi", "info");
     } catch (error) {
       logger.error('Teacher delete error:', error)
       addNotification('Öğretmen silinemedi', 'error')
@@ -1751,20 +1777,39 @@ export default function App() {
     try {
       await Promise.all(pdfTeachers.map(t => deleteTeacherById(t.teacherId)));
       setTeachers(prev => prev.filter(t => t.source !== 'duty_schedule'));
-      setTeacherFree(prev => {
-        const next = { ...prev };
-        const removeIds = new Set(pdfTeachers.map(t => t.teacherId));
-        Object.keys(next).forEach(period => {
-          const set = new Set(next[period] || []);
-          let changed = false;
-          removeIds.forEach(id => {
-            if (set.delete(id)) changed = true;
-          });
-          if (changed) next[period] = set;
+      
+      // TeacherFree'dan kaldır ve Supabase'e kaydet
+      const updatedTeacherFree = { ...teacherFree };
+      const removeIds = new Set(pdfTeachers.map(t => t.teacherId));
+      const periodsToUpdate = new Map(); // period -> Set of teacherIds to remove
+      
+      Object.keys(updatedTeacherFree).forEach(period => {
+        const set = new Set(updatedTeacherFree[period] || []);
+        let changed = false;
+        removeIds.forEach(id => {
+          if (set.delete(id)) {
+            changed = true;
+            if (!periodsToUpdate.has(Number(period))) {
+              periodsToUpdate.set(Number(period), new Set());
+            }
+            periodsToUpdate.get(Number(period)).add(id);
+          }
         });
-        return next;
+        if (changed) {
+          updatedTeacherFree[period] = set;
+        }
       });
-    addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
+      
+      setTeacherFree(updatedTeacherFree);
+      
+      // Supabase'e kaydet
+      await Promise.all(Array.from(periodsToUpdate.entries()).flatMap(([period, teacherIds]) =>
+        Array.from(teacherIds).map(teacherId =>
+          upsertTeacherFree({ period, teacherId, isSelected: false })
+        )
+      ));
+      
+      addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
     } catch (error) {
       logger.error('PDF teachers bulk delete error:', error);
       addNotification('PDF öğretmenler silinemedi', 'error');
@@ -1774,24 +1819,36 @@ export default function App() {
   const deleteClass = async (classIdToDelete) => {
     try {
       await deleteClassById(classIdToDelete)
-    setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
-      setClassFree(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(dayKey => {
-          const perMap = { ...(next[dayKey] || {}) };
-          let changed = false;
-          Object.keys(perMap).forEach(period => {
-            const set = new Set(perMap[period] || []);
-            if (set.delete(classIdToDelete)) {
-              perMap[period] = set;
-              changed = true;
-            }
-          });
-          if (changed) next[dayKey] = perMap;
+      setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
+      
+      // ClassFree'dan kaldır ve Supabase'e kaydet
+      const updatedClassFree = { ...classFree };
+      const updates = []; // { day, period, classId }[]
+      
+      Object.keys(updatedClassFree).forEach(dayKey => {
+        const perMap = { ...(updatedClassFree[dayKey] || {}) };
+        let changed = false;
+        Object.keys(perMap).forEach(period => {
+          const set = new Set(perMap[period] || []);
+          if (set.delete(classIdToDelete)) {
+            perMap[period] = set;
+            changed = true;
+            updates.push({ day: dayKey, period: Number(period), classId: classIdToDelete });
+          }
         });
-        return next;
+        if (changed) {
+          updatedClassFree[dayKey] = perMap;
+        }
       });
-    addNotification("Sınıf silindi", "info");
+      
+      setClassFree(updatedClassFree);
+      
+      // Supabase'e kaydet
+      await Promise.all(updates.map(({ day, period, classId }) =>
+        upsertClassFree({ day, period, classId, isSelected: false })
+      ));
+      
+      addNotification("Sınıf silindi", "info");
     } catch (error) {
       logger.error('Class delete error:', error)
       addNotification('Sınıf silinemedi', 'error')
