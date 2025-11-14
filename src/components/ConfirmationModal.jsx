@@ -9,7 +9,7 @@ const ConfirmationModal = ({
   confirmText = "Evet", 
   cancelText = "Hayır",
   type = "warning", // warning, danger, info
-  IconComponent
+  IconComponent // eslint-disable-line no-unused-vars
 }) => {
   if (!isOpen) return null;
 

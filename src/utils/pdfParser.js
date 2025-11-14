@@ -111,7 +111,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 1: Tab-separated format
   console.log('Trying Tab-separated format...');
-  schedule = parseTabSeparatedFormat(lines, dayMapping);
+  schedule = parseTabSeparatedFormat(lines, dayMapping, periodMapping);
   console.log('Tab-separated result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Tab-separated format successful!');
@@ -129,7 +129,7 @@ export function parseScheduleTable(text) {
   
   // Yöntem 3: Regex-based parsing
   console.log('Trying Regex-based format...');
-  schedule = parseRegexFormat(text, dayMapping);
+  schedule = parseRegexFormat(text, dayMapping, periodMapping);
   console.log('Regex-based result:', schedule);
   if (hasValidData(schedule)) {
     console.log('Regex-based format successful!');
@@ -179,7 +179,7 @@ export function parseScheduleTable(text) {
 /**
  * Tab-separated format'ı parse eder
  */
-function parseTabSeparatedFormat(lines, dayMapping) { // periodMapping kullanılmıyor
+function parseTabSeparatedFormat(lines, dayMapping, periodMapping) {
   const schedule = {};
   
   // Başlık satırını bul
@@ -291,7 +291,7 @@ function parseSpaceSeparatedFormat(lines, dayMapping) { // periodMapping kullan�
 /**
  * Regex-based parsing
  */
-function parseRegexFormat(text, dayMapping) { // periodMapping kullanılmıyor
+function parseRegexFormat(text, dayMapping, periodMapping) {
   const schedule = {};
   
   // Her gün için regex ile arama yap

@@ -13,7 +13,7 @@ const InputModal = ({
   confirmText = "Tamam", 
   cancelText = "İptal",
   required = false,
-  IconComponent
+  IconComponent // eslint-disable-line no-unused-vars
 }) => {
   const [value, setValue] = useState(defaultValue);
 

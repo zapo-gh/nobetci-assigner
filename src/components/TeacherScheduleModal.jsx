@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './Modal.jsx';
 
-const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComponent }) => {
+const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComponent }) => { // eslint-disable-line no-unused-vars
   if (!schedule || !teacherName) return null;
 
 

@@ -6,7 +6,7 @@ const PdfImportConflictModal = ({
   onClose, 
   conflicts = [], 
   onResolve,
-  IconComponent 
+  IconComponent // eslint-disable-line no-unused-vars
 }) => {
   const [resolutions, setResolutions] = useState({});
   const [applyToAll, setApplyToAll] = useState('');
