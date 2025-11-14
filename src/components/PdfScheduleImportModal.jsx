@@ -142,7 +142,7 @@ const PdfScheduleImportModal = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedFile, teachers, locked]);
+  }, [selectedFile, teachers, locked, detectConflicts, handleClose, onImport]);
 
   const detectConflicts = (schedule, results, locked) => {
     const conflicts = [];

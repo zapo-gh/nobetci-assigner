@@ -500,7 +500,8 @@ export default function App() {
     return () => {
       isMounted = false
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Sadece mount'ta çalışmalı
 
   // Realtime senkronizasyon - Supabase'deki değişiklikleri dinle
   useEffect(() => {
@@ -1112,7 +1113,8 @@ export default function App() {
     }
 
     return { insertedCount: insertedTeachers.length, removedCount: existingDutyTeachers.length };
-  }, [teachers, periods, setPdfSchedule, replacePdfSchedule]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teachers, periods, setPdfSchedule]); // replacePdfSchedule is a stable import
 
   const handleExcelReplaceConfirm = useCallback(async () => {
     const { data, existingCount } = excelReplaceModal;
@@ -1960,7 +1962,7 @@ export default function App() {
         duration: 4000
       });
     }
-  }, [teachers, addNotification]); // teachers değiştiğinde veya sayfa yüklendiğinde çalışır
+  }, [teachers, addNotification, locked]); // teachers değiştiğinde veya sayfa yüklendiğinde çalışır
 
   // Gün değiştiğinde, o güne ait geçersiz locked kayıtlarını temizle
   useEffect(() => {
@@ -1991,7 +1993,7 @@ export default function App() {
       const invalidTeacherIds = invalidDayEntries.map(([, tid]) => tid).join(', ');
       console.log(`Gün değişti (${day}): ${invalidDayEntries.length} geçersiz locked kayıt temizlendi:`, invalidTeacherIds);
     }
-  }, [day, teachers]); // day veya teachers değiştiğinde çalışır
+  }, [day, teachers, locked]); // day veya teachers değiştiğinde çalışır
 
   // Gün veya görev listesi değiştiğinde, o güne ait kilitleri ve teacherFree setlerini aktif nöbetçilere göre temizle
   useEffect(() => {

@@ -76,7 +76,7 @@ function ConflictSuggestions({
       });
     });
     return out;
-  }, [assignment, day, teachers, classes, freeTeachersByDay, freeClassesByDay, classesById, teacherById]);
+  }, [assignment, day, teachers, classes, freeTeachersByDay, freeClassesByDay, classesById, teacherById, maxClassesPerSlot]);
 
   if (!classes.length || !teachers.length) {
     return null;

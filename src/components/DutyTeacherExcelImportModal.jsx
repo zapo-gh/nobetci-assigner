@@ -77,7 +77,7 @@ const DutyTeacherExcelImportModal = ({ isOpen, onClose, onImport }) => {
         : null,
     });
     onClose();
-  }, [preview, maxDutyValues, onImport, onClose]);
+  }, [preview, maxDutyValues, onImport, onClose, file]);
 
   const handleMaxDutyChange = useCallback((teacherId, value) => {
     const numValue = parseInt(value, 10);
