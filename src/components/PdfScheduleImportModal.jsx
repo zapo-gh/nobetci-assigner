@@ -50,6 +50,60 @@ const PdfScheduleImportModal = ({
     }
   }, []);
 
+  const detectConflicts = useCallback((schedule, results, locked, manualMappings) => {
+    const conflicts = [];
+    const matchedTeachers = new Map();
+
+    // Başarılı eşleşmeleri map'e ekle
+    if (results.results && results.results.matched) {
+      results.results.matched.forEach(match => {
+        matchedTeachers.set(match.pdfName, match.teacher);
+      });
+    }
+
+    // Manuel eşleştirmeleri de ekle
+    Object.entries(manualMappings).forEach(([pdfName, teacherId]) => {
+      const teacher = teachers.find(t => t.teacherId === teacherId);
+      if (teacher) {
+        matchedTeachers.set(pdfName, teacher);
+      }
+    });
+
+    // Her gün ve periyot için çakışma kontrolü
+    Object.entries(schedule).forEach(([day, dayData]) => {
+      Object.entries(dayData).forEach(([period, pdfNames]) => {
+        pdfNames.forEach(pdfName => {
+          const teacher = matchedTeachers.get(pdfName);
+          if (teacher) {
+            // Bu gün/periyot için sınıf bul
+            const availableClasses = classes.filter(c => 
+              !locked[`${day}|${period}|${c.classId}`]
+            );
+
+            if (availableClasses.length > 0) {
+              const classId = availableClasses[0].classId;
+              const existingTeacherId = locked[`${day}|${period}|${classId}`];
+              
+              if (existingTeacherId && existingTeacherId !== teacher.teacherId) {
+                const existingTeacher = teachers.find(t => t.teacherId === existingTeacherId);
+                conflicts.push({
+                  day,
+                  period,
+                  classId,
+                  existingTeacher,
+                  pdfTeacher: teacher,
+                  pdfName
+                });
+              }
+            }
+          }
+        });
+      });
+    });
+
+    return conflicts;
+  }, [teachers, classes, locked]);
+
   const processPDF = useCallback(async () => {
     if (!selectedFile) return;
 
@@ -127,7 +181,7 @@ const PdfScheduleImportModal = ({
 
       // 4. Çakışmaları tespit et
       setCurrentStep('conflict-check');
-      const detectedConflicts = detectConflicts(schedule, results, locked);
+      const detectedConflicts = detectConflicts(schedule, results, locked, manualMappings);
       setConflicts(detectedConflicts);
 
       if (detectedConflicts.length > 0) {
@@ -142,61 +196,7 @@ const PdfScheduleImportModal = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedFile, teachers, locked, detectConflicts, handleClose, onImport]);
-
-  const detectConflicts = (schedule, results, locked) => {
-    const conflicts = [];
-    const matchedTeachers = new Map();
-
-    // Başarılı eşleşmeleri map'e ekle
-    if (results.results && results.results.matched) {
-      results.results.matched.forEach(match => {
-        matchedTeachers.set(match.pdfName, match.teacher);
-      });
-    }
-
-    // Manuel eşleştirmeleri de ekle
-    Object.entries(manualMappings).forEach(([pdfName, teacherId]) => {
-      const teacher = teachers.find(t => t.teacherId === teacherId);
-      if (teacher) {
-        matchedTeachers.set(pdfName, teacher);
-      }
-    });
-
-    // Her gün ve periyot için çakışma kontrolü
-    Object.entries(schedule).forEach(([day, dayData]) => {
-      Object.entries(dayData).forEach(([period, pdfNames]) => {
-        pdfNames.forEach(pdfName => {
-          const teacher = matchedTeachers.get(pdfName);
-          if (teacher) {
-            // Bu gün/periyot için sınıf bul
-            const availableClasses = classes.filter(c => 
-              !locked[`${day}|${period}|${c.classId}`]
-            );
-
-            if (availableClasses.length > 0) {
-              const classId = availableClasses[0].classId;
-              const existingTeacherId = locked[`${day}|${period}|${classId}`];
-              
-              if (existingTeacherId && existingTeacherId !== teacher.teacherId) {
-                const existingTeacher = teachers.find(t => t.teacherId === existingTeacherId);
-                conflicts.push({
-                  day,
-                  period,
-                  classId,
-                  existingTeacher,
-                  pdfTeacher: teacher,
-                  pdfName
-                });
-              }
-            }
-          }
-        });
-      });
-    });
-
-    return conflicts;
-  };
+  }, [selectedFile, teachers, locked, detectConflicts, handleClose, onImport, manualMappings]);
 
   const handleManualMapping = useCallback((pdfName, teacherId) => {
     setManualMappings(prev => ({
