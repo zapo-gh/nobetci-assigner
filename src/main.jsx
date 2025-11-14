@@ -2,9 +2,20 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './styles.css'
-import App from './App.jsx'
 import { APP_ENV } from './config/index.js'
 import { logger } from './utils/logger.js'
+
+import App from './App.jsx'
+
+// Supabase client'ı import et - bu bağlantı testini tetikler
+console.log('[Main] Initializing application...')
+import('./services/supabaseClient.js').then(() => {
+  console.log('[Main] ✓ Supabase client module loaded')
+  logger.info('[Main] ✓ Supabase client module loaded')
+}).catch((err) => {
+  console.error('[Main] ✗ Failed to load Supabase client module:', err)
+  logger.error('[Main] ✗ Failed to load Supabase client module:', err)
+})
 
 // Global error handler - yakalanmamış hataları yakala
 window.addEventListener('error', (event) => {

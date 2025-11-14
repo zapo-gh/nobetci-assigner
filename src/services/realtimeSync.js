@@ -189,7 +189,8 @@ export class RealtimeSyncService {
     })
 
     this.isConnected = true
-    console.log('[RealtimeSync] ✓ All subscriptions active')
+    console.log('%c✅ [RealtimeSync] All subscriptions active!', 'color: #10b981; font-weight: bold;')
+    console.log('📡 Active channels:', this.channels.length)
     logger.info('[RealtimeSync] ✓ All subscriptions active')
 
     // Unsubscribe fonksiyonunu döndür

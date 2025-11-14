@@ -5,6 +5,7 @@ import { assignDuties, MANUAL_EMPTY_TEACHER_ID } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
 import { normalizeForComparison } from "./utils/pdfParser.js";
 import { parseTeacherSchedulesFromExcel } from "./utils/teacherScheduleExcelParser.js";
+
 import { 
   dateForSelectedDay, 
   formatTRDate, 
@@ -38,6 +39,9 @@ import {
 } from './services/supabaseDataService.js';
 import { realtimeSync } from './services/realtimeSync.js';
 import { supabase } from './services/supabaseClient.js';
+
+// Supabase client import kontrolü - bağlantı loglarını tetikler
+console.log('[App] ✓ Supabase client imported, connection status:', supabase ? 'available' : 'unavailable')
 
 import Tabs from "./components/Tabs.jsx";
 import PrintableDailyList from "./components/PrintableDailyList.jsx";
@@ -278,6 +282,27 @@ function migrateClassAbsence(oldClassAbsence) {
 /* =========================== App Bileşeni =========================== */
 
 export default function App() {
+  // App component başlatıldığında Supabase bağlantı durumunu kontrol et
+  useEffect(() => {
+    console.log('%c🚀 [App] Component mounted', 'color: #6366f1; font-weight: bold;')
+    console.log('🔌 Supabase client:', supabase ? '✓ Available' : '✗ Not available')
+    
+    // Supabase bağlantı durumunu test et
+    if (supabase) {
+      supabase.from('teachers').select('count', { count: 'exact', head: true })
+        .then(({ error }) => {
+          if (error) {
+            console.warn('%c⚠️ [App] Supabase connection test failed:', 'color: #f59e0b; font-weight: bold;', error.message)
+          } else {
+            console.log('%c✅ [App] Supabase connection verified!', 'color: #10b981; font-weight: bold;')
+          }
+        })
+        .catch((err) => {
+          console.error('%c❌ [App] Supabase connection test error:', 'color: #ef4444; font-weight: bold;', err)
+        })
+    }
+  }, [])
+  
   // Bugünün gününü otomatik seç (Pazartesi=1, Cuma=5)
   const getTodayKey = () => {
     const today = new Date().getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
@@ -376,12 +401,15 @@ export default function App() {
 
         // Önce Supabase'den veri çekmeyi dene
         try {
-          console.log('[App] Attempting to load data from Supabase...')
+          console.log('%c📥 [App] Loading data from Supabase...', 'color: #4a90e2; font-weight: bold;')
           logger.info('[App] Attempting to load data from Supabase...')
           const supabaseData = await loadInitialData()
           if (!isMounted) return
 
-          console.log('[App] ✓ Data loaded from Supabase successfully')
+          console.log('%c✅ [App] Data loaded from Supabase successfully!', 'color: #10b981; font-weight: bold;')
+          console.log('📊 Teachers:', supabaseData.teachers?.length || 0)
+          console.log('📊 Classes:', supabaseData.classes?.length || 0)
+          console.log('📊 Absents:', supabaseData.absents?.length || 0)
           logger.info('[App] ✓ Data loaded from Supabase successfully')
 
           // Supabase verilerini state'e yükle
@@ -429,7 +457,7 @@ export default function App() {
           }
           return
         } catch (supabaseError) {
-          console.warn('[App] ✗ Supabase load failed, falling back to localStorage:', supabaseError.message)
+          console.warn('%c⚠️ [App] Supabase load failed, using localStorage:', 'color: #f59e0b; font-weight: bold;', supabaseError.message)
           logger.warn('[App] ✗ Supabase load failed, falling back to localStorage:', supabaseError.message)
         }
 
@@ -510,7 +538,7 @@ export default function App() {
   useEffect(() => {
     if (!hydratedRef.current || initialDataLoading) return // İlk yükleme tamamlanana kadar bekle
 
-    console.log('[App] Setting up Realtime subscriptions...')
+    console.log('%c🔄 [App] Setting up Realtime subscriptions...', 'color: #8b5cf6; font-weight: bold;')
     logger.info('[App] Setting up Realtime subscriptions...')
 
     const unsubscribe = realtimeSync.subscribe({
