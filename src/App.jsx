@@ -35,6 +35,7 @@ import {
   saveSnapshots,
   bulkSaveClassFree,
   bulkSaveClassAbsence,
+  clearTeacherSchedules,
 } from './services/supabaseDataService.js';
 import { realtimeSync } from './services/realtimeSync.js';
 
@@ -3300,7 +3301,7 @@ export default function App() {
                       onClick={() => {
                         if (confirm('Tüm ders programları silinecek. Emin misiniz?')) {
                           setTeacherSchedules({});
-                          saveTeacherSchedules({}).catch((err) => logger.error('Teacher schedule clear error:', err));
+                          clearTeacherSchedules().catch((err) => logger.error('Teacher schedule clear error:', err));
                           setTeacherSchedulesHydrated(false);
                           addNotification('Tüm ders programları silindi', 'info');
                         }

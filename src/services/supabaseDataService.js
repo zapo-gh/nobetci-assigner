@@ -451,13 +451,7 @@ export async function replacePdfSchedule(schedule) {
 export async function saveTeacherSchedules(teacherSchedules) {
   try {
     if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) {
-      // Clear all teacher schedules
-      const { error } = await supabase
-        .from('teacher_schedules')
-        .delete()
-        .neq('id', -1)
-
-      if (error) throw error
+      // Skip clearing automatically; use clearTeacherSchedules explicitly
       return
     }
 
@@ -476,6 +470,20 @@ export async function saveTeacherSchedules(teacherSchedules) {
     if (error) throw error
   } catch (error) {
     console.error('saveTeacherSchedules full error:', JSON.stringify(error, null, 2))
+    throw error
+  }
+}
+
+export async function clearTeacherSchedules() {
+  try {
+    const { error } = await supabase
+      .from('teacher_schedules')
+      .delete()
+      .neq('teacher_name', '__never__')
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearTeacherSchedules error:', JSON.stringify(error, null, 2))
     throw error
   }
 }
