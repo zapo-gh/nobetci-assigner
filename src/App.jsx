@@ -3107,6 +3107,10 @@ export default function App() {
                         console.log('Starting teacher schedule upload from Excel...');
                         const schedules = await parseTeacherSchedulesFromExcel(file);
                         setTeacherSchedules(schedules);
+                        await saveTeacherSchedules(schedules).catch((err) => {
+                          logger.error('Teacher schedule Supabase save error:', err);
+                          throw err;
+                        });
                         addNotification(
                           `${Object.keys(schedules).length} öğretmenin ders programı yüklendi`, 
                           "success"
@@ -3155,6 +3159,7 @@ export default function App() {
                       onClick={() => {
                         if (confirm('Tüm ders programları silinecek. Emin misiniz?')) {
                           setTeacherSchedules({});
+                          saveTeacherSchedules({}).catch((err) => logger.error('Teacher schedule clear error:', err));
                           addNotification('Tüm ders programları silindi', 'info');
                         }
                       }}
