@@ -33,6 +33,8 @@ import {
   saveTeacherSchedules,
   saveCommonLessons,
   saveSnapshots,
+  bulkSaveClassFree,
+  bulkSaveClassAbsence,
 } from './services/supabaseDataService.js';
 
 import Tabs from "./components/Tabs.jsx";
@@ -315,6 +317,7 @@ export default function App() {
   const [currentCommonLesson, setCurrentCommonLesson] = useState({ day: null, period: null, classId: null })
   const [pdfSchedule, setPdfSchedule] = useState({})
   const [teacherSchedules, setTeacherSchedules] = useState({}) // Store individual teacher class schedules
+  const [teacherSchedulesHydrated, setTeacherSchedulesHydrated] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState(null) // Selected teacher for modal display
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
@@ -384,6 +387,7 @@ export default function App() {
           setLocked(supabaseData.locked || {})
           setPdfSchedule(supabaseData.pdfSchedule || {})
           setTeacherSchedules(supabaseData.teacherSchedules || {})
+          setTeacherSchedulesHydrated(true)
           setCommonLessons(supabaseData.commonLessons || {})
           setSnapshots(supabaseData.snapshots || [])
 
@@ -461,6 +465,7 @@ export default function App() {
 
             if (parsed.teacherSchedules && typeof parsed.teacherSchedules === 'object') {
               setTeacherSchedules(parsed.teacherSchedules)
+              setTeacherSchedulesHydrated(true)
             }
 
             if (parsed.commonLessons && typeof parsed.commonLessons === 'object') {
@@ -489,15 +494,18 @@ export default function App() {
 
   // Otomatik kaydet
   useEffect(() => {
-    if (!hydratedRef.current) return
+    if (!hydratedRef.current || !teacherSchedulesHydrated) return
+
+    const serializedTeacherFree = mapSetToArray(teacherFree)
+    const serializedClassFree = mapSetToArray(classFree)
 
     const payload = {
       day,
       periods,
       teachers,
       classes,
-      teacherFree: mapSetToArray(teacherFree),
-      classFree: mapSetToArray(classFree),
+      teacherFree: serializedTeacherFree,
+      classFree: serializedClassFree,
       absentPeople,
       classAbsence,
       commonLessons,
@@ -515,12 +523,14 @@ export default function App() {
       if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
         saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
       }
+      bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
+      bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
       saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
       saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
     } catch (e) {
       logger.warn("Otomatik kaydetme hatası:", e);
     }
-  }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, snapshots, pdfSchedule, teacherSchedules]);
+  }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, snapshots, pdfSchedule, teacherSchedules, teacherSchedulesHydrated]);
 
   // Bildirim sistemi (diğer fonksiyonlardan önce tanımlanmalı)
   const addNotification = useCallback((messageOrOpts, maybeType) => {
@@ -3111,6 +3121,7 @@ export default function App() {
                         console.log('Starting teacher schedule upload from Excel...');
                         const schedules = await parseTeacherSchedulesFromExcel(file);
                         setTeacherSchedules(schedules);
+                        setTeacherSchedulesHydrated(true);
                         await saveTeacherSchedules(schedules).catch((err) => {
                           logger.error('Teacher schedule Supabase save error:', err);
                           throw err;
@@ -3164,6 +3175,7 @@ export default function App() {
                         if (confirm('Tüm ders programları silinecek. Emin misiniz?')) {
                           setTeacherSchedules({});
                           saveTeacherSchedules({}).catch((err) => logger.error('Teacher schedule clear error:', err));
+                          setTeacherSchedulesHydrated(false);
                           addNotification('Tüm ders programları silindi', 'info');
                         }
                       }}

@@ -660,6 +660,54 @@ export async function bulkSaveClassFree(classFree) {
   }
 }
 
+export async function bulkSaveClassAbsence(classAbsence) {
+  try {
+    // Normalize input to array of rows
+    const rows = []
+    if (classAbsence && typeof classAbsence === 'object') {
+      Object.entries(classAbsence).forEach(([dayKey, periods]) => {
+        if (!periods || typeof periods !== 'object') return
+
+        Object.entries(periods).forEach(([periodKey, classes]) => {
+          if (!classes || typeof classes !== 'object') return
+          const period = Number(periodKey)
+
+          Object.entries(classes).forEach(([classId, absentId]) => {
+            if (!absentId) return
+            rows.push({
+              day: dayKey,
+              period: Number.isFinite(period) ? period : parseInt(periodKey, 10) || periodKey,
+              classId,
+              absentId
+            })
+          })
+        })
+      })
+    }
+
+    // Clear existing data then insert current snapshot to keep tables in sync
+    const { error: deleteError } = await supabase
+      .from('class_absence')
+      .delete()
+      .neq('day', '__never__')
+
+    if (deleteError) throw deleteError
+
+    if (rows.length === 0) {
+      return
+    }
+
+    const { error: insertError } = await supabase
+      .from('class_absence')
+      .insert(rows)
+
+    if (insertError) throw insertError
+  } catch (error) {
+    console.error('bulkSaveClassAbsence full error:', JSON.stringify(error, null, 2))
+    throw error
+  }
+}
+
 export async function bulkSaveTeacherFree(teacherFree) {
   try {
     if (!teacherFree || Object.keys(teacherFree).length === 0) {
