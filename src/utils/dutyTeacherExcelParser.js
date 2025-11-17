@@ -66,7 +66,7 @@ export async function parseDutyTeachersFromExcel(file) {
         console.log(`Found header at row ${headerRowIndex}:`, jsonData[headerRowIndex]);
         
         // Parse data rows
-        const sheetDutyTeachers = parseDataRows(jsonData, headerRowIndex, sheetName);
+        const sheetDutyTeachers = parseDataRows(jsonData, headerRowIndex);
         dutyTeachers.push(...sheetDutyTeachers);
         
         console.log(`Parsed ${sheetDutyTeachers.length} duty teachers from sheet "${sheetName}"`);
@@ -134,7 +134,7 @@ function findHeaderRow(sheetData) {
  * @param {string} sheetName - Name of the sheet
  * @returns {Array} Array of parsed duty teachers
  */
-function parseDataRows(sheetData, headerRowIndex) { // sheetName kullanılmıyor
+function parseDataRows(sheetData, headerRowIndex) {
   const dutyTeachers = [];
   const headerRow = sheetData[headerRowIndex];
   
@@ -285,7 +285,6 @@ function isDutyScheduleFormat(sheetData) {
   
   // Check for common duty schedule indicators
   const firstRow = sheetData[0] || [];
-  // const secondRow = sheetData[1] || []; // Kullanılmıyor
   
   // Look for "ÖĞRETMEN NÖBET ÇİZELGESİ" or similar patterns
   const titleText = firstRow[0] ? String(firstRow[0]).toLowerCase() : '';
@@ -402,7 +401,7 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
     
     // Extract teacher names from this row
     console.log(`Extracting teachers from row ${rowIndex} (Day: ${currentDay})`);
-    const teachersInRow = extractTeachersFromRow(row, isDayRow, currentDay);
+    const teachersInRow = extractTeachersFromRow(row, isDayRow);
     console.log(`Found ${teachersInRow.length} teachers in this row:`, teachersInRow);
     
     teachersInRow.forEach(teacher => {
@@ -425,7 +424,7 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
   console.log(`Day teachers map:`, dayTeachers);
   
   // Convert Set to Array and create teacher objects
-  const uniqueTeachers = Array.from(teacherNames).map((name) => { // index kullanılmıyor
+  const uniqueTeachers = Array.from(teacherNames).map((name) => {
     const teacherId = generateTeacherId(name);
     return {
       teacherId: teacherId,
@@ -471,7 +470,7 @@ function isDayNameRow(cellValue) {
  * @param {string} currentDay - Current day name
  * @returns {Array} Array of teacher names found in this row
  */
-function extractTeachersFromRow(row, isDayRow) { // currentDay kullanılmıyor
+function extractTeachersFromRow(row, isDayRow) {
   const teachers = [];
   
   // Determine column range
@@ -539,7 +538,7 @@ function isValidTeacherName(name) {
   }
   
   // Check if it's only numbers or special characters
-  if (/^[0-9\s-.]+$/.test(trimmedName)) {
+  if (/^[0-9\s.-]+$/.test(trimmedName)) {
     console.log(`    Rejected: "${name}" is only numbers/special chars`);
     return false;
   }

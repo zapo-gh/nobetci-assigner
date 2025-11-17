@@ -239,7 +239,7 @@ function parseTabSeparatedFormat(lines, dayMapping, periodMapping) {
 /**
  * Space-separated format'ı parse eder
  */
-function parseSpaceSeparatedFormat(lines, dayMapping) { // periodMapping kullanılmıyor
+function parseSpaceSeparatedFormat(lines, dayMapping) {
   const schedule = {};
   
   // Her gün için veri topla
@@ -450,7 +450,7 @@ function parseGeneralPattern(text, dayMapping, periodMapping) {
 /**
  * Akıllı tablo parsing - tablo başlıklarını filtreler
  */
-function parseSmartTable(text, dayMapping) { // periodMapping kullanılmıyor
+function parseSmartTable(text, dayMapping) {
   const schedule = {};
   
   // Metni satırlara böl
@@ -524,7 +524,7 @@ function parseSmartTable(text, dayMapping) { // periodMapping kullanılmıyor
 /**
  * Tek satır format'ı parse eder (PDF'den gelen bozuk format için)
  */
-function parseSingleLineFormat(text, dayMapping) { // periodMapping kullanılmıyor
+function parseSingleLineFormat(text, dayMapping) {
   const schedule = {};
   
   console.log('Parsing single line format...');
@@ -609,7 +609,7 @@ function parseSingleLineFormat(text, dayMapping) { // periodMapping kullanılmı
 /**
  * Gelişmiş tek satır parsing - gerçek PDF yapısını parse eder
  */
-function parseAdvancedSingleLineFormat(text, dayMapping) { // periodMapping kullanılmıyor
+function parseAdvancedSingleLineFormat(text, dayMapping) {
   const schedule = {};
   
   console.log('Parsing advanced single line format...');

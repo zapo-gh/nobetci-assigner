@@ -183,7 +183,7 @@ function isValidTeacherName(name) {
   }
   
   // Check if it's only numbers or special characters
-  if (/^[0-9\s-.]+$/.test(name)) return false;
+  if (/^[0-9\s.-]+$/.test(name)) return false;
   
   // Check if it contains at least one space (Ad Soyad format)
   if (!name.includes(' ')) return false;

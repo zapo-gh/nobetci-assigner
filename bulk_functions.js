@@ -1,5 +1,3 @@
-import { supabase } from './src/services/supabaseClient.js'
-
 export async function bulkSaveTeachers(teachers) {
   try {
     if (!teachers || teachers.length === 0) {

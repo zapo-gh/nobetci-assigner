@@ -7,23 +7,21 @@ const isDevelopment = APP_ENV.isDevelopment;
 
 export const logger = {
   error: (...args) => {
-    if (isDevelopment) {
-      console.error(...args);
-    }
+    console.error(...args);
   },
-  
+
   warn: (...args) => {
-    if (isDevelopment) {
+    if (isDevelopment || APP_ENV.isProduction) {
       console.warn(...args);
     }
   },
-  
+
   log: (...args) => {
     if (isDevelopment) {
       console.log(...args);
     }
   },
-  
+
   info: (...args) => {
     if (isDevelopment) {
       console.info(...args);

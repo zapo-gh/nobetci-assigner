@@ -3,13 +3,14 @@ import React from 'react'
 export default function AssignmentInsights({ insights, IconComponent }) {
   if (!insights) return null
 
-  const { teacherSummaries = [] } = insights // coverageByPeriod kullanılmıyor
+  const { teacherSummaries = [] } = insights
+  const activeTeachers = teacherSummaries.filter((summary) => {
+    const assignmentCount = Array.isArray(summary.assignments) ? summary.assignments.length : 0
+    const dutyHints = Array.isArray(summary.unassignedReasons) ? summary.unassignedReasons.length : 0
+    return assignmentCount > 0 || dutyHints > 0
+  })
   const hasCoverage = false
-  const hasTeachers = teacherSummaries.some(
-    (summary) =>
-      (summary.assignments && summary.assignments.length > 0) ||
-      (summary.unassignedReasons && summary.unassignedReasons.length > 0)
-  )
+  const hasTeachers = activeTeachers.length > 0
 
   if (!hasCoverage && !hasTeachers) {
     return null
@@ -26,18 +27,14 @@ export default function AssignmentInsights({ insights, IconComponent }) {
 
       {hasTeachers && (
         <div className="teacher-insight-grid">
-          {teacherSummaries.map(({ teacher, assignments = [], unassignedReasons = [] }) => {
-            if (assignments.length === 0 && unassignedReasons.length === 0) return null
-
+          {activeTeachers.map(({ teacher, assignments = [] }) => {
             return (
               <div key={teacher.teacherId} className="teacher-insight-card">
                 <div className="teacher-insight-header">
                   <span className="teacher-name">{teacher.teacherName}</span>
-                  {assignments.length > 0 && (
-                    <span className="teacher-assignment-count">
-                      {assignments.length} görev
-                    </span>
-                  )}
+                  <span className="teacher-assignment-count">
+                    <strong>{assignments.length}</strong> görev
+                  </span>
                 </div>
 
                 {assignments.length > 0 && (
@@ -52,18 +49,6 @@ export default function AssignmentInsights({ insights, IconComponent }) {
                   </div>
                 )}
 
-                {unassignedReasons.length > 0 && (
-                  <div className="teacher-reasons">
-                    <p>Görev alamadığı saatler:</p>
-                    <ul>
-                      {unassignedReasons.map((reason, index) => (
-                        <li key={index}>
-                          <strong>{reason.period}. saat:</strong> {reason.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )
           })}

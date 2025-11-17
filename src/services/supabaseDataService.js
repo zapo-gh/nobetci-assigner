@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient.js'
-import { retry } from '../utils/retry.js'
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -8,27 +7,26 @@ const createId = () => {
   return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
 
-// const now = () => new Date().toISOString() // Kullanılmıyor
+const CLASS_FREE_SINGLE_ROW_ID = 1
+const TEACHER_FREE_SINGLE_ROW_ID = 1
 
 export async function loadInitialData() {
   try {
-    // Load all data in parallel with retry
-    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, importHistoryRes, snapshotsRes] = await retry(async () => {
-      return await Promise.all([
-        supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
-        supabase.from('classes').select('*').order('createdAt', { ascending: false }),
-        supabase.from('absents').select('*').order('createdAt', { ascending: false }),
-        supabase.from('class_free').select('*'),
-        supabase.from('teacher_free').select('*'),
-        supabase.from('class_absence').select('*'),
-        supabase.from('locks').select('*'),
-        supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
-        supabase.from('teacher_schedules').select('*'),
-        supabase.from('common_lessons').select('*'),
-        supabase.from('import_history').select('*').order('createdAt', { ascending: false }),
-        supabase.from('snapshots').select('*').order('ts', { ascending: false })
-      ])
-    }, { maxRetries: 3, delay: 1000 })
+    // Load all data in parallel
+    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, importHistoryRes, snapshotsRes] = await Promise.all([
+      supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
+      supabase.from('classes').select('*').order('createdAt', { ascending: false }),
+      supabase.from('absents').select('*').order('createdAt', { ascending: false }),
+      supabase.from('class_free').select('*'),
+      supabase.from('teacher_free').select('*'),
+      supabase.from('class_absence').select('*'),
+      supabase.from('locks').select('*'),
+      supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
+      supabase.from('teacher_schedules').select('*'),
+      supabase.from('common_lessons').select('*'),
+      supabase.from('import_history').select('*').order('createdAt', { ascending: false }),
+      supabase.from('snapshots').select('*').order('ts', { ascending: false })
+    ])
 
     if (teachersRes.error) throw teachersRes.error
     if (classesRes.error) throw classesRes.error
@@ -44,16 +42,27 @@ export async function loadInitialData() {
     if (snapshotsRes.error) throw snapshotsRes.error
 
     // Transform data to expected format
-    const classFree = {}
-    classFreeRes.data.forEach(item => {
-      if (!classFree[item.day]) classFree[item.day] = {}
-      classFree[item.day][item.period] = item.classIds || []
-    })
+    let classFree = {}
+    const classFreeJsonRow = classFreeRes.data?.find(item => typeof item?.data === 'object')
+    if (classFreeJsonRow) {
+      classFree = classFreeJsonRow.data || {}
+    } else {
+      classFreeRes.data.forEach(item => {
+        if (!item?.day) return
+        if (!classFree[item.day]) classFree[item.day] = {}
+        classFree[item.day][item.period] = item.classIds || []
+      })
+    }
 
-    const teacherFree = {}
-    teacherFreeRes.data.forEach(item => {
-      teacherFree[item.period] = item.teacherIds || []
-    })
+    let teacherFree = {}
+    const teacherFreeJsonRow = teacherFreeRes.data?.find(item => typeof item?.data === 'object')
+    if (teacherFreeJsonRow) {
+      teacherFree = teacherFreeJsonRow.data || {}
+    } else {
+      teacherFreeRes.data.forEach(item => {
+        teacherFree[item.period] = item.teacherIds || []
+      })
+    }
 
     const classAbsence = {}
     classAbsenceRes.data.forEach(item => {
@@ -229,34 +238,39 @@ export async function deleteClassAbsenceByAbsent(absentId) {
 
 export async function upsertClassFree({ day, period, classId, isSelected }) {
   try {
-    // First, get current class_free for this day/period
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existingRow, error: fetchError } = await supabase
       .from('class_free')
-      .select('classIds')
-      .eq('day', day)
-      .eq('period', period)
-      .single()
+      .select('id,data')
+      .eq('id', CLASS_FREE_SINGLE_ROW_ID)
+      .maybeSingle()
 
     if (fetchError && fetchError.code !== 'PGRST116') throw fetchError // PGRST116 = not found
 
-    let classIds = existing ? (existing.classIds || []) : []
+    const nextData = existingRow?.data && typeof existingRow.data === 'object'
+      ? JSON.parse(JSON.stringify(existingRow.data))
+      : {}
+
+    if (!nextData[day]) nextData[day] = {}
+    const periodKey = Number.isFinite(Number(period)) ? Number(period) : period
+    const existingSet = new Set(Array.isArray(nextData[day][periodKey]) ? nextData[day][periodKey] : [])
 
     if (isSelected) {
-      if (!classIds.includes(classId)) {
-        classIds.push(classId)
-      }
+      existingSet.add(classId)
     } else {
-      classIds = classIds.filter(id => id !== classId)
+      existingSet.delete(classId)
+    }
+
+    nextData[day][periodKey] = Array.from(existingSet)
+
+    const payload = {
+      id: existingRow?.id || CLASS_FREE_SINGLE_ROW_ID,
+      data: nextData
     }
 
     const { error } = await supabase
       .from('class_free')
-      .upsert({
-        day,
-        period,
-        classIds
-      }, {
-        onConflict: 'day,period'
+      .upsert(payload, {
+        onConflict: 'id'
       })
 
     if (error) throw error
@@ -268,32 +282,38 @@ export async function upsertClassFree({ day, period, classId, isSelected }) {
 
 export async function upsertTeacherFree({ period, teacherId, isSelected }) {
   try {
-    // First, get current teacher_free for this period
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existingRow, error: fetchError } = await supabase
       .from('teacher_free')
-      .select('teacherIds')
-      .eq('period', period)
-      .single()
+      .select('id,data')
+      .eq('id', TEACHER_FREE_SINGLE_ROW_ID)
+      .maybeSingle()
 
-    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError // PGRST116 = not found
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
 
-    let teacherIds = existing ? (existing.teacherIds || []) : []
+    const nextData = existingRow?.data && typeof existingRow.data === 'object'
+      ? { ...existingRow.data }
+      : {}
+
+    const periodKey = Number.isFinite(Number(period)) ? Number(period) : period
+    const currentSet = new Set(Array.isArray(nextData[periodKey]) ? nextData[periodKey] : [])
 
     if (isSelected) {
-      if (!teacherIds.includes(teacherId)) {
-        teacherIds.push(teacherId)
-      }
+      currentSet.add(teacherId)
     } else {
-      teacherIds = teacherIds.filter(id => id !== teacherId)
+      currentSet.delete(teacherId)
+    }
+
+    nextData[periodKey] = Array.from(currentSet)
+
+    const payload = {
+      id: existingRow?.id || TEACHER_FREE_SINGLE_ROW_ID,
+      data: nextData
     }
 
     const { error } = await supabase
       .from('teacher_free')
-      .upsert({
-        period,
-        teacherIds
-      }, {
-        onConflict: 'period'
+      .upsert(payload, {
+        onConflict: 'id'
       })
 
     if (error) throw error
@@ -370,7 +390,7 @@ export async function resetAllForClasses() {
     const { error } = await supabase
       .from('class_free')
       .delete()
-      .neq('day', 'dummy') // Delete all
+      .neq('id', -1) // Delete all
 
     if (error) throw error
   } catch (error) {
@@ -384,7 +404,7 @@ export async function resetClassFreeData() {
     const { error } = await supabase
       .from('class_free')
       .delete()
-      .neq('day', 'dummy') // Delete all
+      .neq('id', -1) // Delete all
 
     if (error) throw error
   } catch (error) {
@@ -398,7 +418,7 @@ export async function resetTeacherFreeData() {
     const { error } = await supabase
       .from('teacher_free')
       .delete()
-      .neq('period', -1) // Delete all
+      .neq('id', -1) // Delete all
 
     if (error) throw error
   } catch (error) {
@@ -627,7 +647,7 @@ export async function bulkSaveClassFree(classFree) {
     const { error } = await supabase
       .from('class_free')
       .upsert({
-        id: 1, // Single row for all data
+        id: CLASS_FREE_SINGLE_ROW_ID, // Single row for all data
         data: classFree
       }, {
         onConflict: 'id'
@@ -657,7 +677,7 @@ export async function bulkSaveTeacherFree(teacherFree) {
     const { error } = await supabase
       .from('teacher_free')
       .upsert({
-        id: 1, // Single row for all data
+        id: TEACHER_FREE_SINGLE_ROW_ID, // Single row for all data
         data: teacherFree
       }, {
         onConflict: 'id'

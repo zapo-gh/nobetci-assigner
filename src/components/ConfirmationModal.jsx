@@ -9,18 +9,19 @@ const ConfirmationModal = ({
   confirmText = "Evet", 
   cancelText = "Hayır",
   type = "warning", // warning, danger, info
-  IconComponent // eslint-disable-line no-unused-vars
+  IconComponent: Icon = null
 }) => {
   if (!isOpen) return null;
 
   const getIcon = () => {
+    if (!Icon) return null;
     switch (type) {
       case 'danger':
-        return <IconComponent name="alert-triangle" size={24} />;
+        return <Icon name="alert-triangle" size={24} />;
       case 'info':
-        return <IconComponent name="info" size={24} />;
+        return <Icon name="info" size={24} />;
       default:
-        return <IconComponent name="help-circle" size={24} />;
+        return <Icon name="help-circle" size={24} />;
     }
   };
 

@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
 import { normalizeForComparison } from "./utils/pdfParser.js";
 import { parseTeacherSchedulesFromExcel } from "./utils/teacherScheduleExcelParser.js";
-
 import { 
   dateForSelectedDay, 
   formatTRDate, 
@@ -34,14 +32,8 @@ import {
   replacePdfSchedule,
   saveTeacherSchedules,
   saveCommonLessons,
-  saveImportHistory,
   saveSnapshots,
 } from './services/supabaseDataService.js';
-import { realtimeSync } from './services/realtimeSync.js';
-import { supabase } from './services/supabaseClient.js';
-
-// Supabase client import kontrolü - bağlantı loglarını tetikler
-console.log('[App] ✓ Supabase client imported, connection status:', supabase ? 'available' : 'unavailable')
 
 import Tabs from "./components/Tabs.jsx";
 import PrintableDailyList from "./components/PrintableDailyList.jsx";
@@ -62,7 +54,6 @@ import ConfirmationModal from "./components/ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./components/PdfScheduleImportModal.jsx";
 import TeacherScheduleModal from "./components/TeacherScheduleModal.jsx";
 import DutyTeacherExcelImportModal from "./components/DutyTeacherExcelImportModal.jsx";
-import ImportHistory from "./components/ImportHistory.jsx";
 import AssignmentInsights from "./components/AssignmentInsights.jsx";
 import SnapshotManager from "./components/SnapshotManager.jsx";
 
@@ -282,27 +273,6 @@ function migrateClassAbsence(oldClassAbsence) {
 /* =========================== App Bileşeni =========================== */
 
 export default function App() {
-  // App component başlatıldığında Supabase bağlantı durumunu kontrol et
-  useEffect(() => {
-    console.log('%c🚀 [App] Component mounted', 'color: #6366f1; font-weight: bold;')
-    console.log('🔌 Supabase client:', supabase ? '✓ Available' : '✗ Not available')
-    
-    // Supabase bağlantı durumunu test et
-    if (supabase) {
-      supabase.from('teachers').select('count', { count: 'exact', head: true })
-        .then(({ error }) => {
-          if (error) {
-            console.warn('%c⚠️ [App] Supabase connection test failed:', 'color: #f59e0b; font-weight: bold;', error.message)
-          } else {
-            console.log('%c✅ [App] Supabase connection verified!', 'color: #10b981; font-weight: bold;')
-          }
-        })
-        .catch((err) => {
-          console.error('%c❌ [App] Supabase connection test error:', 'color: #ef4444; font-weight: bold;', err)
-        })
-    }
-  }, [])
-  
   // Bugünün gününü otomatik seç (Pazartesi=1, Cuma=5)
   const getTodayKey = () => {
     const today = new Date().getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
@@ -335,9 +305,7 @@ export default function App() {
   const [locked, setLocked] = useState({})
   const [snapshots, setSnapshots] = useState([])
 
-  const [_loading, setLoading] = useState({ teachers: false, classes: false, absents: false });
   const [notifications, setNotifications] = useState([]);
-  const [importHistory, setImportHistory] = useState([]);
   const [activeSection, setActiveSection] = useState("teachers");
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const hydratedRef = useRef(false);
@@ -348,7 +316,6 @@ export default function App() {
   const [pdfSchedule, setPdfSchedule] = useState({})
   const [teacherSchedules, setTeacherSchedules] = useState({}) // Store individual teacher class schedules
   const [selectedTeacher, setSelectedTeacher] = useState(null) // Selected teacher for modal display
-  const [initialDataLoading, setInitialDataLoading] = useState(true)
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     title: '',
@@ -393,24 +360,19 @@ export default function App() {
 
   // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
+    if (hydratedRef.current) {
+      return
+    }
+
     let isMounted = true
 
     const loadData = async () => {
       try {
-        setInitialDataLoading(true)
 
         // Önce Supabase'den veri çekmeyi dene
         try {
-          console.log('%c📥 [App] Loading data from Supabase...', 'color: #4a90e2; font-weight: bold;')
-          logger.info('[App] Attempting to load data from Supabase...')
           const supabaseData = await loadInitialData()
           if (!isMounted) return
-
-          console.log('%c✅ [App] Data loaded from Supabase successfully!', 'color: #10b981; font-weight: bold;')
-          console.log('📊 Teachers:', supabaseData.teachers?.length || 0)
-          console.log('📊 Classes:', supabaseData.classes?.length || 0)
-          console.log('📊 Absents:', supabaseData.absents?.length || 0)
-          logger.info('[App] ✓ Data loaded from Supabase successfully')
 
           // Supabase verilerini state'e yükle
           setTeachers(supabaseData.teachers || [])
@@ -423,7 +385,6 @@ export default function App() {
           setPdfSchedule(supabaseData.pdfSchedule || {})
           setTeacherSchedules(supabaseData.teacherSchedules || {})
           setCommonLessons(supabaseData.commonLessons || {})
-          setImportHistory(supabaseData.importHistory || [])
           setSnapshots(supabaseData.snapshots || [])
 
           // Supabase'den başarılı veri çekildi, localStorage'i güncelle
@@ -442,7 +403,6 @@ export default function App() {
             snapshots: supabaseData.snapshots || [],
             pdfSchedule: supabaseData.pdfSchedule || {},
             teacherSchedules: supabaseData.teacherSchedules || {},
-            importHistory: supabaseData.importHistory || [],
             lastSaved: Date.now(),
           }
           try {
@@ -451,14 +411,13 @@ export default function App() {
             logger.warn('LocalStorage update failed:', storageError)
           }
 
+          logger.info('Data loaded from Supabase successfully')
           if (isMounted) {
             hydratedRef.current = true
-            setInitialDataLoading(false)
           }
           return
         } catch (supabaseError) {
-          console.warn('%c⚠️ [App] Supabase load failed, using localStorage:', 'color: #f59e0b; font-weight: bold;', supabaseError.message)
-          logger.warn('[App] ✗ Supabase load failed, falling back to localStorage:', supabaseError.message)
+          logger.warn('Supabase load failed, falling back to localStorage:', supabaseError.message)
         }
 
         // Supabase başarısız olduysa localStorage'dan yükle
@@ -507,10 +466,6 @@ export default function App() {
             if (parsed.commonLessons && typeof parsed.commonLessons === 'object') {
               setCommonLessons(parsed.commonLessons)
             }
-
-            if (Array.isArray(parsed.importHistory)) {
-              setImportHistory(parsed.importHistory)
-            }
           } catch (error) {
             logger.error('Local data hydrate failed:', error)
           }
@@ -522,7 +477,6 @@ export default function App() {
       } finally {
         if (isMounted) {
           hydratedRef.current = true
-          setInitialDataLoading(false)
         }
       }
     }
@@ -531,211 +485,7 @@ export default function App() {
     return () => {
       isMounted = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Sadece mount'ta çalışmalı
-
-  // Realtime senkronizasyon - Supabase'deki değişiklikleri dinle
-  useEffect(() => {
-    if (!hydratedRef.current || initialDataLoading) return // İlk yükleme tamamlanana kadar bekle
-
-    console.log('%c🔄 [App] Setting up Realtime subscriptions...', 'color: #8b5cf6; font-weight: bold;')
-    logger.info('[App] Setting up Realtime subscriptions...')
-
-    const unsubscribe = realtimeSync.subscribe({
-      // Teachers değişiklikleri
-      teachers: async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setTeachers(prev => {
-            const exists = prev.find(t => t.teacherId === payload.new.teacherId)
-            if (exists) return prev
-            return [...prev, payload.new]
-          })
-        } else if (payload.eventType === 'UPDATE') {
-          setTeachers(prev => prev.map(t => 
-            t.teacherId === payload.new.teacherId ? payload.new : t
-          ))
-        } else if (payload.eventType === 'DELETE') {
-          setTeachers(prev => prev.filter(t => t.teacherId !== payload.old.teacherId))
-        }
-      },
-
-      // Classes değişiklikleri
-      classes: async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setClasses(prev => {
-            const exists = prev.find(c => c.classId === payload.new.classId)
-            if (exists) return prev
-            return [...prev, payload.new]
-          })
-        } else if (payload.eventType === 'UPDATE') {
-          setClasses(prev => prev.map(c => 
-            c.classId === payload.new.classId ? payload.new : c
-          ))
-        } else if (payload.eventType === 'DELETE') {
-          setClasses(prev => prev.filter(c => c.classId !== payload.old.classId))
-        }
-      },
-
-      // Absents değişiklikleri
-      absents: async () => {
-        // Tüm absents listesini yeniden yükle (normalizeAbsentPeople gerektiği için)
-        try {
-          const { data, error } = await supabase.from('absents').select('*').order('createdAt', { ascending: false })
-          if (!error && data) {
-            const { data: classAbsenceData } = await supabase.from('class_absence').select('*')
-            const classAbsence = {}
-            classAbsenceData?.forEach(item => {
-              if (!classAbsence[item.day]) classAbsence[item.day] = {}
-              if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
-              classAbsence[item.day][item.period][item.classId] = item.absentId
-            })
-            setAbsentPeople(normalizeAbsentPeople(data, classAbsence))
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading absents:', err)
-        }
-      },
-
-      // Class Free değişiklikleri
-      classFree: async () => {
-        // Tüm class_free listesini yeniden yükle
-        try {
-          const { data, error } = await supabase.from('class_free').select('*')
-          if (!error && data) {
-            const classFree = {}
-            data.forEach(item => {
-              if (!classFree[item.day]) classFree[item.day] = {}
-              classFree[item.day][item.period] = item.classIds || []
-            })
-            setClassFree(migrateClassFree(classFree))
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading classFree:', err)
-        }
-      },
-
-      // Teacher Free değişiklikleri
-      teacherFree: async () => {
-        // Tüm teacher_free listesini yeniden yükle
-        try {
-          const { data, error } = await supabase.from('teacher_free').select('*')
-          if (!error && data) {
-            const teacherFree = {}
-            data.forEach(item => {
-              teacherFree[item.period] = item.teacherIds || []
-            })
-            setTeacherFree(arrayToSetMap(teacherFree))
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading teacherFree:', err)
-        }
-      },
-
-      // Class Absence değişiklikleri
-      classAbsence: async () => {
-        // Tüm class_absence listesini yeniden yükle
-        try {
-          const { data, error } = await supabase.from('class_absence').select('*')
-          if (!error && data) {
-            const classAbsence = {}
-            data.forEach(item => {
-              if (!classAbsence[item.day]) classAbsence[item.day] = {}
-              if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
-              classAbsence[item.day][item.period][item.classId] = item.absentId
-            })
-            setClassAbsence(migrateClassAbsence(classAbsence))
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading classAbsence:', err)
-        }
-      },
-
-      // Locks değişiklikleri
-      locks: async (payload) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          const key = `${payload.new.day}|${payload.new.period}|${payload.new.classId}`
-          setLocked(prev => ({
-            ...prev,
-            [key]: payload.new.teacherId
-          }))
-        } else if (payload.eventType === 'DELETE') {
-          const key = `${payload.old.day}|${payload.old.period}|${payload.old.classId}`
-          setLocked(prev => {
-            const next = { ...prev }
-            delete next[key]
-            return next
-          })
-        }
-      },
-
-      // PDF Schedule değişiklikleri
-      pdfSchedule: async (payload) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          setPdfSchedule(payload.new.schedule || {})
-        }
-      },
-
-      // Teacher Schedules değişiklikleri
-      teacherSchedules: async () => {
-        // Tüm teacher_schedules listesini yeniden yükle
-        try {
-          const { data, error } = await supabase.from('teacher_schedules').select('*')
-          if (!error && data) {
-            const teacherSchedules = {}
-            data.forEach(item => {
-              teacherSchedules[item.teacher_name] = item.schedule
-            })
-            setTeacherSchedules(teacherSchedules)
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading teacherSchedules:', err)
-        }
-      },
-
-      // Common Lessons değişiklikleri
-      commonLessons: async () => {
-        // Tüm common_lessons listesini yeniden yükle
-        try {
-          const { data, error } = await supabase.from('common_lessons').select('*')
-          if (!error && data) {
-            const commonLessons = {}
-            data.forEach(item => {
-              if (!commonLessons[item.day]) commonLessons[item.day] = {}
-              if (!commonLessons[item.day][item.period]) commonLessons[item.day][item.period] = {}
-              commonLessons[item.day][item.period][item.class_id] = item.teacher_name
-            })
-            setCommonLessons(commonLessons)
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading commonLessons:', err)
-        }
-      },
-
-      // Import History değişiklikleri
-      importHistory: async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setImportHistory(prev => [payload.new, ...prev].slice(0, 20))
-        }
-      },
-
-      // Snapshots değişiklikleri
-      snapshots: async () => {
-        // Tüm snapshots listesini yeniden yükle
-        try {
-          const { data, error } = await supabase.from('snapshots').select('*').order('ts', { ascending: false })
-          if (!error && data) {
-            setSnapshots(data)
-          }
-        } catch (err) {
-          logger.error('[RealtimeSync] Error reloading snapshots:', err)
-        }
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [initialDataLoading])
+  }, [day, periods, options])
 
   // Otomatik kaydet
   useEffect(() => {
@@ -755,21 +505,18 @@ export default function App() {
       snapshots,
       pdfSchedule,
       teacherSchedules,
-      importHistory,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
       // Save to Supabase as well
-      replacePdfSchedule(pdfSchedule).catch(err => logger.error('Auto save pdfSchedule error:', err));
       saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
       saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
-      saveImportHistory(importHistory).catch(err => logger.error('Auto save importHistory error:', err));
       saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
     } catch (e) {
       logger.warn("Otomatik kaydetme hatası:", e);
     }
-  }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, snapshots, pdfSchedule, teacherSchedules, importHistory]);
+  }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, snapshots, pdfSchedule, teacherSchedules]);
 
   // Bildirim sistemi (diğer fonksiyonlardan önce tanımlanmalı)
   const addNotification = useCallback((messageOrOpts, maybeType) => {
@@ -793,31 +540,6 @@ export default function App() {
     if (n.duration > 0) {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
     }
-  }, [])
-
-  const recordImportEvent = useCallback((entry) => {
-    if (!entry || typeof entry !== 'object') return
-
-    const baseEntry = {
-      id: `import_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      importedAt: Date.now(),
-      status: entry.status || 'success',
-      type: entry.type || 'unknown',
-      source: entry.source || 'manual',
-      fileName: entry.fileName || '',
-      fileSize: entry.fileSize ?? null,
-      stats: Array.isArray(entry.stats) ? entry.stats : [],
-      note: entry.note || '',
-    }
-
-    setImportHistory((prev) => {
-      const next = [baseEntry, ...prev]
-      return next.slice(0, 20)
-    })
-  }, [])
-
-  const clearImportHistory = useCallback(() => {
-    setImportHistory([])
   }, [])
 
   // Nöbetçi öğretmenlerin boş saatlerini otomatik işaretle (referanslardan önce tanımlandı)
@@ -1000,12 +722,6 @@ export default function App() {
           if (Object.keys(out[day][p]).length === 0) delete out[day][p];
           if (Object.keys(out[day]).length === 0) delete out[day];
         }
-        
-        // Supabase'e kaydet
-        saveCommonLessons(out).catch(err => {
-          logger.error('Common lessons cleanup error:', err);
-        });
-        
         return out;
       });
     }
@@ -1062,12 +778,6 @@ export default function App() {
       if (!next[day][period]) next[day][period] = {};
       if (teacherName) next[day][period][classId] = teacherName;
       else delete next[day][period][classId];
-      
-      // Supabase'e kaydet
-      saveCommonLessons(next).catch(err => {
-        logger.error('Common lessons save error:', err);
-      });
-      
       return next;
     });
   }, []);
@@ -1160,14 +870,13 @@ export default function App() {
     }
 
     return { insertedCount: insertedTeachers.length, removedCount: existingDutyTeachers.length };
-  }, [teachers, periods, setPdfSchedule]); // replacePdfSchedule is a stable import
+  }, [teachers, periods, setPdfSchedule]);
 
   const handleExcelReplaceConfirm = useCallback(async () => {
     const { data, existingCount } = excelReplaceModal;
     setExcelReplaceModal({ isOpen: false, data: null });
     if (!data) return;
 
-    setLoading((s) => ({ ...s, teachers: true }));
     try {
       const result = await importDutyTeachersData(data);
       const replacedCount = existingCount ?? result.removedCount;
@@ -1178,30 +887,13 @@ export default function App() {
       }
       setActiveSection('classes');
 
-      const dutyTeacherCount = data.dutyTeachers?.length || 0;
-      const dayCount = data.dayTeachers instanceof Map ? data.dayTeachers.size : 0;
-
-      recordImportEvent({
-        type: 'duty-teacher',
-        source: 'excel',
-        fileName: data.fileMeta?.name || 'Nöbetçi Öğretmen Excel',
-        fileSize: data.fileMeta?.size ?? null,
-        status: dutyTeacherCount > 0 ? 'success' : 'warning',
-        note: dutyTeacherCount > 0 ? '' : 'Excel dosyasında nöbetçi öğretmen bulunamadı.',
-        stats: [
-          { label: 'Öğretmen', value: dutyTeacherCount },
-          { label: 'Gün', value: dayCount },
-          { label: 'Eklenen', value: result.insertedCount },
-          { label: 'Silinen', value: replacedCount },
-        ],
-      });
     } catch (e) {
       logger.error('Excel yükleme hatası:', e);
       addNotification(`Excel yükleme hatası: ${e.message}`, "error");
     } finally {
-      setLoading((s) => ({ ...s, teachers: false }));
+      // no-op
     }
-  }, [excelReplaceModal, addNotification, importDutyTeachersData, setActiveSection, recordImportEvent]);
+  }, [excelReplaceModal, addNotification, importDutyTeachersData, setActiveSection]);
 
   const handleExcelReplaceCancel = useCallback(() => {
     setExcelReplaceModal({ isOpen: false, data: null });
@@ -1232,8 +924,6 @@ export default function App() {
         return;
       }
 
-      setLoading((s) => ({ ...s, teachers: true }));
-      
       try {
         const result = await importDutyTeachersData(data);
         const replacedCount = existingTeachers.length > 0 ? existingTeachers.length : result.removedCount;
@@ -1244,32 +934,14 @@ export default function App() {
         }
         setActiveSection("classes");
 
-        const dutyTeacherCount = data.dutyTeachers?.length || 0;
-        const dayCount = data.dayTeachers instanceof Map ? data.dayTeachers.size : 0;
-
-        recordImportEvent({
-          type: 'duty-teacher',
-          source: 'excel',
-          fileName: data.fileMeta?.name || 'Nöbetçi Öğretmen Excel',
-          fileSize: data.fileMeta?.size ?? null,
-          status: dutyTeacherCount > 0 ? 'success' : 'warning',
-          note: dutyTeacherCount > 0 ? '' : 'Excel dosyasında nöbetçi öğretmen bulunamadı.',
-          stats: [
-            { label: 'Öğretmen', value: dutyTeacherCount },
-            { label: 'Gün', value: dayCount },
-            { label: 'Eklenen', value: result.insertedCount },
-            { label: 'Silinen', value: replacedCount },
-          ],
-        });
-        
       } catch (e) {
         logger.error(e);
         addNotification(`Excel yükleme hatası: ${e.message}`, "error");
       } finally {
-        setLoading((s) => ({ ...s, teachers: false }));
+        // no-op
       }
     },
-    [addNotification, teachers, importDutyTeachersData, setActiveSection, recordImportEvent]
+    [addNotification, teachers, importDutyTeachersData, setActiveSection]
   );
 
 
@@ -1283,16 +955,9 @@ export default function App() {
       manualMappings,
       conflicts,
       autoAddedTeachers,
-      fileMeta,
     } = importData;
 
     setPdfSchedule(schedule);
-    
-    // Supabase'e kaydet
-    replacePdfSchedule(schedule).catch(err => {
-      logger.error('PDF schedule save error:', err);
-      addNotification("PDF programı Supabase'e kaydedilemedi", "error");
-    });
     
     if (!schedule || !matchingResults) {
       addNotification("Geçersiz PDF verisi", "error");
@@ -1304,12 +969,10 @@ export default function App() {
     const autoAddedCount = Array.isArray(autoAddedTeachers) ? autoAddedTeachers.length : 0;
 
     const uniquePdfTeachers = new Set();
-    let totalPdfSlots = 0;
     Object.values(schedule || {}).forEach((dayData) => {
       Object.values(dayData || {}).forEach((periodNames) => {
         if (Array.isArray(periodNames)) {
           periodNames.forEach((name) => uniquePdfTeachers.add(name));
-          totalPdfSlots += periodNames.length;
         }
       });
     });
@@ -1391,36 +1054,12 @@ export default function App() {
       }
     });
     
-    const noteParts = [];
-    if (unmatchedCount > 0) {
-      noteParts.push(`${unmatchedCount} isim eşleşmedi`);
-    }
-    if (autoAddedCount > 0) {
-      noteParts.push(`${autoAddedCount} öğretmen otomatik eklendi`);
-    }
-
     if (classes.length === 0) {
       addNotification({
         message: "Öğretmenler eklendi! Nöbet atamaları için önce sınıfları ekleyin.",
         type: "warning",
         actionLabel: "Sınıfları Ekle",
         onAction: () => setActiveSection("classes"),
-      });
-
-      recordImportEvent({
-        type: 'pdf-schedule',
-        source: 'pdf',
-        fileName: fileMeta?.name || 'PDF Ders Programı',
-        fileSize: fileMeta?.size ?? null,
-        status: 'warning',
-        note: ['Sınıf listesi boş olduğu için atama uygulanmadı.', ...noteParts].filter(Boolean).join(' '),
-        stats: [
-          { label: 'PDF Öğretmen', value: uniquePdfTeachers.size },
-          { label: 'Toplam Slot', value: totalPdfSlots },
-          { label: 'Eşleşen', value: matchedCount },
-          { label: 'Eşleşmeyen', value: unmatchedCount },
-          { label: 'Başarı Oranı', value: `${(summary?.successRate || 0).toFixed(1)}%` },
-        ],
       });
       return;
     }
@@ -1431,9 +1070,6 @@ export default function App() {
         resolvedConflicts.set(`${conflict.day}|${conflict.period}|${conflict.classId}`, conflict.pdfTeacher.teacherId);
       }
     });
-
-      let assignmentCount = 0;
-      let conflictCount = 0;
 
     setLocked((prev) => {
       const next = { ...prev };
@@ -1490,32 +1126,11 @@ export default function App() {
         "success"
       );
 
-      assignmentCount = localAssignmentCount;
-      conflictCount = localConflictCount;
-
       return next;
     });
 
-    recordImportEvent({
-      type: 'pdf-schedule',
-      source: 'pdf',
-      fileName: fileMeta?.name || 'PDF Ders Programı',
-      fileSize: fileMeta?.size ?? null,
-      status: unmatchedCount > 0 ? 'warning' : 'success',
-      note: noteParts.join(' '),
-      stats: [
-        { label: 'PDF Öğretmen', value: uniquePdfTeachers.size },
-        { label: 'Toplam Slot', value: totalPdfSlots },
-        { label: 'Eşleşen', value: matchedCount },
-        { label: 'Eşleşmeyen', value: unmatchedCount },
-        { label: 'Başarı Oranı', value: `${(summary?.successRate || 0).toFixed(1)}%` },
-        { label: 'Atanan', value: assignmentCount },
-        { label: 'Çözülen Çakışma', value: conflictCount },
-      ],
-    });
-
     setActiveSection("schedule");
-  }, [teachers, classes, addNotification, recordImportEvent]);
+  }, [teachers, classes, addNotification]);
 
   /* ===================== Manuel ekleme/silme işlemleri ===================== */
 
@@ -1709,11 +1324,11 @@ export default function App() {
     });
 
     // 2) classAbsence içinden bu mazeretliyi tüm gün/periyotlardan temizle
-    setClassAbsence(prev => {
-      const next = { ...prev };
+    const updatedClassAbsence = (() => {
+      const next = { ...classAbsence };
       Object.keys(next).forEach(dk => {
         Object.keys(next[dk] || {}).forEach(pk => {
-          const per = next[dk][pk] || {};
+          const per = { ...(next[dk][pk] || {}) };
           Object.keys(per).forEach(cid => {
             if (per[cid] === absentIdToDelete) delete per[cid];
           });
@@ -1722,9 +1337,10 @@ export default function App() {
         if (next[dk] && Object.keys(next[dk]).length === 0) delete next[dk];
       });
       return next;
-    });
+    })();
 
-    // 3) Seçili günlerde bu sınıflarda başka mazeretli kalmadıysa sınıfı sil
+    setClassAbsence(() => updatedClassAbsence);
+
     const stillHasAbsent = new Set();
     fallbackDays.forEach((dayKey) => {
       const dayRecords = classAbsence?.[dayKey] || {};
@@ -1737,50 +1353,39 @@ export default function App() {
       });
     });
 
-    const toDelete = Array.from(affectedClassIds).filter(cid => !stillHasAbsent.has(cid));
+    const classesToRemove = Array.from(affectedClassIds).filter(cid => !stillHasAbsent.has(cid));
 
-    if (toDelete.length > 0) {
+    if (classesToRemove.length > 0) {
       try {
-        // Sınıfları Supabase'den sil
-        await Promise.all(toDelete.map(classId => deleteClassById(classId)));
-        
-        // ClassFree'dan kaldır ve Supabase'e kaydet
-        const updatedClassFree = { ...classFree };
-        const classFreeUpdates = [];
-        
+        await Promise.all(classesToRemove.map((cid) => deleteClassById(cid)));
+      } catch (err) {
+        logger.error('Auto class delete error:', err);
+      }
+    }
+
+    if (classesToRemove.length > 0) {
+      setClassFree(prev => {
+        const next = { ...prev };
         fallbackDays.forEach((dayKey) => {
-          if (!updatedClassFree[dayKey]) return;
-          Object.keys(updatedClassFree[dayKey]).forEach(pk => {
-            const set = new Set(updatedClassFree[dayKey][pk] || []);
-            let changed = false;
-            toDelete.forEach(cid => {
-              if (set.delete(cid)) {
-                changed = true;
-                classFreeUpdates.push({ day: dayKey, period: Number(pk), classId: cid });
-              }
-            });
-            if (changed) {
-              updatedClassFree[dayKey][pk] = set;
+          if (!next[dayKey]) return;
+          Object.keys(next[dayKey]).forEach(pk => {
+            const set = next[dayKey][pk];
+            if (set instanceof Set) {
+              classesToRemove.forEach(cid => set.delete(cid));
             }
           });
         });
-        
-        setClassFree(updatedClassFree);
-        
-        // Supabase'e kaydet
-        await Promise.all(classFreeUpdates.map(({ day, period, classId }) =>
-          upsertClassFree({ day, period, classId, isSelected: false })
-        ));
-        
-        // State'ten sınıfları kaldır
-        setClasses(prevClasses => prevClasses.filter(c => !toDelete.includes(c.classId)));
-        
-        addNotification(`${toDelete.length} sınıf otomatik kaldırıldı (mazeretli kalmadı)`, 'info');
-      } catch (error) {
-        logger.error('Auto delete classes error:', error);
-        addNotification('Sınıflar silinirken hata oluştu', 'error');
-      }
+        return next;
+      });
     }
+
+    setClasses(prevClasses => {
+      const filtered = prevClasses.filter(c => !classesToRemove.includes(c.classId));
+      if (classesToRemove.length > 0) {
+        addNotification(`${classesToRemove.length} sınıf otomatik kaldırıldı (mazeretli kalmadı)`, 'info');
+      }
+      return filtered;
+    });
 
     // 4) Mazeret kaydını kaldır
     setAbsentPeople(prev => prev.filter(p => p.absentId !== absentIdToDelete));
@@ -1790,27 +1395,18 @@ export default function App() {
   const deleteTeacher = async (teacherIdToDelete) => {
     try {
       await deleteTeacherById(teacherIdToDelete)
-      setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
-      
-      // TeacherFree'dan kaldır ve Supabase'e kaydet
-      const updatedTeacherFree = { ...teacherFree };
-      const periodsToUpdate = [];
-      Object.keys(updatedTeacherFree).forEach(period => {
-        const set = new Set(updatedTeacherFree[period] || []);
-        if (set.delete(teacherIdToDelete)) {
-          updatedTeacherFree[period] = set;
-          periodsToUpdate.push(Number(period));
-        }
+    setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
+      setTeacherFree(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(period => {
+          const set = new Set(next[period] || []);
+          if (set.delete(teacherIdToDelete)) {
+            next[period] = set;
+          }
+        });
+        return next;
       });
-      
-      setTeacherFree(updatedTeacherFree);
-      
-      // Supabase'e kaydet
-      await Promise.all(periodsToUpdate.map(period => 
-        upsertTeacherFree({ period, teacherId: teacherIdToDelete, isSelected: false })
-      ));
-      
-      addNotification("Öğretmen silindi", "info");
+    addNotification("Öğretmen silindi", "info");
     } catch (error) {
       logger.error('Teacher delete error:', error)
       addNotification('Öğretmen silinemedi', 'error')
@@ -1827,39 +1423,20 @@ export default function App() {
     try {
       await Promise.all(pdfTeachers.map(t => deleteTeacherById(t.teacherId)));
       setTeachers(prev => prev.filter(t => t.source !== 'duty_schedule'));
-      
-      // TeacherFree'dan kaldır ve Supabase'e kaydet
-      const updatedTeacherFree = { ...teacherFree };
-      const removeIds = new Set(pdfTeachers.map(t => t.teacherId));
-      const periodsToUpdate = new Map(); // period -> Set of teacherIds to remove
-      
-      Object.keys(updatedTeacherFree).forEach(period => {
-        const set = new Set(updatedTeacherFree[period] || []);
-        let changed = false;
-        removeIds.forEach(id => {
-          if (set.delete(id)) {
-            changed = true;
-            if (!periodsToUpdate.has(Number(period))) {
-              periodsToUpdate.set(Number(period), new Set());
-            }
-            periodsToUpdate.get(Number(period)).add(id);
-          }
+      setTeacherFree(prev => {
+        const next = { ...prev };
+        const removeIds = new Set(pdfTeachers.map(t => t.teacherId));
+        Object.keys(next).forEach(period => {
+          const set = new Set(next[period] || []);
+          let changed = false;
+          removeIds.forEach(id => {
+            if (set.delete(id)) changed = true;
+          });
+          if (changed) next[period] = set;
         });
-        if (changed) {
-          updatedTeacherFree[period] = set;
-        }
+        return next;
       });
-      
-      setTeacherFree(updatedTeacherFree);
-      
-      // Supabase'e kaydet
-      await Promise.all(Array.from(periodsToUpdate.entries()).flatMap(([period, teacherIds]) =>
-        Array.from(teacherIds).map(teacherId =>
-          upsertTeacherFree({ period, teacherId, isSelected: false })
-        )
-      ));
-      
-      addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
+    addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
     } catch (error) {
       logger.error('PDF teachers bulk delete error:', error);
       addNotification('PDF öğretmenler silinemedi', 'error');
@@ -1869,36 +1446,24 @@ export default function App() {
   const deleteClass = async (classIdToDelete) => {
     try {
       await deleteClassById(classIdToDelete)
-      setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
-      
-      // ClassFree'dan kaldır ve Supabase'e kaydet
-      const updatedClassFree = { ...classFree };
-      const updates = []; // { day, period, classId }[]
-      
-      Object.keys(updatedClassFree).forEach(dayKey => {
-        const perMap = { ...(updatedClassFree[dayKey] || {}) };
-        let changed = false;
-        Object.keys(perMap).forEach(period => {
-          const set = new Set(perMap[period] || []);
-          if (set.delete(classIdToDelete)) {
-            perMap[period] = set;
-            changed = true;
-            updates.push({ day: dayKey, period: Number(period), classId: classIdToDelete });
-          }
+    setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
+      setClassFree(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(dayKey => {
+          const perMap = { ...(next[dayKey] || {}) };
+          let changed = false;
+          Object.keys(perMap).forEach(period => {
+            const set = new Set(perMap[period] || []);
+            if (set.delete(classIdToDelete)) {
+              perMap[period] = set;
+              changed = true;
+            }
+          });
+          if (changed) next[dayKey] = perMap;
         });
-        if (changed) {
-          updatedClassFree[dayKey] = perMap;
-        }
+        return next;
       });
-      
-      setClassFree(updatedClassFree);
-      
-      // Supabase'e kaydet
-      await Promise.all(updates.map(({ day, period, classId }) =>
-        upsertClassFree({ day, period, classId, isSelected: false })
-      ));
-      
-      addNotification("Sınıf silindi", "info");
+    addNotification("Sınıf silindi", "info");
     } catch (error) {
       logger.error('Class delete error:', error)
       addNotification('Sınıf silinemedi', 'error')
@@ -2073,7 +1638,7 @@ export default function App() {
         duration: 4000
       });
     }
-  }, [teachers, addNotification, locked]); // teachers değiştiğinde veya sayfa yüklendiğinde çalışır
+  }, [teachers, locked, addNotification]); // teachers veya kilitler değiştiğinde çalışır
 
   // Gün değiştiğinde, o güne ait geçersiz locked kayıtlarını temizle
   useEffect(() => {
@@ -2104,7 +1669,7 @@ export default function App() {
       const invalidTeacherIds = invalidDayEntries.map(([, tid]) => tid).join(', ');
       console.log(`Gün değişti (${day}): ${invalidDayEntries.length} geçersiz locked kayıt temizlendi:`, invalidTeacherIds);
     }
-  }, [day, teachers, locked]); // day veya teachers değiştiğinde çalışır
+  }, [day, teachers, locked]); // day, teachers veya kilitler değiştiğinde çalışır
 
   // Gün veya görev listesi değiştiğinde, o güne ait kilitleri ve teacherFree setlerini aktif nöbetçilere göre temizle
   useEffect(() => {
@@ -2257,8 +1822,6 @@ export default function App() {
       const teacherId = teacher.teacherId
       const assignmentsForTeacher = teacherAssignmentDetails[teacherId] || []
       const reasons = []
-      // const dailyCount = teacherAssignmentCount[teacherId] || 0 // Kullanılmıyor
-
       periods.forEach((period) => {
         const freeSet = teacherFree?.[period] instanceof Set
           ? teacherFree[period]
@@ -2620,36 +2183,6 @@ export default function App() {
       }
     )
   }, [showConfirmation, addNotification])
-
-  /* ============================= Çıktılar (Excel/JSON) ============================= */
-
-  // eslint-disable-next-line no-unused-vars
-  function exportExcel() {
-    try {
-      const rows = [];
-      for (const p of periods) {
-        const arr = assignment?.[day]?.[p] || [];
-        arr.forEach((a) => {
-          rows.push({
-            Day: day,
-            Period: p,
-            ClassId: a.classId,
-            ClassName: classes.find((c) => c.classId === a.classId)?.className || "",
-            TeacherId: a.teacherId,
-            TeacherName: teachers.find((t) => t.teacherId === a.teacherId)?.teacherName || ""
-          });
-        });
-      }
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, `${day}`);
-      XLSX.writeFile(wb, `gorevlendirme_${day}.xlsx`);
-      addNotification("Excel dışa aktarıldı", "success");
-    } catch (e) {
-      logger.error(e);
-      addNotification("Excel yazılamadı", "error");
-    }
-  }
 
   async function exportJPG() {
     try {
@@ -3568,37 +3101,11 @@ export default function App() {
                         console.log('Starting teacher schedule upload from Excel...');
                         const schedules = await parseTeacherSchedulesFromExcel(file);
                         setTeacherSchedules(schedules);
-                        
-                        // Supabase'e kaydet
-                        await saveTeacherSchedules(schedules).catch(err => {
-                          logger.error('Teacher schedules save error:', err);
-                          addNotification('Ders programları Supabase\'e kaydedilemedi', 'error');
-                        });
-                        
                         addNotification(
                           `${Object.keys(schedules).length} öğretmenin ders programı yüklendi`, 
                           "success"
                         );
 
-                      const teacherCount = Object.keys(schedules || {}).length;
-                      const totalLessons = Object.values(schedules || {}).reduce((sum, teacherSchedule = {}) => {
-                        return sum + Object.values(teacherSchedule || {}).reduce((innerSum, daySchedule = {}) => {
-                          return innerSum + Object.keys(daySchedule || {}).length;
-                        }, 0);
-                      }, 0);
-
-                      recordImportEvent({
-                        type: 'teacher-schedule',
-                        source: 'excel',
-                        fileName: file.name,
-                        fileSize: file.size,
-                        status: teacherCount > 0 ? 'success' : 'warning',
-                        note: teacherCount > 0 ? '' : 'Excel dosyasında geçerli öğretmen bulunamadı.',
-                        stats: [
-                          { label: 'Öğretmen', value: teacherCount },
-                          { label: 'Toplam Ders', value: totalLessons },
-                        ],
-                      });
                       } catch (error) {
                         console.error('Excel parsing error:', error);
                         addNotification(
@@ -3639,16 +3146,9 @@ export default function App() {
                     <h3>Yüklenen Ders Programları</h3>
                     <button 
                       className="btn-outline btn-sm"
-                      onClick={async () => {
+                      onClick={() => {
                         if (confirm('Tüm ders programları silinecek. Emin misiniz?')) {
                           setTeacherSchedules({});
-                          
-                          // Supabase'den sil
-                          await saveTeacherSchedules({}).catch(err => {
-                            logger.error('Teacher schedules clear error:', err);
-                            addNotification('Ders programları Supabase\'den silinemedi', 'error');
-                          });
-                          
                           addNotification('Tüm ders programları silindi', 'info');
                         }
                       }}
@@ -3959,31 +3459,6 @@ export default function App() {
                 line-height: 1.2;
               }
               /* Günlük görev sayısı özeti */
-              .daily-summary { 
-                margin-top: var(--space-3);
-                padding: var(--space-2);
-                background: var(--bg-elevated);
-                border: 1px solid var(--border-default);
-                border-radius: var(--radius-lg);
-              }
-              .summary-title { 
-                font-weight: var(--font-weight-semibold); 
-                margin-bottom: var(--space-2);
-              }
-              .summary-list { 
-                display: flex; 
-                flex-wrap: wrap; 
-                gap: 6px 10px;
-              }
-              .summary-chip { 
-                background: var(--bg-secondary);
-                border: 1px solid var(--border-subtle);
-                border-radius: 9999px;
-                padding: 4px 10px;
-                font-size: 0.9em;
-                white-space: nowrap;
-              }
-              .summary-chip .sep { opacity: .7; }
               @media (max-width: 479px) {
                 .options-grid {
                   grid-template-columns: 1fr;
@@ -4002,12 +3477,6 @@ export default function App() {
                 }
               }
             `}</style>
-            <ImportHistory
-              history={importHistory}
-              onClear={clearImportHistory}
-              IconComponent={Icon}
-            />
-            
             <AssignmentEditor
               day={day}
               periods={periods}
@@ -4051,27 +3520,6 @@ export default function App() {
               freeClassesByDay={freeClassesByDay}
               maxClassesPerSlot={options.maxClassesPerSlot}
             />
-
-            {/* Günlük görev sayısı özeti (Planlama sayfası altı) */}
-            <div className="daily-summary">
-              <div className="summary-title">Günlük Görev Sayısı</div>
-              <div className="summary-list">
-                {(() => {
-                  const m = {};
-                  (periods || []).forEach(p => {
-                    const arr = assignment?.[day]?.[p] || [];
-                    arr.forEach(a => { m[a.teacherId] = (m[a.teacherId] || 0) + 1; });
-                  });
-                  return (teachersForCurrentDay || teachers).map(t => (
-                    <span key={t.teacherId} className="summary-chip">
-                      <strong>{t.teacherName}</strong>
-                      <span className="sep"> — </span>
-                      <span>{m[t.teacherId] || 0}</span>
-                    </span>
-                  ));
-                })()}
-              </div>
-            </div>
 
             <AssignmentInsights
               insights={assignmentInsights}

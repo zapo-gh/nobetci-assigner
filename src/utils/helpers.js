@@ -114,27 +114,54 @@ export function mapSetToArray(obj) {
   return out;
 }
 
+const normalizePeriodKey = (key) => {
+  const num = Number(key)
+  return Number.isFinite(num) ? num : key
+}
+
 export function arrayToSetMap(obj) {
-  const out = {};
-  for (const [k, v] of Object.entries(obj || {})) {
-    if (Array.isArray(v)) {
-      // Eski yapı: {period: Array(classId)}
-      out[k] = new Set(v);
-    } else if (typeof v === 'object' && v !== null) {
-      // Yeni yapı: {day: {period: Array(classId)}}
-      out[k] = {};
-      for (const [dayKey, dayValue] of Object.entries(v)) {
-        out[k][dayKey] = {};
-        for (const [periodKey, periodValue] of Object.entries(dayValue)) {
-          // Convert period key to number if possible (JSON keys are strings)
-          const periodNum = Number(periodKey);
-          const key = !isNaN(periodNum) ? periodNum : periodKey;
-          out[k][dayKey][key] = new Set(Array.isArray(periodValue) ? periodValue : []);
-        }
+  if (!obj || typeof obj !== 'object') return {}
+
+  const hasNestedStructure = Object.values(obj).some(
+    (value) => value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Set)
+  )
+
+  if (!hasNestedStructure) {
+    const out = {}
+    for (const [key, value] of Object.entries(obj)) {
+      const periodKey = normalizePeriodKey(key)
+      if (value instanceof Set) {
+        out[periodKey] = new Set(value)
+      } else if (Array.isArray(value)) {
+        out[periodKey] = new Set(value)
+      } else if (value && typeof value === 'object') {
+        out[periodKey] = new Set(Object.values(value))
+      } else {
+        out[periodKey] = new Set()
+      }
+    }
+    return out
+  }
+
+  const out = {}
+  for (const [dayKey, dayValue] of Object.entries(obj)) {
+    if (!dayValue || typeof dayValue !== 'object') continue
+    out[dayKey] = {}
+    for (const [periodKey, periodValue] of Object.entries(dayValue)) {
+      const normalizedPeriod = normalizePeriodKey(periodKey)
+      if (periodValue instanceof Set) {
+        out[dayKey][normalizedPeriod] = new Set(periodValue)
+      } else if (Array.isArray(periodValue)) {
+        out[dayKey][normalizedPeriod] = new Set(periodValue)
+      } else if (typeof periodValue === 'object' && periodValue !== null) {
+        out[dayKey][normalizedPeriod] = new Set(Object.values(periodValue))
+      } else {
+        out[dayKey][normalizedPeriod] = new Set()
       }
     }
   }
-  return out;
+
+  return out
 }
 
 export async function readFileAsTextSmart(file) {

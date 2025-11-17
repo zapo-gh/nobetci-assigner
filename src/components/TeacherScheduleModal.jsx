@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './Modal.jsx';
 
-const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComponent }) => { // eslint-disable-line no-unused-vars
+const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComponent: Icon = null }) => {
   if (!schedule || !teacherName) return null;
 
 
@@ -142,11 +142,11 @@ const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComp
         <div className="schedule-summary">
           <div className="summary-stats">
             <div className="stat-item">
-              <IconComponent name="calendar" size={16} />
+              {Icon && <Icon name="calendar" size={16} />}
               <span>Toplam Ders: {Object.values(schedule).reduce((total, day) => total + Object.keys(day).length, 0)}</span>
             </div>
             <div className="stat-item">
-              <IconComponent name="users" size={16} />
+              {Icon && <Icon name="users" size={16} />}
               <span>Farklı Sınıf: {uniqueClasses.length}</span>
             </div>
           </div>

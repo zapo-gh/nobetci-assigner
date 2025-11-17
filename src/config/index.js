@@ -13,6 +13,19 @@ const toBoolean = (value) => {
   return false;
 };
 
+const resolveBuildVersion = () => {
+  const candidates = [
+    env.VITE_APP_VERSION,
+    env.VITE_GIT_COMMIT_SHA,
+    env.VITE_COMMIT_SHA,
+    env.VITE_RENDER_GIT_COMMIT,
+    env.VERCEL_GIT_COMMIT_SHA,
+    env.BUILD_ID,
+    env.APP_VERSION,
+  ];
+  return candidates.find((value) => typeof value === 'string' && value.trim().length > 0) || '';
+};
+
 export const APP_ENV = {
   mode: env.MODE || 'development',
   isDevelopment: Boolean(env.DEV),
@@ -22,6 +35,7 @@ export const APP_ENV = {
   enableAnalytics: toBoolean(env.VITE_ENABLE_ANALYTICS),
   supabaseUrl: env.VITE_SUPABASE_URL || '',
   supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || '',
+  buildVersion: resolveBuildVersion(),
 };
 
 export const getAssetUrl = (path = '') => {

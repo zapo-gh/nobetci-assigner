@@ -34,7 +34,7 @@ export async function parseExcelSchedule(file) {
       });
 
       // Try to parse as schedule format
-      const result = parseScheduleFormat(jsonData, sheetName);
+      const result = parseScheduleFormat(jsonData);
 
       if (result.schedule && Object.keys(result.schedule).length > 0) {
         // Merge schedules from different sheets
@@ -76,7 +76,7 @@ export async function parseExcelSchedule(file) {
  * @param {string} sheetName - Name of the sheet
  * @returns {Object} Parsed schedule data
  */
-function parseScheduleFormat(sheetData) { // sheetName kullanılmıyor
+function parseScheduleFormat(sheetData) {
   const schedule = {};
 
   // Day mapping: Turkish day names to English keys

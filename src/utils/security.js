@@ -5,22 +5,33 @@
  * @param {string} input - Temizlenecek input
  * @returns {string} Temizlenmiş input
  */
+const ENTITY_MAP = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#x27;',
+  '/': '&#x2F;'
+};
+
 export const sanitizeInputAdvanced = (input) => {
   if (input == null) return '';
 
   let sanitized = String(input).trim();
 
-  // HTML entity encoding
-  sanitized = sanitized
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+  // Kontrol edilemeyen karakterleri temizle
+  sanitized = Array.from(sanitized)
+    .filter((char) => {
+      const code = char.charCodeAt(0)
+      return code >= 32 && code !== 127
+    })
+    .join('');
 
-  // Tehlikeli karakterleri kaldır
-  sanitized = sanitized.replace(/[<>'"&]/g, '');
+  // Boşlukları normalize et
+  sanitized = sanitized.replace(/\s+/g, ' ');
+
+  // HTML entity encoding
+  sanitized = sanitized.replace(/[&<>"'/]/g, (char) => ENTITY_MAP[char] || char);
 
   // Uzunluk sınırlaması
   return sanitized.slice(0, 200);

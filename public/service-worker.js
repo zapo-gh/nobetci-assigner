@@ -1,9 +1,12 @@
 const CACHE_PREFIX = 'nobetci-assigner';
-const CACHE_VERSION = 'v1';
-const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`;
-
 const swUrl = new URL(self.location.href);
 const assetsBaseParam = swUrl.searchParams.get('assetsBase');
+const versionParam = swUrl.searchParams.get('v');
+const normalizedVersion = versionParam
+  ? versionParam.replace(/[^a-zA-Z0-9._-]/g, '').substring(0, 32)
+  : 'v1';
+const CACHE_VERSION = normalizedVersion || 'v1';
+const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const ASSET_BASE = assetsBaseParam ? assetsBaseParam.replace(/\/$/, '') : '';
 
 const APP_SHELL = [

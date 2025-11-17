@@ -13,7 +13,7 @@ const InputModal = ({
   confirmText = "Tamam", 
   cancelText = "İptal",
   required = false,
-  IconComponent // eslint-disable-line no-unused-vars
+  IconComponent: Icon = null
 }) => {
   const [value, setValue] = useState(defaultValue);
 
@@ -46,7 +46,7 @@ const InputModal = ({
         <div className={styles.header}>
           <h3 className={styles.title}>{title}</h3>
           <button className={styles.closeButton} onClick={onClose}>
-            <IconComponent name="x" size={20} />
+            {Icon ? <Icon name="x" size={20} /> : <span aria-hidden="true">×</span>}
           </button>
         </div>
         

@@ -18,6 +18,18 @@ Bu proje, okul nöbetçi atamalarını yönetmek için geliştirilmiş bir web u
 
 ## Kurulum ve Çalıştırma
 
+### Ortam Değişkenleri
+
+Yerel geliştirmenin sorunsuz ilerlemesi için proje kökünde `.env.local` dosyası oluşturup aşağıdaki değerleri tanımlayın:
+
+```
+VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=SUPABASE_ANON_KEYINIZ
+VITE_APP_VERSION=local
+```
+
+`VITE_APP_VERSION` isteğe bağlıdır ancak üretim build'lerinde servis worker önbelleğini güncel tutmak için benzersiz bir sürüm etiketi kullanmanız önerilir.
+
 ### Yerel Geliştirme
 
 1. Bağımlılıkları yükleyin:
@@ -59,6 +71,7 @@ Bu proje Render.com'da otomatik deployment için yapılandırılmıştır. GitHu
    - `NODE_ENV=production`
    - `VITE_SUPABASE_URL` (Supabase projenizin URL'i)
    - `VITE_SUPABASE_ANON_KEY` (Supabase anon key)
+5. GitHub repository'nizde `RENDER_DEPLOY_HOOK_URL` isimli bir secret oluşturup Render deploy hook URL'inizi girin.
 
 ### Otomatik Deployment
 

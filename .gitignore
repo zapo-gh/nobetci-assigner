@@ -22,6 +22,7 @@ out/
 # environment files
 .env
 .env.*
+/.env.local
 *.local
 
 # misc

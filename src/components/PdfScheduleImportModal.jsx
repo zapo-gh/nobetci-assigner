@@ -50,7 +50,7 @@ const PdfScheduleImportModal = ({
     }
   }, []);
 
-  const detectConflicts = useCallback((schedule, results, locked, manualMappings) => {
+  const detectConflicts = useCallback((schedule, results, lockedMap) => {
     const conflicts = [];
     const matchedTeachers = new Map();
 
@@ -77,12 +77,12 @@ const PdfScheduleImportModal = ({
           if (teacher) {
             // Bu gün/periyot için sınıf bul
             const availableClasses = classes.filter(c => 
-              !locked[`${day}|${period}|${c.classId}`]
+              !lockedMap[`${day}|${period}|${c.classId}`]
             );
 
             if (availableClasses.length > 0) {
               const classId = availableClasses[0].classId;
-              const existingTeacherId = locked[`${day}|${period}|${classId}`];
+              const existingTeacherId = lockedMap[`${day}|${period}|${classId}`];
               
               if (existingTeacherId && existingTeacherId !== teacher.teacherId) {
                 const existingTeacher = teachers.find(t => t.teacherId === existingTeacherId);
@@ -102,7 +102,7 @@ const PdfScheduleImportModal = ({
     });
 
     return conflicts;
-  }, [teachers, classes]); // locked is used inside but doesn't need to be in deps
+  }, [classes, manualMappings, teachers]);
 
   const processPDF = useCallback(async () => {
     if (!selectedFile) return;
@@ -181,7 +181,7 @@ const PdfScheduleImportModal = ({
 
       // 4. Çakışmaları tespit et
       setCurrentStep('conflict-check');
-      const detectedConflicts = detectConflicts(schedule, results, locked, manualMappings);
+      const detectedConflicts = detectConflicts(schedule, results, locked);
       setConflicts(detectedConflicts);
 
       if (detectedConflicts.length > 0) {
@@ -196,7 +196,7 @@ const PdfScheduleImportModal = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedFile, teachers, locked, detectConflicts, handleClose, onImport, manualMappings]);
+  }, [selectedFile, teachers, locked, detectConflicts, onImport, handleClose]);
 
   const handleManualMapping = useCallback((pdfName, teacherId) => {
     setManualMappings(prev => ({

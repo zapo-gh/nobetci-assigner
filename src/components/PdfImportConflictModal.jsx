@@ -6,7 +6,7 @@ const PdfImportConflictModal = ({
   onClose, 
   conflicts = [], 
   onResolve,
-  IconComponent // eslint-disable-line no-unused-vars
+  IconComponent: Icon = null 
 }) => {
   const [resolutions, setResolutions] = useState({});
   const [applyToAll, setApplyToAll] = useState('');
@@ -46,7 +46,7 @@ const PdfImportConflictModal = ({
   };
 
   const getConflictDescription = (conflict) => {
-    const { day, period, classId } = conflict; // existingTeacher, pdfTeacher kullanılmıyor (conflict objesinden alınıyor)
+    const { day, period, classId } = conflict;
     
     const dayNames = {
       monday: 'Pazartesi',
@@ -80,14 +80,14 @@ const PdfImportConflictModal = ({
             onClick={onClose}
             aria-label="Kapat"
           >
-            <IconComponent name="x" size={20} />
+            {Icon ? <Icon name="x" size={20} /> : <span aria-hidden="true">×</span>}
           </button>
         </div>
 
         <div className={styles.modalBody} style={{ maxHeight: '60vh', overflowY: 'auto' }}>
           <div className={styles.conflictInfo}>
             <p>
-              <IconComponent name="alert-triangle" size={16} style={{ color: '#f59e0b', marginRight: '8px' }} />
+              {Icon && <Icon name="alert-triangle" size={16} style={{ color: '#f59e0b', marginRight: '8px' }} />}
               <strong>{conflicts.length}</strong> çakışma tespit edildi. Her çakışma için karar verin:
             </p>
           </div>
