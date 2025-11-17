@@ -512,7 +512,9 @@ export default function App() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
       // Save to Supabase as well
-      saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+      if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
+        saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+      }
       saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
       saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
     } catch (e) {
