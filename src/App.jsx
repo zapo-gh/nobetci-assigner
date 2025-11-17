@@ -1515,6 +1515,12 @@ export default function App() {
     return opts;
   }, [teacherSchedules, teachers]);
 
+  const teacherSchedulesList = useMemo(() => {
+    return Object.entries(teacherSchedules || {}).sort(([aName], [bName]) =>
+      aName.localeCompare(bName, 'tr', { sensitivity: 'base' })
+    );
+  }, [teacherSchedules]);
+
   // PDF'den gelen schedule verisine göre o günün nöbetçi öğretmenlerini filtrele
   const teachersForCurrentDay = useMemo(() => {
     console.log('=== TEACHERS FILTERING DEBUG ===');
@@ -3130,7 +3136,7 @@ export default function App() {
             </div>
             
             <div className="course-schedule-content">
-              {Object.keys(teacherSchedules).length === 0 ? (
+              {teacherSchedulesList.length === 0 ? (
                 <EmptyState
                   IconComponent={Icon}
                   icon="calendar"
@@ -3140,7 +3146,7 @@ export default function App() {
                 />
               ) : null}
               
-              {Object.keys(teacherSchedules).length > 0 && (
+              {teacherSchedulesList.length > 0 && (
                 <div className="schedule-preview">
                   <div className="schedule-preview-header">
                     <h3>Yüklenen Ders Programları</h3>
@@ -3159,7 +3165,7 @@ export default function App() {
                     </button>
                   </div>
                   <div className="teacher-schedule-list">
-                    {Object.entries(teacherSchedules).map(([teacherName, schedule]) => (
+                    {teacherSchedulesList.map(([teacherName, schedule]) => (
                       <div 
                         key={teacherName} 
                         className="teacher-schedule-item clickable"
