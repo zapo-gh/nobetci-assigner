@@ -489,6 +489,8 @@ export default function App() {
 
   // Otomatik kaydet
   useEffect(() => {
+    if (!hydratedRef.current) return
+
     const payload = {
       day,
       periods,
