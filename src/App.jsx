@@ -36,6 +36,7 @@ import {
   bulkSaveClassFree,
   bulkSaveClassAbsence,
 } from './services/supabaseDataService.js';
+import { realtimeSync } from './services/realtimeSync.js';
 
 import Tabs from "./components/Tabs.jsx";
 import PrintableDailyList from "./components/PrintableDailyList.jsx";
@@ -272,6 +273,25 @@ function migrateClassAbsence(oldClassAbsence) {
   return migrated;
 }
 
+function stableStringify(value) {
+  const seen = new WeakSet();
+  return JSON.stringify(value, function (key, val) {
+    if (val instanceof Set) {
+      return Array.from(val);
+    }
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      if (seen.has(val)) return val;
+      seen.add(val);
+      const sorted = {};
+      Object.keys(val).sort().forEach((innerKey) => {
+        sorted[innerKey] = val[innerKey];
+      });
+      return sorted;
+    }
+    return val;
+  });
+}
+
 /* =========================== App Bileşeni =========================== */
 
 export default function App() {
@@ -318,6 +338,10 @@ export default function App() {
   const [pdfSchedule, setPdfSchedule] = useState({})
   const [teacherSchedules, setTeacherSchedules] = useState({}) // Store individual teacher class schedules
   const [teacherSchedulesHydrated, setTeacherSchedulesHydrated] = useState(false)
+  const classFreeSnapshotRef = useRef('')
+  const classAbsenceSnapshotRef = useRef('')
+  const classAbsenceStateRef = useRef({})
+  const skipNextSupabaseSaveRef = useRef(false)
   const [selectedTeacher, setSelectedTeacher] = useState(null) // Selected teacher for modal display
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
@@ -336,6 +360,78 @@ export default function App() {
     const parsed = parseInt(value, 10);
     const safe = Number.isFinite(parsed) ? Math.max(1, Math.min(9, parsed)) : 6;
     setTeachers(prev => prev.map(t => ({ ...t, maxDutyPerDay: safe })));
+  }, []);
+
+  const handleRealtimeAbsents = useCallback((payload) => {
+    if (!payload) return;
+    const { eventType, new: newRow, old } = payload;
+
+    if (eventType === 'DELETE' && old?.absentId) {
+      setAbsentPeople(prev => prev.filter(item => item.absentId !== old.absentId));
+      return;
+    }
+
+    if (!newRow?.absentId) return;
+    const normalized = normalizeAbsentPeople([newRow], classAbsenceStateRef.current || {})[0] || newRow;
+
+    setAbsentPeople(prev => {
+      const idx = prev.findIndex(item => item.absentId === normalized.absentId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = normalized;
+        return next;
+      }
+      return [...prev, normalized];
+    });
+  }, []);
+
+  const handleRealtimeClassFree = useCallback((payload) => {
+    if (!payload) return;
+    const dataSnapshot = payload?.new?.data || {};
+    const serializedIncoming = stableStringify(dataSnapshot);
+    if (serializedIncoming === classFreeSnapshotRef.current) {
+      return;
+    }
+    skipNextSupabaseSaveRef.current = true;
+    classFreeSnapshotRef.current = serializedIncoming;
+    setClassFree(migrateClassFree(dataSnapshot || {}));
+  }, []);
+
+  const handleRealtimeClassAbsence = useCallback((payload) => {
+    if (!payload) return;
+    const { eventType, new: newRow, old } = payload;
+    const targetRow = eventType === 'DELETE' ? old : newRow;
+    if (!targetRow) return;
+    const { day, period, classId } = targetRow;
+    const parsedPeriod = Number(period);
+    const periodKey = Number.isFinite(parsedPeriod) ? parsedPeriod : (Number.isFinite(period) ? period : null);
+    if (!day || !classId || periodKey === null) return;
+
+    skipNextSupabaseSaveRef.current = true;
+    setClassAbsence((prev) => {
+      const next = { ...prev };
+      if (!next[day]) next[day] = {};
+
+      if (eventType === 'DELETE') {
+        if (!next[day][periodKey]) return prev;
+        const updatedPeriod = { ...next[day][periodKey] };
+        delete updatedPeriod[classId];
+        if (Object.keys(updatedPeriod).length === 0) {
+          delete next[day][periodKey];
+        } else {
+          next[day][periodKey] = updatedPeriod;
+        }
+        if (Object.keys(next[day]).length === 0) {
+          delete next[day];
+        }
+        return next;
+      }
+
+      next[day] = { ...(next[day] || {}) };
+      next[day][periodKey] = { ...(next[day][periodKey] || {}) };
+      next[day][periodKey][classId] = newRow.absentId;
+      return next;
+    });
   }, []);
 
   const showConfirmation = useCallback((title, message, type = 'warning', onConfirm) => {
@@ -360,6 +456,29 @@ export default function App() {
       logger.warn('Tema kaydetme hatası:', err);
     }
   }, [theme]);
+
+  useEffect(() => {
+    classFreeSnapshotRef.current = stableStringify(mapSetToArray(classFree));
+  }, [classFree]);
+
+  useEffect(() => {
+    classAbsenceStateRef.current = classAbsence;
+    classAbsenceSnapshotRef.current = stableStringify(classAbsence);
+  }, [classAbsence]);
+
+  useEffect(() => {
+    const unsubscribe = realtimeSync.subscribe({
+      absents: handleRealtimeAbsents,
+      classFree: handleRealtimeClassFree,
+      classAbsence: handleRealtimeClassAbsence,
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [handleRealtimeAbsents, handleRealtimeClassFree, handleRealtimeClassAbsence]);
 
   // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
@@ -496,6 +615,11 @@ export default function App() {
   useEffect(() => {
     if (!hydratedRef.current || !teacherSchedulesHydrated) return
 
+    const shouldSkipSupabaseSync = skipNextSupabaseSaveRef.current
+    if (shouldSkipSupabaseSync) {
+      skipNextSupabaseSaveRef.current = false
+    }
+
     const serializedTeacherFree = mapSetToArray(teacherFree)
     const serializedClassFree = mapSetToArray(classFree)
 
@@ -519,14 +643,16 @@ export default function App() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
-      // Save to Supabase as well
-      if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
-        saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+      if (!shouldSkipSupabaseSync) {
+        // Save to Supabase as well
+        if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
+          saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+        }
+        bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
+        bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
+        saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
+        saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
       }
-      bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
-      bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
-      saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
-      saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
     } catch (e) {
       logger.warn("Otomatik kaydetme hatası:", e);
     }
