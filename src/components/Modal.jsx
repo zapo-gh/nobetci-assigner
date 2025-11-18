@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import styles from './Modal.module.css';
 
 const isTouchDevice = () => {
@@ -15,6 +15,16 @@ const isTouchDevice = () => {
 export default function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
   const modalRef = useRef(null);
   const touchDeviceRef = useRef(isTouchDevice());
+
+  const stopPointerPropagation = useCallback((event) => {
+    event.stopPropagation();
+  }, []);
+
+  const handleOverlayPointerDown = useCallback((event) => {
+    // Only react to primary button / touch
+    if (typeof event.button === 'number' && event.button !== 0) return;
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -56,11 +66,14 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
+    <div
+      className={styles.modalOverlay}
+      onPointerDown={handleOverlayPointerDown}
+    >
       <div
         ref={modalRef}
         className={`${styles.modalContent} ${sizeClasses[size]}`}
-        onClick={(e) => e.stopPropagation()}
+        onPointerDown={stopPointerPropagation}
         tabIndex={-1}
       >
         <div className={styles.modalHeader}>
