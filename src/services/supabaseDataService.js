@@ -36,6 +36,7 @@ const createId = () => {
 
 const CLASS_FREE_SINGLE_ROW_ID = 1
 const TEACHER_FREE_SINGLE_ROW_ID = 1
+export const TEACHER_SCHEDULES_SNAPSHOT_KEY = '__snapshot__'
 
 export async function loadInitialData() {
   try {
@@ -104,10 +105,17 @@ export async function loadInitialData() {
     const pdfSchedule = pdfScheduleRows.length > 0 ? pdfScheduleRows[0].schedule : {}
 
     // Transform teacher schedules
-    const teacherSchedules = {}
-    teacherSchedulesRows.forEach(item => {
-      teacherSchedules[item.teacher_name] = item.schedule
-    })
+    let teacherSchedules = {}
+    const snapshotRow = teacherSchedulesRows.find(item => item.teacher_name === TEACHER_SCHEDULES_SNAPSHOT_KEY)
+
+    if (snapshotRow && snapshotRow.schedule && typeof snapshotRow.schedule === 'object') {
+      teacherSchedules = snapshotRow.schedule
+    } else {
+      teacherSchedulesRows.forEach(item => {
+        if (!item?.teacher_name) return
+        teacherSchedules[item.teacher_name] = item.schedule
+      })
+    }
 
     // Transform common lessons
     const commonLessons = {}
@@ -479,15 +487,12 @@ export async function saveTeacherSchedules(teacherSchedules) {
       return
     }
 
-    // Prepare data for upsert
-    const schedulesData = Object.entries(teacherSchedules).map(([teacherName, schedule]) => ({
-      teacher_name: teacherName,
-      schedule: schedule
-    }))
-
     const { error } = await supabase
       .from('teacher_schedules')
-      .upsert(schedulesData, {
+      .upsert({
+        teacher_name: TEACHER_SCHEDULES_SNAPSHOT_KEY,
+        schedule: teacherSchedules
+      }, {
         onConflict: 'teacher_name'
       })
 

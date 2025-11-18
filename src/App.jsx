@@ -36,6 +36,7 @@ import {
   bulkSaveClassFree,
   bulkSaveClassAbsence,
   clearTeacherSchedules,
+  TEACHER_SCHEDULES_SNAPSHOT_KEY,
 } from './services/supabaseDataService.js';
 import { realtimeSync } from './services/realtimeSync.js';
 
@@ -135,6 +136,7 @@ function ThemeToggle({ theme, onToggle }) {
 
 /* ====================== Sabitler & Yardımcılar ====================== */
 
+const DISABLE_LOCAL_STORAGE = true;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
 const DAYS = [
   { key: "Mon", label: "Pazartesi", short: "Pzt" },
@@ -450,7 +452,16 @@ export default function App() {
     skipNextSupabaseSaveRef.current = true;
     setTeacherSchedulesHydrated(true);
 
+    const isSnapshotRow = teacherName === TEACHER_SCHEDULES_SNAPSHOT_KEY;
+
     setTeacherSchedules((prev = {}) => {
+      if (isSnapshotRow) {
+        if (eventType === 'DELETE') {
+          return {};
+        }
+        return newRow?.schedule || {};
+      }
+
       const next = { ...prev };
 
       if (eventType === 'DELETE') {
@@ -526,20 +537,21 @@ export default function App() {
           const supabaseData = await loadInitialData()
           if (!isMounted) return
 
-          // Supabase verilerini state'e yükle
-          setTeachers(supabaseData.teachers || [])
-          setClasses(supabaseData.classes || [])
-          setAbsentPeople(normalizeAbsentPeople(supabaseData.absents || [], supabaseData.classAbsence || {}))
-          setTeacherFree(arrayToSetMap(supabaseData.teacherFree || {}))
-          setClassFree(migrateClassFree(supabaseData.classFree || {}))
-          setClassAbsence(migrateClassAbsence(supabaseData.classAbsence || {}))
-          setLocked(supabaseData.locked || {})
-          setPdfSchedule(supabaseData.pdfSchedule || {})
-          setTeacherSchedules(supabaseData.teacherSchedules || {})
-          setTeacherSchedulesHydrated(true)
-          setCommonLessons(supabaseData.commonLessons || {})
-          setSnapshots(supabaseData.snapshots || [])
+        // Supabase verilerini state'e yükle
+        setTeachers(supabaseData.teachers || [])
+        setClasses(supabaseData.classes || [])
+        setAbsentPeople(normalizeAbsentPeople(supabaseData.absents || [], supabaseData.classAbsence || {}))
+        setTeacherFree(arrayToSetMap(supabaseData.teacherFree || {}))
+        setClassFree(migrateClassFree(supabaseData.classFree || {}))
+        setClassAbsence(migrateClassAbsence(supabaseData.classAbsence || {}))
+        setLocked(supabaseData.locked || {})
+        setPdfSchedule(supabaseData.pdfSchedule || {})
+        setTeacherSchedules(supabaseData.teacherSchedules || {})
+        setTeacherSchedulesHydrated(true)
+        setCommonLessons(supabaseData.commonLessons || {})
+        setSnapshots(supabaseData.snapshots || [])
 
+        if (!DISABLE_LOCAL_STORAGE) {
           // Supabase'den başarılı veri çekildi, localStorage'i güncelle
           const localStoragePayload = {
             day,
@@ -563,6 +575,7 @@ export default function App() {
           } catch (storageError) {
             logger.warn('LocalStorage update failed:', storageError)
           }
+        }
 
           logger.info('Data loaded from Supabase successfully')
           if (isMounted) {
@@ -574,58 +587,60 @@ export default function App() {
         }
 
         // Supabase başarısız olduysa localStorage'dan yükle
-        const hydrateFromLocalStorage = () => {
-          try {
-            const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
-            if (!raw) return
+        if (!DISABLE_LOCAL_STORAGE) {
+          const hydrateFromLocalStorage = () => {
+            try {
+              const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+              if (!raw) return
 
-            const parsed = JSON.parse(raw || '{}') || {}
-            if (!isMounted) return
+              const parsed = JSON.parse(raw || '{}') || {}
+              if (!isMounted) return
 
-            if (parsed.day) setDay(parsed.day)
-            if (Array.isArray(parsed.periods) && parsed.periods.length) setPeriods(parsed.periods)
-            if (Array.isArray(parsed.teachers)) setTeachers(parsed.teachers)
-            if (Array.isArray(parsed.classes)) setClasses(parsed.classes)
+              if (parsed.day) setDay(parsed.day)
+              if (Array.isArray(parsed.periods) && parsed.periods.length) setPeriods(parsed.periods)
+              if (Array.isArray(parsed.teachers)) setTeachers(parsed.teachers)
+              if (Array.isArray(parsed.classes)) setClasses(parsed.classes)
 
-            setTeacherFree(arrayToSetMap(parsed.teacherFree || {}))
+              setTeacherFree(arrayToSetMap(parsed.teacherFree || {}))
 
-            const migratedClassFree = migrateClassFree(parsed.classFree || {})
-            setClassFree(migratedClassFree)
+              const migratedClassFree = migrateClassFree(parsed.classFree || {})
+              setClassFree(migratedClassFree)
 
-            const migratedClassAbsence = migrateClassAbsence(parsed.classAbsence || {})
-            setClassAbsence(migratedClassAbsence)
-            setAbsentPeople(normalizeAbsentPeople(parsed.absentPeople || [], parsed.classAbsence || {}))
+              const migratedClassAbsence = migrateClassAbsence(parsed.classAbsence || {})
+              setClassAbsence(migratedClassAbsence)
+              setAbsentPeople(normalizeAbsentPeople(parsed.absentPeople || [], parsed.classAbsence || {}))
 
-            if (parsed.options && typeof parsed.options === 'object') {
-              setOptions((prev) => ({ ...prev, ...parsed.options }))
+              if (parsed.options && typeof parsed.options === 'object') {
+                setOptions((prev) => ({ ...prev, ...parsed.options }))
+              }
+
+              if (parsed.locked && typeof parsed.locked === 'object') {
+                setLocked(parsed.locked)
+              }
+
+              if (Array.isArray(parsed.snapshots)) {
+                setSnapshots(parsed.snapshots)
+              }
+
+              if (parsed.pdfSchedule && typeof parsed.pdfSchedule === 'object') {
+                setPdfSchedule(parsed.pdfSchedule)
+              }
+
+              if (parsed.teacherSchedules && typeof parsed.teacherSchedules === 'object') {
+                setTeacherSchedules(parsed.teacherSchedules)
+                setTeacherSchedulesHydrated(true)
+              }
+
+              if (parsed.commonLessons && typeof parsed.commonLessons === 'object') {
+                setCommonLessons(parsed.commonLessons)
+              }
+            } catch (error) {
+              logger.error('Local data hydrate failed:', error)
             }
-
-            if (parsed.locked && typeof parsed.locked === 'object') {
-              setLocked(parsed.locked)
-            }
-
-            if (Array.isArray(parsed.snapshots)) {
-              setSnapshots(parsed.snapshots)
-            }
-
-            if (parsed.pdfSchedule && typeof parsed.pdfSchedule === 'object') {
-              setPdfSchedule(parsed.pdfSchedule)
-            }
-
-            if (parsed.teacherSchedules && typeof parsed.teacherSchedules === 'object') {
-              setTeacherSchedules(parsed.teacherSchedules)
-              setTeacherSchedulesHydrated(true)
-            }
-
-            if (parsed.commonLessons && typeof parsed.commonLessons === 'object') {
-              setCommonLessons(parsed.commonLessons)
-            }
-          } catch (error) {
-            logger.error('Local data hydrate failed:', error)
           }
-        }
 
-        hydrateFromLocalStorage()
+          hydrateFromLocalStorage()
+        }
       } catch (error) {
         logger.error('Data loading failed:', error)
       } finally {
@@ -653,38 +668,39 @@ export default function App() {
     const serializedTeacherFree = mapSetToArray(teacherFree)
     const serializedClassFree = mapSetToArray(classFree)
 
-    const payload = {
-      day,
-      periods,
-      teachers,
-      classes,
-      teacherFree: serializedTeacherFree,
-      classFree: serializedClassFree,
-      absentPeople,
-      classAbsence,
-      commonLessons,
-      options,
-      lastSaved: Date.now(),
-      locked,
-      snapshots,
-      pdfSchedule,
-      teacherSchedules,
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-
-      if (!shouldSkipSupabaseSync) {
-        // Save to Supabase as well
-        if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
-          saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
-        }
-        bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
-        bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
-        saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
-        saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
+    if (!DISABLE_LOCAL_STORAGE) {
+      try {
+        const payload = {
+          day,
+          periods,
+          teachers,
+          classes,
+          teacherFree: serializedTeacherFree,
+          classFree: serializedClassFree,
+          absentPeople,
+          classAbsence,
+          commonLessons,
+          options,
+          lastSaved: Date.now(),
+          locked,
+          snapshots,
+          pdfSchedule,
+          teacherSchedules,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {
+        logger.warn("Otomatik kaydetme hatası:", e);
       }
-    } catch (e) {
-      logger.warn("Otomatik kaydetme hatası:", e);
+    }
+
+    if (!shouldSkipSupabaseSync) {
+      if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
+        saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+      }
+      bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
+      bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
+      saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
+      saveSnapshots(snapshots).catch(err => logger.error('Auto save snapshots error:', err));
     }
   }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, snapshots, pdfSchedule, teacherSchedules, teacherSchedulesHydrated]);
 
