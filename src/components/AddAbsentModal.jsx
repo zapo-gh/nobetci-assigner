@@ -80,32 +80,35 @@ export default function AddAbsentModal({
     }
   };
 
-  const stripDiacritics = (str = '') => {
-    try {
-      return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    } catch {
-      return str;
-    }
-  };
-
   const handleTeacherInput = (value) => {
-    setFormData(prev => ({ ...prev, name: value }));
-    const normalized = normalizeForComparison(value || '');
+    const inputValue = value || '';
+    setFormData(prev => ({ ...prev, name: inputValue }));
 
-    let match = null;
-    if (normalized) {
-      match = preparedTeacherOptions.find(opt => opt.normalizedName === normalized) || null;
-      if (!match) {
-        const strippedInput = stripDiacritics(normalized.replace(/\s+/g, ''));
-        match = preparedTeacherOptions.find(opt => stripDiacritics(opt.normalizedName.replace(/\s+/g, '')) === strippedInput) || null;
-      }
-      if (!match) {
-        match = preparedTeacherOptions.find(opt => opt.teacherName?.localeCompare(value || '', 'tr', { sensitivity: 'base' }) === 0) || null;
-      }
+    // Eğer liste boşsa eşleşmeye çalışmaya gerek yok
+    if (!preparedTeacherOptions.length) {
+      setSelectedTeacher(null);
+      return;
     }
-    setSelectedTeacher(match);
-    if (errors.name) {
-      setErrors(prev => ({ ...prev, name: '' }));
+
+    // Kullanıcı yazarken sürekli eşleşme yapıp blur'a sebep olmamak için
+    // sadece datalist'ten seçildiği an (tam eşleşme olduğunda) teacher set edelim
+    const normalized = normalizeForComparison(inputValue);
+    if (!normalized) {
+      setSelectedTeacher(null);
+      return;
+    }
+
+    const exactMatch = preparedTeacherOptions.find(
+      opt => opt.normalizedName === normalized
+    );
+
+    if (exactMatch) {
+      setSelectedTeacher(exactMatch);
+      if (errors.name) {
+        setErrors(prev => ({ ...prev, name: '' }));
+      }
+    } else {
+      setSelectedTeacher(null);
     }
   };
 
@@ -191,9 +194,14 @@ export default function AddAbsentModal({
             onChange={(e) => handleTeacherInput(e.target.value)}
             placeholder={preparedTeacherOptions.length ? 'Örn: Ayşe Yılmaz' : 'Önce ders programı yükleyin'}
             autoFocus
+            list="absent-teacher-options"
             disabled={!preparedTeacherOptions.length}
-            autoComplete="off"
           />
+          <datalist id="absent-teacher-options">
+            {preparedTeacherOptions.map(option => (
+              <option key={option.teacherId} value={option.teacherName} />
+            ))}
+          </datalist>
           {errors.name && (
             <span className="error-message">{errors.name}</span>
           )}
