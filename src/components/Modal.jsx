@@ -4,13 +4,11 @@ import styles from './Modal.module.css';
 export default function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
   const modalRef = useRef(null);
 
-  const stopPointerPropagation = useCallback((event) => {
+  const stopPropagation = useCallback((event) => {
     event.stopPropagation();
   }, []);
 
-  const handleOverlayPointerDown = useCallback((event) => {
-    // Only react to primary button / touch
-    if (typeof event.button === 'number' && event.button !== 0) return;
+  const handleOverlayClick = useCallback((event) => {
     onClose();
   }, [onClose]);
 
@@ -46,12 +44,12 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
   return (
     <div
       className={styles.modalOverlay}
-      onPointerDown={handleOverlayPointerDown}
+      onClick={handleOverlayClick}
     >
       <div
         ref={modalRef}
         className={`${styles.modalContent} ${sizeClasses[size]}`}
-        onPointerDown={stopPointerPropagation}
+        onClick={stopPropagation}
         tabIndex={-1}
       >
         <div className={styles.modalHeader}>
