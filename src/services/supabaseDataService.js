@@ -731,7 +731,9 @@ export async function bulkSaveClassAbsence(classAbsence) {
 
     const { error: insertError } = await supabase
       .from('class_absence')
-      .insert(rows)
+      .upsert(rows, {
+        onConflict: 'day,period,classId'
+      })
 
     if (insertError) throw insertError
   } catch (error) {
