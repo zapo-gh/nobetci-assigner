@@ -13,7 +13,7 @@ const TEACHER_FREE_SINGLE_ROW_ID = 1
 export async function loadInitialData() {
   try {
     // Load all data in parallel
-    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, importHistoryRes, snapshotsRes] = await Promise.all([
+    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, snapshotsRes] = await Promise.all([
       supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
       supabase.from('classes').select('*').order('createdAt', { ascending: false }),
       supabase.from('absents').select('*').order('createdAt', { ascending: false }),
@@ -24,7 +24,6 @@ export async function loadInitialData() {
       supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
       supabase.from('teacher_schedules').select('*'),
       supabase.from('common_lessons').select('*'),
-      supabase.from('import_history').select('*').order('createdAt', { ascending: false }),
       supabase.from('snapshots').select('*').order('ts', { ascending: false })
     ])
 
@@ -38,7 +37,6 @@ export async function loadInitialData() {
     if (pdfScheduleRes.error) throw pdfScheduleRes.error
     if (teacherSchedulesRes.error) throw teacherSchedulesRes.error
     if (commonLessonsRes.error) throw commonLessonsRes.error
-    if (importHistoryRes.error) throw importHistoryRes.error
     if (snapshotsRes.error) throw snapshotsRes.error
 
     // Transform data to expected format
@@ -103,7 +101,6 @@ export async function loadInitialData() {
       pdfSchedule,
       teacherSchedules,
       commonLessons,
-      importHistory: importHistoryRes.data,
       snapshots: snapshotsRes.data
     }
   } catch (error) {

@@ -435,6 +435,34 @@ export default function App() {
     });
   }, []);
 
+  const handleRealtimeTeacherSchedules = useCallback((payload) => {
+    if (!payload) return;
+
+    const { eventType, new: newRow, old } = payload;
+    const teacherName =
+      newRow?.teacher_name ||
+      old?.teacher_name ||
+      newRow?.teacherName ||
+      old?.teacherName;
+
+    if (!teacherName) return;
+
+    skipNextSupabaseSaveRef.current = true;
+    setTeacherSchedulesHydrated(true);
+
+    setTeacherSchedules((prev = {}) => {
+      const next = { ...prev };
+
+      if (eventType === 'DELETE') {
+        delete next[teacherName];
+        return next;
+      }
+
+      next[teacherName] = newRow?.schedule || {};
+      return next;
+    });
+  }, []);
+
   const showConfirmation = useCallback((title, message, type = 'warning', onConfirm) => {
     setConfirmationModal({
       isOpen: true,
@@ -472,6 +500,7 @@ export default function App() {
       absents: handleRealtimeAbsents,
       classFree: handleRealtimeClassFree,
       classAbsence: handleRealtimeClassAbsence,
+      teacherSchedules: handleRealtimeTeacherSchedules,
     });
 
     return () => {
@@ -479,7 +508,7 @@ export default function App() {
         unsubscribe();
       }
     };
-  }, [handleRealtimeAbsents, handleRealtimeClassFree, handleRealtimeClassAbsence]);
+  }, [handleRealtimeAbsents, handleRealtimeClassFree, handleRealtimeClassAbsence, handleRealtimeTeacherSchedules]);
 
   // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
