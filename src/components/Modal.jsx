@@ -1,26 +1,37 @@
 import React, { useEffect, useRef } from 'react';
 import styles from './Modal.module.css';
 
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false;
+  if (typeof navigator !== 'undefined') {
+    if (navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0) return true;
+  }
+  return (
+    'ontouchstart' in window ||
+    (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+  );
+};
+
 export default function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
   const modalRef = useRef(null);
+  const touchDeviceRef = useRef(isTouchDevice());
 
   useEffect(() => {
     if (!isOpen) return undefined;
 
     const body = document.body;
-    const prefersCoarsePointer = typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(pointer: coarse)').matches;
-
+    const isTouch = touchDeviceRef.current;
     const previousOverflow = body.style.overflow;
-    if (!prefersCoarsePointer) {
+    if (!isTouch) {
       body.style.overflow = 'hidden';
     }
 
-    modalRef.current?.focus();
+    if (!isTouch) {
+      modalRef.current?.focus();
+    }
 
     return () => {
-      if (!prefersCoarsePointer) {
+      if (!isTouch) {
         body.style.overflow = previousOverflow;
       }
     };
