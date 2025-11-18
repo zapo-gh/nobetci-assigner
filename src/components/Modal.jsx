@@ -36,10 +36,6 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
       body.style.overflow = 'hidden';
     }
 
-    if (!isTouch) {
-      modalRef.current?.focus();
-    }
-
     return () => {
       if (!isTouch) {
         body.style.overflow = previousOverflow;
