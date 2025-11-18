@@ -195,7 +195,6 @@ export default function AddAbsentModal({
             placeholder={preparedTeacherOptions.length ? 'Örn: Ayşe Yılmaz' : 'Önce ders programı yükleyin'}
             autoFocus
             list="absent-teacher-options"
-            disabled={!preparedTeacherOptions.length}
           />
           <datalist id="absent-teacher-options">
             {preparedTeacherOptions.map(option => (
