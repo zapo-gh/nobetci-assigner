@@ -191,14 +191,9 @@ export default function AddAbsentModal({
             onChange={(e) => handleTeacherInput(e.target.value)}
             placeholder={preparedTeacherOptions.length ? 'Örn: Ayşe Yılmaz' : 'Önce ders programı yükleyin'}
             autoFocus
-            list="absent-teacher-options"
             disabled={!preparedTeacherOptions.length}
+            autoComplete="off"
           />
-          <datalist id="absent-teacher-options">
-            {preparedTeacherOptions.map(option => (
-              <option key={option.teacherId} value={option.teacherName} />
-            ))}
-          </datalist>
           {errors.name && (
             <span className="error-message">{errors.name}</span>
           )}
