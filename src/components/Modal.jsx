@@ -5,14 +5,24 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
   const modalRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      modalRef.current?.focus();
-    } else {
-      document.body.style.overflow = '';
+    if (!isOpen) return undefined;
+
+    const body = document.body;
+    const prefersCoarsePointer = typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+
+    const previousOverflow = body.style.overflow;
+    if (!prefersCoarsePointer) {
+      body.style.overflow = 'hidden';
     }
+
+    modalRef.current?.focus();
+
     return () => {
-      document.body.style.overflow = '';
+      if (!prefersCoarsePointer) {
+        body.style.overflow = previousOverflow;
+      }
     };
   }, [isOpen]);
 
