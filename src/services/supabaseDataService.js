@@ -144,6 +144,49 @@ export async function loadInitialData() {
   }
 }
 
+export async function loadClassAbsence() {
+  try {
+    const classAbsenceRes = await supabase.from('class_absence').select('*')
+    const classAbsenceRaw = getTableData(classAbsenceRes, { fallback: [], tableName: 'class_absence' })
+    
+    const classAbsence = {}
+    classAbsenceRaw.forEach(item => {
+      if (!classAbsence[item.day]) classAbsence[item.day] = {}
+      if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
+      classAbsence[item.day][item.period][item.classId] = item.absentId
+    })
+    
+    return classAbsence
+  } catch (error) {
+    console.error('loadClassAbsence error:', error)
+    throw error
+  }
+}
+
+export async function loadClassFree() {
+  try {
+    const classFreeRes = await supabase.from('class_free').select('*')
+    const classFreeRaw = getTableData(classFreeRes, { fallback: [], tableName: 'class_free' })
+    
+    let classFree = {}
+    const classFreeJsonRow = classFreeRaw.find(item => typeof item?.data === 'object')
+    if (classFreeJsonRow) {
+      classFree = classFreeJsonRow.data || {}
+    } else {
+      classFreeRaw.forEach(item => {
+        if (!item?.day) return
+        if (!classFree[item.day]) classFree[item.day] = {}
+        classFree[item.day][item.period] = item.classIds || []
+      })
+    }
+    
+    return classFree
+  } catch (error) {
+    console.error('loadClassFree error:', error)
+    throw error
+  }
+}
+
 export async function insertTeacher({ teacherName, maxDutyPerDay = 6, source = 'manual' }) {
   try {
     const teacherData = {

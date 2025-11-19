@@ -18,6 +18,8 @@ import styles from './components/Tabs.module.css'; // Tabs.module.css dosyasın�
 import { APP_ENV } from './config/index.js';
 import {
   loadInitialData,
+  loadClassAbsence,
+  loadClassFree,
   insertTeacher,
   deleteTeacherById,
   insertClass,
@@ -517,6 +519,7 @@ export default function App() {
 
   // Modal açık/kapalı durumunu izle
   useEffect(() => {
+    const wasOpen = isAnyModalOpenRef.current;
     const isAnyOpen = 
       modals.teacher || 
       modals.class || 
@@ -526,6 +529,27 @@ export default function App() {
       pdfImportModal ||
       excelReplaceModal.isOpen ||
       confirmationModal.isOpen;
+    
+    // Modal kapandıktan sonra classAbsence ve classFree verilerini yeniden yükle
+    if (wasOpen && !isAnyOpen && hydratedRef.current) {
+      Promise.all([
+        loadClassAbsence().catch(err => {
+          logger.warn('Failed to reload classAbsence after modal close:', err);
+          return null;
+        }),
+        loadClassFree().catch(err => {
+          logger.warn('Failed to reload classFree after modal close:', err);
+          return null;
+        })
+      ]).then(([freshClassAbsence, freshClassFree]) => {
+        if (freshClassAbsence) {
+          setClassAbsence(migrateClassAbsence(freshClassAbsence));
+        }
+        if (freshClassFree) {
+          setClassFree(migrateClassFree(freshClassFree));
+        }
+      });
+    }
     
     isAnyModalOpenRef.current = isAnyOpen;
   }, [modals, pdfImportModal, excelReplaceModal.isOpen, confirmationModal.isOpen]);
