@@ -81,6 +81,30 @@ GitHub'a push ettikten sonra Render.com otomatik olarak:
 3. Build dosyalarını deploy eder
 4. Uygulamayı başlatır
 
+## Supabase Veri Tabanı Notları
+
+Uygulamanın gerçek zamanlı ve çok kullanıcılı senaryolarda sorunsuz çalışması için aşağıdaki veritabanı kısıtlarını eklemeniz önerilir:
+
+### 1. Sınıf adları için benzersiz indeks
+
+```sql
+create unique index if not exists classes_class_name_lower_idx
+  on classes (lower(classname));
+```
+
+Bu indeks aynı sınıf adının (ör. `9-E`) farklı cihazlardan eş zamanlı olarak iki kez eklenmesini engeller. Uygulamadaki `insertClass` fonksiyonu hata kodu `23505` döndüğünde mevcut kaydı tekrar kullanacak şekilde güncellendi.
+
+### 2. `class_absence` performansı
+
+`class_absence` tablosu artık her otomatik kaydetme işleminde tamamen silinip yeniden yazılmıyor; mevcut satırlar ile hedef durum karşılaştırılarak sadece değişen kayıtlar güncelleniyor. Yine de büyüyen tablolar için aşağıdaki indeksler sorgu performansını iyileştirir:
+
+```sql
+create index if not exists class_absence_day_idx on class_absence (day);
+create index if not exists class_absence_day_period_idx on class_absence (day, period);
+```
+
+Bu adımlar opsiyoneldir ancak yüksek trafikli kullanımda Supabase üzerindeki yükü ciddi ölçüde azaltır.
+
 ## ESLint Yapılandırması
 
 Üretim uygulaması geliştiriyorsanız, TypeScript ile tip-aware lint kuralları kullanmanızı öneririz. Daha fazla bilgi için [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) sayfasını inceleyin.

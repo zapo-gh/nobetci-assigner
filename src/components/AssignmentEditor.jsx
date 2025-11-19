@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useCallback, useState } from 'react'
+import React, { memo, useMemo, useCallback, useState, useEffect } from 'react'
 import styles from './AssignmentEditor.module.css';
 import { MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js'
 
@@ -17,7 +17,8 @@ function AssignmentEditor({
   onManualClear,
   onManualRelease,
   commonLessons,
-  IconComponent
+  IconComponent,
+  onManualEditorStateChange,
 }) {
   const teacherById = useMemo(() => Object.fromEntries(teachers.map(t => [t.teacherId, t])), [teachers])
   const [dragOverClassId, setDragOverClassId] = useState(null);
@@ -88,7 +89,8 @@ function AssignmentEditor({
   const closeEditor = useCallback(() => {
     setEditingContext(null)
     setEditSelection(AUTO_OPTION)
-  }, [])
+    onManualEditorStateChange?.(false)
+  }, [onManualEditorStateChange])
 
   const openEditor = useCallback((period, classId, currentValue) => {
     const key = `${day}|${period}|${classId}`
@@ -102,7 +104,8 @@ function AssignmentEditor({
     }
     setEditingContext({ key, period, classId })
     setEditSelection(initialValue)
-  }, [day, teacherById])
+    onManualEditorStateChange?.(true)
+  }, [day, teacherById, onManualEditorStateChange])
 
   const handleManualSave = useCallback(() => {
     if (!editingContext) return
@@ -117,6 +120,12 @@ function AssignmentEditor({
     }
     closeEditor()
   }, [editingContext, editSelection, onManualAssign, onManualClear, onManualRelease, closeEditor, day])
+
+  useEffect(() => {
+    return () => {
+      onManualEditorStateChange?.(false)
+    }
+  }, [onManualEditorStateChange])
 
   const handleDragStart = (e, period, classId, teacherId) => {
     const payload = { type: 'assignment', day, period, classId, teacherId }

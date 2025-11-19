@@ -226,9 +226,14 @@ export async function deleteTeacherById(teacherId) {
 
 export async function insertClass({ className }) {
   try {
+    const cleanName = String(className || '').trim()
+    if (!cleanName) {
+      throw new Error('className is required')
+    }
+
     const classData = {
       classId: createId(),
-      className,
+      className: cleanName
     }
 
     const { data, error } = await supabase
@@ -240,7 +245,32 @@ export async function insertClass({ className }) {
     if (error) throw error
     return data
   } catch (error) {
+    if (error?.code === '23505' || /duplicate/i.test(error?.message || '')) {
+      const existing = await getClassByName(className)
+      if (existing) return existing
+    }
     console.error('insertClass full error:', JSON.stringify(error, null, 2))
+    throw error
+  }
+}
+
+export async function getClassByName(className) {
+  try {
+    const cleanName = String(className || '').trim()
+    if (!cleanName) {
+      return null
+    }
+
+    const { data, error } = await supabase
+      .from('classes')
+      .select('*')
+      .ilike('className', cleanName)
+      .limit(1)
+
+    if (error) throw error
+    return Array.isArray(data) && data.length > 0 ? data[0] : null
+  } catch (error) {
+    console.error('getClassByName error:', error)
     throw error
   }
 }
@@ -765,25 +795,50 @@ export async function bulkSaveClassAbsence(classAbsence) {
       })
     }
 
-    // Clear existing data then insert current snapshot to keep tables in sync
-    const { error: deleteError } = await supabase
+    const { data: existingRows = [], error: selectError } = await supabase
       .from('class_absence')
-      .delete()
-      .neq('day', '__never__')
+      .select('day,period,classId,absentId')
 
-    if (deleteError) throw deleteError
+    if (selectError) throw selectError
 
-    if (rows.length === 0) {
-      return
+    const existingMap = new Map()
+    existingRows.forEach((row) => {
+      const key = `${row.day}|${row.period}|${row.classId}`
+      existingMap.set(key, row.absentId)
+    })
+
+    const targetMap = new Map()
+    rows.forEach((row) => {
+      const key = `${row.day}|${row.period}|${row.classId}`
+      targetMap.set(key, row.absentId)
+    })
+
+    const rowsToUpsert = rows.filter((row) => {
+      const key = `${row.day}|${row.period}|${row.classId}`
+      return existingMap.get(key) !== row.absentId
+    })
+
+    if (rowsToUpsert.length > 0) {
+      const { error: upsertError } = await supabase
+        .from('class_absence')
+        .upsert(rowsToUpsert, {
+          onConflict: 'day,period,classId'
+        })
+      if (upsertError) throw upsertError
     }
 
-    const { error: insertError } = await supabase
-      .from('class_absence')
-      .upsert(rows, {
-        onConflict: 'day,period,classId'
-      })
+    const rowsToDelete = existingRows.filter((row) => {
+      const key = `${row.day}|${row.period}|${row.classId}`
+      return !targetMap.has(key)
+    })
 
-    if (insertError) throw insertError
+    for (const row of rowsToDelete) {
+      const { error: deleteError } = await supabase
+        .from('class_absence')
+        .delete()
+        .match({ day: row.day, period: row.period, classId: row.classId })
+      if (deleteError) throw deleteError
+    }
   } catch (error) {
     console.error('bulkSaveClassAbsence full error:', JSON.stringify(error, null, 2))
     throw error

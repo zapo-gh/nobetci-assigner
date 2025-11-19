@@ -18,11 +18,10 @@ import styles from './components/Tabs.module.css'; // Tabs.module.css dosyasın�
 import { APP_ENV } from './config/index.js';
 import {
   loadInitialData,
-  loadClassAbsence,
-  loadClassFree,
   insertTeacher,
   deleteTeacherById,
   insertClass,
+  getClassByName,
   deleteClassById,
   insertAbsent,
   deleteAbsentById,
@@ -308,6 +307,7 @@ export default function App() {
   };
   
   const [day, setDay] = useState(getTodayKey());
+  const [lastRealDate, setLastRealDate] = useState(() => new Date().toDateString());
   const [periods, setPeriods] = useState(PERIODS);
   const [theme, setTheme] = useState(() => {
     try {
@@ -348,6 +348,9 @@ export default function App() {
   const classAbsenceStateRef = useRef({})
   const skipNextSupabaseSaveRef = useRef(false)
   const isAnyModalOpenRef = useRef(false)
+  const isPlanEditorActiveRef = useRef(false)
+  const isClassEditorActiveRef = useRef(false)
+  const pendingRealtimeEventsRef = useRef([])
   const [selectedTeacher, setSelectedTeacher] = useState(null) // Selected teacher for modal display
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
@@ -368,10 +371,44 @@ export default function App() {
     setTeachers(prev => prev.map(t => ({ ...t, maxDutyPerDay: safe })));
   }, []);
 
-  const handleRealtimeAbsents = useCallback((payload) => {
+  const shouldDeferRealtime = useCallback(() => {
+    return isAnyModalOpenRef.current || isPlanEditorActiveRef.current || isClassEditorActiveRef.current;
+  }, []);
+
+  const handleRealtimeClasses = useCallback((payload, options = {}) => {
     if (!payload) return;
-    // Modal açıkken realtime güncellemelerini ignore et
-    if (isAnyModalOpenRef.current) return;
+    if (!options.fromQueue && shouldDeferRealtime()) {
+      pendingRealtimeEventsRef.current.push({ type: 'classes', payload });
+      return;
+    }
+
+    const { eventType, new: newRow, old } = payload;
+    if (eventType === 'DELETE' && old?.classId) {
+      setClasses(prev => prev.filter(cls => cls.classId !== old.classId));
+      return;
+    }
+
+    const targetRow = newRow || old;
+    if (!targetRow?.classId) return;
+
+    setClasses(prev => {
+      const idx = prev.findIndex(cls => cls.classId === targetRow.classId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...targetRow };
+        return next;
+      }
+      return [...prev, targetRow];
+    });
+  }, []);
+
+  const handleRealtimeAbsents = useCallback((payload, options = {}) => {
+    if (!payload) return;
+    // Modal açıkken realtime güncellemelerini kuyruğa al
+    if (!options.fromQueue && shouldDeferRealtime()) {
+      pendingRealtimeEventsRef.current.push({ type: 'absents', payload });
+      return;
+    }
     const { eventType, new: newRow, old } = payload;
 
     if (eventType === 'DELETE' && old?.absentId) {
@@ -393,10 +430,13 @@ export default function App() {
     });
   }, []);
 
-  const handleRealtimeClassFree = useCallback((payload) => {
+  const handleRealtimeClassFree = useCallback((payload, options = {}) => {
     if (!payload) return;
-    // Modal açıkken realtime güncellemelerini ignore et
-    if (isAnyModalOpenRef.current) return;
+    // Modal açıkken realtime güncellemelerini kuyruğa al
+    if (!options.fromQueue && shouldDeferRealtime()) {
+      pendingRealtimeEventsRef.current.push({ type: 'classFree', payload });
+      return;
+    }
     const dataSnapshot = payload?.new?.data || {};
     const serializedIncoming = stableStringify(dataSnapshot);
     if (serializedIncoming === classFreeSnapshotRef.current) {
@@ -407,10 +447,13 @@ export default function App() {
     setClassFree(migrateClassFree(dataSnapshot || {}));
   }, []);
 
-  const handleRealtimeClassAbsence = useCallback((payload) => {
+  const handleRealtimeClassAbsence = useCallback((payload, options = {}) => {
     if (!payload) return;
-    // Modal açıkken realtime güncellemelerini ignore et
-    if (isAnyModalOpenRef.current) return;
+    // Modal açıkken realtime güncellemelerini kuyruğa al
+    if (!options.fromQueue && shouldDeferRealtime()) {
+      pendingRealtimeEventsRef.current.push({ type: 'classAbsence', payload });
+      return;
+    }
     const { eventType, new: newRow, old } = payload;
     const targetRow = eventType === 'DELETE' ? old : newRow;
     if (!targetRow) return;
@@ -446,10 +489,71 @@ export default function App() {
     });
   }, []);
 
-  const handleRealtimeTeacherSchedules = useCallback((payload) => {
+  const handleRealtimeLocks = useCallback((payload, options = {}) => {
     if (!payload) return;
-    // Modal açıkken realtime güncellemelerini ignore et
-    if (isAnyModalOpenRef.current) return;
+    if (!options.fromQueue && isAnyModalOpenRef.current) {
+      pendingRealtimeEventsRef.current.push({ type: 'locks', payload });
+      return;
+    }
+
+    const { eventType, new: newRow, old } = payload;
+    const target = eventType === 'DELETE' ? old : newRow;
+    if (!target?.day || typeof target.period === 'undefined' || !target.classId) return;
+    const key = `${target.day}|${target.period}|${target.classId}`;
+
+    setLocked((prev = {}) => {
+      const next = { ...prev };
+      if (eventType === 'DELETE' || !target.teacherId) {
+        delete next[key];
+      } else {
+        next[key] = target.teacherId;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleRealtimeCommonLessons = useCallback((payload, options = {}) => {
+    if (!payload) return;
+    if (!options.fromQueue && isAnyModalOpenRef.current) {
+      pendingRealtimeEventsRef.current.push({ type: 'commonLessons', payload });
+      return;
+    }
+
+    const { eventType, new: newRow, old } = payload;
+    const target = eventType === 'DELETE' ? old : newRow;
+    const dayKey = target?.day;
+    const period = Number(target?.period);
+    const classId = target?.class_id;
+    const teacherName = target?.teacher_name;
+    if (!dayKey || !Number.isFinite(period) || !classId) return;
+
+    setCommonLessons((prev = {}) => {
+      const next = { ...prev };
+      if (!next[dayKey]) next[dayKey] = {};
+      if (!next[dayKey][period]) next[dayKey][period] = {};
+
+      if (eventType === 'DELETE' || !teacherName) {
+        delete next[dayKey][period][classId];
+        if (Object.keys(next[dayKey][period]).length === 0) {
+          delete next[dayKey][period];
+        }
+        if (Object.keys(next[dayKey]).length === 0) {
+          delete next[dayKey];
+        }
+      } else {
+        next[dayKey][period][classId] = teacherName;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleRealtimeTeacherSchedules = useCallback((payload, options = {}) => {
+    if (!payload) return;
+    // Modal açıkken realtime güncellemelerini kuyruğa al
+    if (!options.fromQueue && shouldDeferRealtime()) {
+      pendingRealtimeEventsRef.current.push({ type: 'teacherSchedules', payload });
+      return;
+    }
 
     const { eventType, new: newRow, old } = payload;
     const teacherName =
@@ -485,6 +589,39 @@ export default function App() {
     });
   }, []);
 
+  const flushPendingRealtimeEvents = useCallback(() => {
+    if (!pendingRealtimeEventsRef.current.length) return;
+    const queue = pendingRealtimeEventsRef.current.slice();
+    pendingRealtimeEventsRef.current = [];
+    queue.forEach(({ type, payload }) => {
+      switch (type) {
+        case 'classes':
+          handleRealtimeClasses(payload, { fromQueue: true });
+          break;
+        case 'absents':
+          handleRealtimeAbsents(payload, { fromQueue: true });
+          break;
+        case 'classFree':
+          handleRealtimeClassFree(payload, { fromQueue: true });
+          break;
+        case 'classAbsence':
+          handleRealtimeClassAbsence(payload, { fromQueue: true });
+          break;
+        case 'teacherSchedules':
+          handleRealtimeTeacherSchedules(payload, { fromQueue: true });
+          break;
+        case 'locks':
+          handleRealtimeLocks(payload, { fromQueue: true });
+          break;
+        case 'commonLessons':
+          handleRealtimeCommonLessons(payload, { fromQueue: true });
+          break;
+        default:
+          break;
+      }
+    });
+  }, [handleRealtimeClasses, handleRealtimeAbsents, handleRealtimeClassFree, handleRealtimeClassAbsence, handleRealtimeTeacherSchedules, handleRealtimeLocks, handleRealtimeCommonLessons]);
+
   const showConfirmation = useCallback((title, message, type = 'warning', onConfirm) => {
     setConfirmationModal({
       isOpen: true,
@@ -497,6 +634,11 @@ export default function App() {
       }
     });
   }, []);
+
+  const handleDayChange = useCallback((nextDay) => {
+    if (!nextDay || nextDay === day) return;
+    setDay(nextDay);
+  }, [day]);
 
   // Tema
   useEffect(() => {
@@ -530,36 +672,36 @@ export default function App() {
       excelReplaceModal.isOpen ||
       confirmationModal.isOpen;
     
-    // Modal kapandıktan sonra classAbsence ve classFree verilerini yeniden yükle
-    if (wasOpen && !isAnyOpen && hydratedRef.current) {
-      Promise.all([
-        loadClassAbsence().catch(err => {
-          logger.warn('Failed to reload classAbsence after modal close:', err);
-          return null;
-        }),
-        loadClassFree().catch(err => {
-          logger.warn('Failed to reload classFree after modal close:', err);
-          return null;
-        })
-      ]).then(([freshClassAbsence, freshClassFree]) => {
-        if (freshClassAbsence) {
-          setClassAbsence(migrateClassAbsence(freshClassAbsence));
-        }
-        if (freshClassFree) {
-          setClassFree(migrateClassFree(freshClassFree));
-        }
-      });
-    }
-    
+    // Modal kapandıktan sonra bekleyen realtime event'leri uygula
     isAnyModalOpenRef.current = isAnyOpen;
-  }, [modals, pdfImportModal, excelReplaceModal.isOpen, confirmationModal.isOpen]);
+    if (!isAnyOpen && !isPlanEditorActiveRef.current && hydratedRef.current) {
+      flushPendingRealtimeEvents();
+    }
+  }, [modals, pdfImportModal, excelReplaceModal.isOpen, confirmationModal.isOpen, flushPendingRealtimeEvents]);
+
+  const handlePlanEditorStateChange = useCallback((isActive) => {
+    isPlanEditorActiveRef.current = isActive;
+    if (!isActive && !isAnyModalOpenRef.current && !isClassEditorActiveRef.current && hydratedRef.current) {
+      flushPendingRealtimeEvents();
+    }
+  }, [flushPendingRealtimeEvents]);
+
+  const handleClassEditorStateChange = useCallback((isActive) => {
+    classEditorActiveRef.current = isActive;
+    if (!isActive && !isAnyModalOpenRef.current && !isPlanEditorActiveRef.current && hydratedRef.current) {
+      flushPendingRealtimeEvents();
+    }
+  }, [flushPendingRealtimeEvents]);
 
   useEffect(() => {
     const unsubscribe = realtimeSync.subscribe({
       absents: handleRealtimeAbsents,
+      classes: handleRealtimeClasses,
       classFree: handleRealtimeClassFree,
       classAbsence: handleRealtimeClassAbsence,
       teacherSchedules: handleRealtimeTeacherSchedules,
+      locks: handleRealtimeLocks,
+      commonLessons: handleRealtimeCommonLessons,
     });
 
     return () => {
@@ -567,7 +709,7 @@ export default function App() {
         unsubscribe();
       }
     };
-  }, [handleRealtimeAbsents, handleRealtimeClassFree, handleRealtimeClassAbsence, handleRealtimeTeacherSchedules]);
+  }, [handleRealtimeAbsents, handleRealtimeClasses, handleRealtimeClassFree, handleRealtimeClassAbsence, handleRealtimeTeacherSchedules, handleRealtimeLocks, handleRealtimeCommonLessons]);
 
   // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
@@ -1400,8 +1542,7 @@ export default function App() {
   };
   const addAbsent = async (data) => {
   const validDays = new Set(DAYS.map(d => d.key));
-  const selectedDaysRaw = Array.isArray(data.days) ? data.days.filter(d => validDays.has(d)) : [];
-  const effectiveDays = selectedDaysRaw.length > 0 ? Array.from(new Set(selectedDaysRaw)) : [day];
+  const effectiveDays = [day];
   const dayLabelMap = new Map(DAYS.map(d => [d.key, d.label]));
 
   // 1) Mazeret kaydını ekle (gün bilgisiyle)
@@ -1433,9 +1574,45 @@ export default function App() {
     const teacherSchedule = teacherSchedules[matchedTeacherName] || {};
     const daySchedules = {};
 
-    // 2a) Eklenecek sınıfları tespit et (tüm günler için)
-    const existingClassNamesUpper = new Set(classes.map((c) => (c.className || '').trim().toUpperCase()));
-    const newClassNames = [];
+    const normalizeClassKey = (name = '') => String(name || '').trim().toUpperCase();
+    const classNameCache = new Map();
+    const existingClassIds = new Set(classes.map((c) => c.classId));
+    classes.forEach((c) => {
+      classNameCache.set(normalizeClassKey(c.className), c);
+    });
+    const classNamesToResolve = new Map();
+    const classResolutionPromises = new Map();
+    const newlyDiscoveredClasses = [];
+
+    const ensureClassRecord = async (rawName) => {
+      const canonicalLabel = String(rawName || '').trim();
+      if (!canonicalLabel) return null;
+      const key = normalizeClassKey(canonicalLabel);
+      if (classNameCache.has(key)) {
+        return classNameCache.get(key);
+      }
+      if (classResolutionPromises.has(key)) {
+        return classResolutionPromises.get(key);
+      }
+
+      const promise = (async () => {
+        let record = await getClassByName(canonicalLabel);
+        if (!record) {
+          record = await insertClass({ className: canonicalLabel });
+        }
+        classNameCache.set(key, record);
+        if (!existingClassIds.has(record.classId)) {
+          existingClassIds.add(record.classId);
+          newlyDiscoveredClasses.push(record);
+        }
+        return record;
+      })();
+
+      classResolutionPromises.set(key, promise);
+      return promise;
+    };
+
+    const classNameToId = new Map();
 
     effectiveDays.forEach((uiDay) => {
       const scheduleDayKey = dayKeyMapping[uiDay];
@@ -1445,21 +1622,40 @@ export default function App() {
 
       const classListForDay = Array.from(new Set(Object.values(scheduleForDay).filter(Boolean)));
       classListForDay.forEach((className) => {
-        const normalized = String(className).trim().toUpperCase();
-        if (existingClassNamesUpper.has(normalized)) return;
-        newClassNames.push(String(className));
-        existingClassNamesUpper.add(normalized);
+        const canonicalLabel = String(className).trim();
+        if (!canonicalLabel) return;
+        const key = normalizeClassKey(canonicalLabel);
+        if (!classNamesToResolve.has(key)) {
+          classNamesToResolve.set(key, canonicalLabel);
+        }
       });
     });
 
-    let insertedClasses = [];
-    if (newClassNames.length > 0) {
-      insertedClasses = await Promise.all(newClassNames.map((name) => insertClass({ className: name })));
-      setClasses((prev) => [...prev, ...insertedClasses]);
-    }
+    await Promise.all(
+      Array.from(classNamesToResolve.entries()).map(async ([key, label]) => {
+        const record = await ensureClassRecord(label);
+        if (record) {
+          classNameToId.set(key, record.classId);
+        }
+      })
+    );
 
-    const allClasses = [...classes, ...insertedClasses];
-    const nameToId = new Map(allClasses.map((c) => [String(c.className).trim().toUpperCase(), c.classId]));
+    if (newlyDiscoveredClasses.length > 0) {
+      setClasses((prev) => {
+        const existingIds = new Set(prev.map((c) => c.classId));
+        const additions = newlyDiscoveredClasses.filter((c) => !existingIds.has(c.classId));
+        if (!additions.length) return prev;
+        const next = [...prev, ...additions];
+        const unique = [];
+        const seen = new Set();
+        next.forEach((cls) => {
+          if (!cls?.classId || seen.has(cls.classId)) return;
+          seen.add(cls.classId);
+          unique.push(cls);
+        });
+        return unique;
+      });
+    }
 
     const classFreeOps = [];
     const classAbsenceOps = [];
@@ -1476,7 +1672,7 @@ export default function App() {
         Object.entries(scheduleForDay).forEach(([periodStr, className]) => {
           const period = Number(periodStr);
           if (!className || !periods.includes(period)) return;
-          const id = nameToId.get(String(className).trim().toUpperCase());
+          const id = classNameToId.get(normalizeClassKey(className));
           if (!id) return;
           ensureSet(uiDay, period);
           next[uiDay][period].add(id);
@@ -1496,7 +1692,7 @@ export default function App() {
         Object.entries(scheduleForDay).forEach(([periodStr, className]) => {
           const period = Number(periodStr);
           if (!className || !periods.includes(period)) return;
-          const id = nameToId.get(String(className).trim().toUpperCase());
+          const id = classNameToId.get(normalizeClassKey(className));
           if (!id) return;
           if (!next[uiDay][period]) next[uiDay][period] = {};
           next[uiDay][period][id] = absentId;
@@ -1507,13 +1703,23 @@ export default function App() {
       return next;
     });
 
-    Promise.all(classFreeOps.map(({ day: dKey, period: per, classId: cId }) =>
-      upsertClassFree({ day: dKey, period: per, classId: cId, isSelected: true })
-    )).catch(err => logger.error('Class free bulk insert error:', err));
+    try {
+      await Promise.all(classFreeOps.map(({ day: dKey, period: per, classId: cId }) =>
+        upsertClassFree({ day: dKey, period: per, classId: cId, isSelected: true })
+      ));
+    } catch (err) {
+      logger.error('Class free bulk insert error:', err);
+      addNotification('Sınıfların boşluk bilgisi Supabase’e yazılamadı. Lütfen tekrar deneyin.', 'error');
+    }
 
-    Promise.all(classAbsenceOps.map((payload) => upsertClassAbsence(payload))).catch(err => logger.error('Class absence bulk insert error:', err));
+    try {
+      await Promise.all(classAbsenceOps.map((payload) => upsertClassAbsence(payload)));
+    } catch (err) {
+      logger.error('Class absence bulk insert error:', err);
+      addNotification('Mazeretli sınıf işaretleri Supabase’e kaydedilemedi.', 'error');
+    }
 
-    const addedCount = insertedClasses.length;
+    const addedCount = newlyDiscoveredClasses.length;
     let markedCount = 0;
     effectiveDays.forEach((uiDay) => {
       markedCount += Object.keys(daySchedules[uiDay] || {}).length;
@@ -1527,6 +1733,7 @@ export default function App() {
     }
   } catch (err) {
     console.warn('Mazeret eklemede sınıf/periyot işaretleme hatası:', err);
+    addNotification(`Sınıf işaretleme başarısız: ${err.message || err}`, 'error');
   }
   };
 
@@ -1625,6 +1832,19 @@ export default function App() {
     setAbsentPeople(prev => prev.filter(p => p.absentId !== absentIdToDelete));
     addNotification("Mazeret kaydı silindi", "info");
   };
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const currentDateString = new Date().toDateString();
+    if (currentDateString === lastRealDate) return;
+    setLastRealDate(currentDateString);
+    if (!Array.isArray(absentPeople) || absentPeople.length === 0) return;
+    absentPeople.forEach(person => {
+      if (person?.absentId) {
+        deleteAbsent(person.absentId);
+      }
+    });
+  }, [lastRealDate, absentPeople, deleteAbsent, setLastRealDate]);
 
   const deleteTeacher = async (teacherIdToDelete) => {
     try {
@@ -1755,13 +1975,28 @@ export default function App() {
     );
   }, [teacherSchedules]);
 
+  useEffect(() => {
+    if (!classFree || !day) return;
+    const snapshot = classFree?.[day];
+    if (!snapshot) {
+      console.log('[DEBUG] classFree snapshot missing for day:', day);
+      return;
+    }
+    const classNameMap = classes.reduce((acc, cls) => {
+      acc[cls.classId] = cls.className;
+      return acc;
+    }, {});
+    const asPlainObject = Object.fromEntries(
+      Object.entries(snapshot).map(([period, set]) => {
+        const ids = Array.from(set instanceof Set ? set : Array.isArray(set) ? set : []);
+        const withNames = ids.map((cid) => `${cid} (${classNameMap[cid] || '??'})`);
+        return [period, withNames];
+      })
+    );
+  }, [classFree, day, classes]);
+
   // PDF'den gelen schedule verisine göre o günün nöbetçi öğretmenlerini filtrele
   const teachersForCurrentDay = useMemo(() => {
-    console.log('=== TEACHERS FILTERING DEBUG ===');
-    console.log('Current day:', day);
-    console.log('Teachers count:', teachers.length);
-    console.log('PDF schedule keys:', Object.keys(pdfSchedule));
-    
     // Gün adı mapping: sistem gün adları -> PDF gün adları
     const dayMapping = {
       'Mon': 'monday',
@@ -1772,12 +2007,9 @@ export default function App() {
     };
     
     const pdfDayKey = dayMapping[day];
-    console.log('PDF day key:', pdfDayKey);
-    console.log('PDF schedule for day:', pdfSchedule[pdfDayKey]);
     
     if (!pdfSchedule[pdfDayKey] || Object.keys(pdfSchedule[pdfDayKey]).length === 0) {
       // PDF schedule yoksa tüm öğretmenleri göster
-      console.log('No PDF schedule for day, returning all teachers');
       return teachers;
     }
     
@@ -1847,12 +2079,99 @@ export default function App() {
       )
     };
   }, [teacherFree, day, periods, teacherMap, absentPeople]);
-  const freeClassesByDay = useMemo(
-    () => ({
-      [day]: Object.fromEntries(periods.map((p) => [p, new Set(Array.from(classFree[day]?.[p] || []))]))
-    }),
-    [classFree, day, periods]
-  );
+  const absentIdsForCurrentDay = useMemo(() => {
+    return new Set(absentPeopleForCurrentDay.map(person => person.absentId));
+  }, [absentPeopleForCurrentDay]);
+
+  const filteredClassAbsence = useMemo(() => {
+    const result = { [day]: {} };
+    const dayAbsences = classAbsence?.[day] || {};
+    Object.entries(dayAbsences).forEach(([periodKey, classesForPeriod]) => {
+      const filtered = Object.entries(classesForPeriod || {}).reduce((acc, [classId, absentId]) => {
+        if (absentIdsForCurrentDay.has(absentId)) {
+          acc[classId] = absentId;
+        }
+        return acc;
+      }, {});
+      if (Object.keys(filtered).length > 0) {
+        result[day][periodKey] = filtered;
+      }
+    });
+    return result;
+  }, [classAbsence, day, absentIdsForCurrentDay]);
+
+  const classFreeForCurrentDay = useMemo(() => {
+    const dayData = classFree?.[day];
+    if (dayData && Object.keys(dayData).length > 0) {
+      const normalized = {};
+      periods.forEach((p) => {
+        const set = dayData[p];
+        normalized[p] = new Set(
+          set instanceof Set ? Array.from(set) : Array.isArray(set) ? set : []
+        );
+      });
+      return { [day]: normalized };
+    }
+
+    const fallback = {};
+    periods.forEach((p) => {
+      fallback[p] = new Set();
+      Object.values(classFree || {}).forEach((dayMap) => {
+        const set = dayMap?.[p];
+        if (set instanceof Set) {
+          set.forEach((cid) => fallback[p].add(cid));
+        } else if (Array.isArray(set)) {
+          set.forEach((cid) => fallback[p].add(cid));
+        }
+      });
+    });
+    return { [day]: fallback };
+  }, [classFree, day, periods]);
+
+  const classesForCurrentDay = useMemo(() => {
+    const includedIds = new Set();
+
+    const dayFree = classFree?.[day] || {};
+    Object.values(dayFree).forEach((setOrArray) => {
+      const ids = setOrArray instanceof Set ? Array.from(setOrArray) : Array.isArray(setOrArray) ? setOrArray : [];
+      ids.forEach(id => includedIds.add(id));
+    });
+
+    const dayAbsence = filteredClassAbsence?.[day] || {};
+    Object.values(dayAbsence).forEach((classMap) => {
+      Object.keys(classMap || {}).forEach(id => includedIds.add(id));
+    });
+
+    return classes.filter(cls => includedIds.has(cls.classId));
+  }, [classes, classFree, filteredClassAbsence, day]);
+
+  const freeClassesByDay = useMemo(() => {
+    const validClassIds = new Set(classes.map((c) => c.classId))
+    const dayFree = { [day]: {} }
+
+    periods.forEach((p) => {
+      const combined = new Set()
+      const freeSet = classFree?.[day]?.[p]
+      if (freeSet instanceof Set) {
+        freeSet.forEach((cid) => validClassIds.has(cid) && combined.add(cid))
+      } else if (Array.isArray(freeSet)) {
+        freeSet.forEach((cid) => validClassIds.has(cid) && combined.add(cid))
+      }
+
+      const absenceMap = filteredClassAbsence?.[day]?.[p]
+      if (absenceMap && typeof absenceMap === 'object') {
+        Object.keys(absenceMap).forEach((classId) => {
+          if (validClassIds.has(classId)) {
+            combined.add(classId)
+          }
+        })
+      }
+
+      dayFree[day][p] = combined
+    })
+
+    return dayFree
+  }, [classes, classFree, filteredClassAbsence, day, periods])
 
   // Locked state'teki geçersiz teacherId'leri otomatik temizle
   useEffect(() => {
@@ -3094,11 +3413,7 @@ export default function App() {
                   <button
                     key={dayObj.key}
                     className={`day-btn ${day === dayObj.key ? 'active' : ''}`}
-                    onClick={() => {
-                      setDay(dayObj.key);
-                      // Gün değiştiğinde PDF schedule'ı temizle (isteğe bağlı)
-                      // setPdfSchedule({});
-                    }}
+                    onClick={() => handleDayChange(dayObj.key)}
                     title={dayObj.label}
                   >
                     {dayObj.short}
@@ -3471,13 +3786,13 @@ export default function App() {
               )}
             </div>
             <ModernClassAvailabilityGrid
-              classes={classes}
+      classes={classesForCurrentDay}
               periods={periods}
-              classFree={classFree}
+              classFree={classFreeForCurrentDay}
               onToggleClassFree={toggleClassFree}
               onSetAllClassesFree={setAllClassesFree}
               absentPeople={absentPeopleForCurrentDay}
-              classAbsence={classAbsence}
+              classAbsence={filteredClassAbsence}
               onSelectAbsence={handleSelectAbsence}
               commonLessons={commonLessons}
               onOpenCommonLessonModal={(day, period, classId) => handleOpenCommonLessonModal(day, period, classId)}
@@ -3485,6 +3800,7 @@ export default function App() {
               day={day}
               IconComponent={Icon}
               teachers={teachers}
+              onDropdownStateChange={handleClassEditorStateChange}
             />
           </div>
         )}
@@ -3532,7 +3848,7 @@ export default function App() {
               )}
             </div>
             <AbsenteeList 
-              absentPeople={absentPeople}
+              absentPeople={absentPeopleForCurrentDay}
               onDelete={deleteAbsent}
               IconComponent={Icon}
             />
@@ -3727,7 +4043,7 @@ export default function App() {
             <AssignmentEditor
               day={day}
               periods={periods}
-              classes={classes}
+              classes={classesForCurrentDay}
               teachers={teachersForCurrentDay}
               availableTeachersByPeriod={freeTeachersByDay[day] || {}}
               assignment={assignment}
@@ -3737,6 +4053,7 @@ export default function App() {
               onManualClear={handleManualClear}
               onManualRelease={handleManualRelease}
               commonLessons={commonLessons}
+              onManualEditorStateChange={handlePlanEditorStateChange}
               IconComponent={Icon}
             />
             {unassignedForSelectedDay.length > 0 && (
@@ -3792,7 +4109,7 @@ export default function App() {
               assignment={assignment}
               teachers={teachersForCurrentDay}
               classes={classes}
-              classAbsence={classAbsence}
+              classAbsence={filteredClassAbsence}
               absentPeople={absentPeopleForCurrentDay}
               commonLessons={commonLessons}
             />
@@ -3832,8 +4149,8 @@ export default function App() {
           isOpen={modals.absent}
           onClose={() => setModals(m => ({ ...m, absent: false }))}
           onSubmit={addAbsent}
-          availableDays={DAYS}
-          defaultSelectedDay={day}
+          currentDayKey={day}
+          currentDayLabel={DAYS.find(d => d.key === day)?.label || day}
           teacherOptions={scheduledTeacherOptions}
         />
       )}

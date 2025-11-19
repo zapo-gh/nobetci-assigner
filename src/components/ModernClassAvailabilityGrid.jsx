@@ -14,7 +14,8 @@ export default function ModernClassAvailabilityGrid({
   onDelete,
   day,
   IconComponent,
-  teachers = []
+  teachers = [],
+  onDropdownStateChange,
 }) {
   const getAbsentInfo = (absentId) => absentPeople.find(a => a.absentId === absentId)
   
@@ -102,7 +103,9 @@ export default function ModernClassAvailabilityGrid({
               classes.map(cls => {
                 const selectedCount = periods.reduce((count, p) => {
                   const s = classFree?.[day]?.[p] || new Set()
-                  return count + (s.has(cls.classId) ? 1 : 0)
+                  const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId]
+                  const isSelected = s.has(cls.classId) || !!selectedAbsent
+                  return count + (isSelected ? 1 : 0)
                 }, 0)
 
                 return (
@@ -132,14 +135,29 @@ export default function ModernClassAvailabilityGrid({
 
                     {periods.map(p => {
                       const set = classFree?.[day]?.[p] || new Set()
-                      const isSelected = set.has(cls.classId)
                       const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId] ?? ''
+                      const isSelected = set.has(cls.classId) || Boolean(selectedAbsent)
                       const isCommonLesson = selectedAbsent === "COMMON_LESSON"
                       const needsAbsentSelection = isSelected && !selectedAbsent && !isCommonLesson
                       const absentInfo = selectedAbsent && !isCommonLesson ? getAbsentInfo(selectedAbsent) : null
 
                       return (
-                        <td key={p} className="text-center p-2 dnd-target">
+                        <td
+                          key={p}
+                          className="text-center p-2 dnd-target"
+                          onMouseDown={(e) => {
+                            const target = e.target
+                            if (target?.closest?.('select') || target?.closest?.('button')) {
+                              e.stopPropagation()
+                            }
+                          }}
+                          onClick={(e) => {
+                            const target = e.target
+                            if (target?.closest?.('select') || target?.closest?.('button')) {
+                              e.stopPropagation()
+                            }
+                          }}
+                        >
                           <div className="flex flex-col items-center gap-2">
                             {/* Checkbox */}
                             <label className="inline-flex items-center cursor-pointer">
@@ -164,6 +182,7 @@ export default function ModernClassAvailabilityGrid({
                                     } else {
                                       onSelectAbsence(day, p, cls.classId, value)
                                     }
+                                    onDropdownStateChange?.(false)
                                   }}
                                   className={`
                                     modern-select
@@ -173,6 +192,10 @@ export default function ModernClassAvailabilityGrid({
                                     }
                                   `}
                                   title={needsAbsentSelection ? 'Gelmeyen öğretmen seçimi zorunlu!' : ''}
+                                  onFocus={() => onDropdownStateChange?.(true)}
+                                  onBlur={() => {
+                                    setTimeout(() => onDropdownStateChange?.(false), 50)
+                                  }}
                                 >
                                   <option value="">— Öğretmen Seç —</option>
                                   <option value="COMMON_LESSON">📚 Ders Birleştirilecek</option>
@@ -236,38 +259,6 @@ export default function ModernClassAvailabilityGrid({
           </tbody>
 
           {/* Özet */}
-          {classes.length > 0 && (
-            <tfoot>
-              <tr>
-                <td className="text-left"><span>Toplam Boş Ders</span></td>
-                <td className="text-center">—</td>
-                {periods.map(p => {
-                  const set = classFree?.[day]?.[p] || new Set()
-                  const selectedCount = set.size
-                  const total = classes.length
-                  const percentage = total > 0 ? Math.round((selectedCount / total) * 100) : 0
-                  const missingCount = Array.from(set).filter(cid => {
-                    const absence = (classAbsence?.[day]?.[p] || {})[cid]
-                    return !absence || absence === ""
-                  }).length
-
-                  return (
-                    <td key={p} className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-full bg-tertiary rounded-full h-1.5">
-                          <div className="bg-primary h-1.5 rounded-full transition-all duration-300" style={{ width: `${percentage}%` }} />
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-muted">%{percentage}</span>
-                          {missingCount > 0 && <div className="text-error font-medium">⚠️ {missingCount} eksik</div>}
-                        </div>
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-            </tfoot>
-          )}
         </table>
       </div>
 

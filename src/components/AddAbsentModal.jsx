@@ -14,26 +14,17 @@ export default function AddAbsentModal({
   isOpen,
   onClose,
   onSubmit,
-  availableDays = [],
-  defaultSelectedDay,
+  currentDayKey,
+  currentDayLabel,
   teacherOptions = [],
 }) {
   const [formData, setFormData] = useState({
     name: '',
     reason: 'Raporlu',
     customReason: '',
-    days: [],
   });
   const [errors, setErrors] = useState({});
   const [selectedTeacher, setSelectedTeacher] = useState(null);
-
-  const dayOptions = useMemo(() => {
-    if (!Array.isArray(availableDays)) return [];
-    return availableDays.map(day => ({
-      key: day?.key ?? day,
-      label: day?.label ?? day,
-    })).filter(option => option.key);
-  }, [availableDays]);
 
   const preparedTeacherOptions = useMemo(() => {
     if (!Array.isArray(teacherOptions)) return [];
@@ -55,22 +46,14 @@ export default function AddAbsentModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    const defaultDays = (() => {
-      if (!dayOptions.length) return [];
-      if (defaultSelectedDay && dayOptions.some(opt => opt.key === defaultSelectedDay)) {
-        return [defaultSelectedDay];
-      }
-      return [dayOptions[0].key];
-    })();
     setFormData({
       name: '',
       reason: 'Raporlu',
       customReason: '',
-      days: defaultDays,
     });
     setErrors({});
     setSelectedTeacher(null);
-  }, [isOpen, defaultSelectedDay, dayOptions]);
+  }, [isOpen, currentDayKey]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -112,18 +95,6 @@ export default function AddAbsentModal({
     }
   };
 
-  const toggleDay = (dayKey) => {
-    setFormData(prev => {
-      const current = Array.isArray(prev.days) ? prev.days : [];
-      const exists = current.includes(dayKey);
-      const nextDays = exists ? current.filter(d => d !== dayKey) : [...current, dayKey];
-      return { ...prev, days: nextDays };
-    });
-    if (errors.days) {
-      setErrors(prev => ({ ...prev, days: '' }));
-    }
-  };
-
   const validate = () => {
     const newErrors = {};
     if (!preparedTeacherOptions.length) {
@@ -142,12 +113,6 @@ export default function AddAbsentModal({
     if (formData.reason === 'Diğer' && !formData.customReason.trim()) {
       newErrors.customReason = 'Lütfen mazeret açıklaması girin';
     }
-    const selectedDays = Array.isArray(formData.days)
-      ? formData.days.filter(dayKey => dayOptions.some(opt => opt.key === dayKey))
-      : [];
-    if (selectedDays.length === 0) {
-      newErrors.days = 'En az bir gün seçmelisiniz';
-    }
     return newErrors;
   };
 
@@ -158,21 +123,17 @@ export default function AddAbsentModal({
       setErrors(newErrors);
       return;
     }
-    const normalizedDays = Array.isArray(formData.days)
-      ? formData.days.filter(dayKey => dayOptions.some(opt => opt.key === dayKey))
-      : [];
     onSubmit({
       name: selectedTeacher?.teacherName || formData.name.trim(),
       teacherId: selectedTeacher?.teacherId,
       reason: formData.reason === 'Diğer' ? formData.customReason.trim() : formData.reason,
-      days: normalizedDays,
+      days: [currentDayKey],
     });
     handleClose();
   };
 
   const handleClose = () => {
-    const fallback = dayOptions[0] ? [dayOptions[0].key] : [];
-    setFormData({ name: '', reason: 'Raporlu', customReason: '', days: fallback });
+    setFormData({ name: '', reason: 'Raporlu', customReason: '' });
     setErrors({});
     setSelectedTeacher(null);
     onClose();
@@ -255,31 +216,15 @@ export default function AddAbsentModal({
           </div>
         )}
 
-        {dayOptions.length > 0 && (
-          <div className="form-group">
-            <label className="form-label">
-              Mazeretli Günler <span className="required">*</span>
-            </label>
-            <div className="day-checkbox-grid">
-              {dayOptions.map(option => {
-                const checked = formData.days?.includes(option.key);
-                return (
-                  <label key={option.key} className={`day-option ${checked ? 'checked' : ''}`}>
-                    <input
-                      type="checkbox"
-                      value={option.key}
-                      checked={checked}
-                      onChange={() => toggleDay(option.key)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {errors.days && <span className="error-message">{errors.days}</span>}
-            <small className="form-hint">Öğretmenin okula gelemeyeceği günleri seçin.</small>
+        <div className="form-group">
+          <label className="form-label">
+            Mazeretli Gün
+          </label>
+          <div className="day-display">
+            <span>{currentDayLabel}</span>
           </div>
-        )}
+          <small className="form-hint">Mazeretler yalnızca seçili gün için geçerlidir. Gün değiştiğinde otomatik temizlenir.</small>
+        </div>
 
         <div className="form-actions">
           <button type="button" className="btn-secondary" onClick={handleClose}>
@@ -347,34 +292,14 @@ export default function AddAbsentModal({
           font-size: 0.875rem;
         }
 
-        .day-checkbox-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 8px;
-        }
-
-        .day-option {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 10px;
+        .day-display {
+          padding: 10px 14px;
+          background: var(--bg-secondary, #0b1328);
           border: 1px solid var(--border-default, #2e3d6e);
           border-radius: 8px;
-          background: var(--bg-secondary, #0b1328);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          user-select: none;
+          font-weight: 600;
+          color: var(--text-primary, #e8eefc);
         }
-
-        .day-option input {
-          accent-color: var(--primary, #4a90e2);
-        }
-
-        .day-option.checked {
-          border-color: var(--primary, #4a90e2);
-          background: rgba(74, 144, 226, 0.12);
-        }
-
         .form-actions {
           display: flex;
           gap: 12px;
