@@ -4,13 +4,21 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: var(--z-modal);
   animation: fadeIn var(--transition-default) ease;
+}
+
+.modalBackdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
 }
 
 @keyframes fadeIn {
@@ -27,6 +35,8 @@
   display: flex;
   flex-direction: column;
   animation: slideUp var(--transition-slow) ease;
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes slideUp {

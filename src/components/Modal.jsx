@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, memo, useState } from 'react';
 import styles from './Modal.module.css';
 
-export default function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
+const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
+  const [isRendered, setIsRendered] = useState(false);
   const modalRef = useRef(null);
 
   const stopPropagation = useCallback((event) => {
@@ -9,6 +10,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
   }, []);
 
   const handleOverlayClick = useCallback((event) => {
+    if (event.target !== event.currentTarget) return;
     onClose();
   }, [onClose]);
 
@@ -33,6 +35,43 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      // Modal açıldığında modal'a focus ver
+      setTimeout(() => {
+        if (modalRef.current) {
+          modalRef.current.focus();
+        }
+      }, 100); // Kısa bir gecikme ile focus'u garanti et
+
+      // Focus trapping için event listener ekle
+      const handleFocusTrap = (e) => {
+        if (!modalRef.current.contains(e.target)) {
+          e.preventDefault();
+          modalRef.current.focus();
+        }
+      };
+
+      // Modal dışına tıklandığında focus'u modal'a geri getir
+      const handleDocumentClick = (e) => {
+        if (!modalRef.current.contains(e.target)) {
+          modalRef.current.focus();
+        }
+      };
+
+      document.addEventListener('focusin', handleFocusTrap);
+      document.addEventListener('click', handleDocumentClick);
+
+      return () => {
+        document.removeEventListener('focusin', handleFocusTrap);
+        document.removeEventListener('click', handleDocumentClick);
+      };
+    }
+  }, [isOpen]);
+
+  // Modal içeriğinin stabil kalması için children'ı memoize et
+  const memoizedChildren = React.useMemo(() => children, [children]);
+
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -42,15 +81,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
   };
 
   return (
-    <div
-      className={styles.modalOverlay}
-      onClick={handleOverlayClick}
-    >
+    <div className={styles.modalOverlay}>
+      <div
+        className={styles.modalBackdrop}
+        onClick={handleOverlayClick}
+      ></div>
       <div
         ref={modalRef}
         className={`${styles.modalContent} ${sizeClasses[size]}`}
         onClick={stopPropagation}
-        tabIndex={-1}
+        tabIndex={0}
       >
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>{title}</h3>
@@ -63,8 +103,12 @@ export default function Modal({ isOpen, onClose, title, children, size = 'medium
             ✕
           </button>
         </div>
-        <div className={styles.modalBody}>{children}</div>
+        <div className={styles.modalBody}>{memoizedChildren}</div>
       </div>
     </div>
   );
-}
+});
+
+Modal.displayName = 'Modal';
+
+export default Modal;

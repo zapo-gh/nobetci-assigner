@@ -345,6 +345,7 @@ export default function App() {
   const classAbsenceSnapshotRef = useRef('')
   const classAbsenceStateRef = useRef({})
   const skipNextSupabaseSaveRef = useRef(false)
+  const isAnyModalOpenRef = useRef(false)
   const [selectedTeacher, setSelectedTeacher] = useState(null) // Selected teacher for modal display
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
@@ -367,6 +368,8 @@ export default function App() {
 
   const handleRealtimeAbsents = useCallback((payload) => {
     if (!payload) return;
+    // Modal açıkken realtime güncellemelerini ignore et
+    if (isAnyModalOpenRef.current) return;
     const { eventType, new: newRow, old } = payload;
 
     if (eventType === 'DELETE' && old?.absentId) {
@@ -390,6 +393,8 @@ export default function App() {
 
   const handleRealtimeClassFree = useCallback((payload) => {
     if (!payload) return;
+    // Modal açıkken realtime güncellemelerini ignore et
+    if (isAnyModalOpenRef.current) return;
     const dataSnapshot = payload?.new?.data || {};
     const serializedIncoming = stableStringify(dataSnapshot);
     if (serializedIncoming === classFreeSnapshotRef.current) {
@@ -402,6 +407,8 @@ export default function App() {
 
   const handleRealtimeClassAbsence = useCallback((payload) => {
     if (!payload) return;
+    // Modal açıkken realtime güncellemelerini ignore et
+    if (isAnyModalOpenRef.current) return;
     const { eventType, new: newRow, old } = payload;
     const targetRow = eventType === 'DELETE' ? old : newRow;
     if (!targetRow) return;
@@ -439,6 +446,8 @@ export default function App() {
 
   const handleRealtimeTeacherSchedules = useCallback((payload) => {
     if (!payload) return;
+    // Modal açıkken realtime güncellemelerini ignore et
+    if (isAnyModalOpenRef.current) return;
 
     const { eventType, new: newRow, old } = payload;
     const teacherName =
@@ -505,6 +514,21 @@ export default function App() {
     classAbsenceStateRef.current = classAbsence;
     classAbsenceSnapshotRef.current = stableStringify(classAbsence);
   }, [classAbsence]);
+
+  // Modal açık/kapalı durumunu izle
+  useEffect(() => {
+    const isAnyOpen = 
+      modals.teacher || 
+      modals.class || 
+      modals.absent || 
+      modals.commonLesson || 
+      modals.dutyTeacherExcel ||
+      pdfImportModal ||
+      excelReplaceModal.isOpen ||
+      confirmationModal.isOpen;
+    
+    isAnyModalOpenRef.current = isAnyOpen;
+  }, [modals, pdfImportModal, excelReplaceModal.isOpen, confirmationModal.isOpen]);
 
   useEffect(() => {
     const unsubscribe = realtimeSync.subscribe({
