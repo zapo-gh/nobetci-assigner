@@ -54,6 +54,44 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const url = new URL(request.url);
+  const isAsset = url.pathname.startsWith('/assets/');
+  const isStatic = APP_SHELL.some(entry => {
+    const entryUrl = resolveAssetUrl(entry);
+    return url.pathname === entryUrl || url.pathname === entryUrl.replace(/^\/+/, '');
+  });
+
+  // Dinamik asset'ler (JS, CSS) için network-first stratejisi
+  if (isAsset) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, clone);
+            });
+            return response;
+          }
+          throw new Error('Network response not ok');
+        })
+        .catch(() => {
+          return caches.match(request).then((cached) => {
+            if (cached) {
+              return cached;
+            }
+            // Cache'de de yoksa, network hatası döndür
+            return new Response('Asset not available', { 
+              status: 503, 
+              statusText: 'Service Unavailable' 
+            });
+          });
+        })
+    );
+    return;
+  }
+
+  // Statik dosyalar için cache-first stratejisi
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {
@@ -62,15 +100,24 @@ self.addEventListener('fetch', (event) => {
 
       return fetch(request)
         .then((response) => {
-          const clone = response.clone();
-
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, clone);
-          });
-
-          return response;
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, clone);
+            });
+            return response;
+          }
+          throw new Error('Network response not ok');
         })
-        .catch(() => cached);
+        .catch(() => {
+          // Statik dosyalar için fallback
+          if (isStatic) {
+            return caches.match('/index.html').then((fallback) => {
+              return fallback || new Response('Not found', { status: 404 });
+            });
+          }
+          return new Response('Not found', { status: 404 });
+        });
     })
   );
 });
