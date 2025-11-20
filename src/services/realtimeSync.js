@@ -20,8 +20,7 @@ export class RealtimeSyncService {
       pdfSchedule: null,
       teacherSchedules: null,
       commonLessons: null,
-      importHistory: null,
-      snapshots: null
+      importHistory: null
     }
   }
 
@@ -177,14 +176,6 @@ export class RealtimeSyncService {
       logger.info('[RealtimeSync] Import History changed:', payload.eventType)
       if (this.callbacks.importHistory) {
         this.callbacks.importHistory(payload)
-      }
-    })
-
-    // Snapshots subscription
-    createChannel('snapshots', 'snapshots', (payload) => {
-      logger.info('[RealtimeSync] Snapshots changed:', payload.eventType)
-      if (this.callbacks.snapshots) {
-        this.callbacks.snapshots(payload)
       }
     })
 

@@ -41,7 +41,7 @@ export const TEACHER_SCHEDULES_SNAPSHOT_KEY = '__snapshot__'
 export async function loadInitialData() {
   try {
     // Load all data in parallel
-    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes, snapshotsRes] = await Promise.all([
+    const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes] = await Promise.all([
       supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
       supabase.from('classes').select('*').order('createdAt', { ascending: false }),
       supabase.from('absents').select('*').order('createdAt', { ascending: false }),
@@ -51,8 +51,7 @@ export async function loadInitialData() {
       supabase.from('locks').select('*'),
       supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
       supabase.from('teacher_schedules').select('*'),
-      supabase.from('common_lessons').select('*'),
-      supabase.from('snapshots').select('*').order('ts', { ascending: false })
+      supabase.from('common_lessons').select('*')
     ])
 
     const teachers = getTableData(teachersRes, { fallback: [], tableName: 'teachers' })
@@ -65,7 +64,6 @@ export async function loadInitialData() {
     const pdfScheduleRows = getTableData(pdfScheduleRes, { fallback: [], tableName: 'pdf_schedule' })
     const teacherSchedulesRows = getTableData(teacherSchedulesRes, { fallback: [], tableName: 'teacher_schedules' })
     const commonLessonsRaw = getTableData(commonLessonsRes, { fallback: [], tableName: 'common_lessons' })
-    const snapshots = getTableData(snapshotsRes, { fallback: [], tableName: 'snapshots' })
 
     // Transform data to expected format
     let classFree = {}
@@ -135,8 +133,7 @@ export async function loadInitialData() {
       locked,
       pdfSchedule,
       teacherSchedules,
-      commonLessons,
-      snapshots
+      commonLessons
     }
   } catch (error) {
     console.error('loadInitialData error:', error)
@@ -224,6 +221,20 @@ export async function deleteTeacherById(teacherId) {
   }
 }
 
+export async function clearTeachersData() {
+  try {
+    const { error } = await supabase
+      .from('teachers')
+      .delete()
+      .not('teacherId', 'is', null)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearTeachersData error:', error)
+    throw error
+  }
+}
+
 export async function insertClass({ className }) {
   try {
     const cleanName = String(className || '').trim()
@@ -289,6 +300,20 @@ export async function deleteClassById(classId) {
   }
 }
 
+export async function clearClassesData() {
+  try {
+    const { error } = await supabase
+      .from('classes')
+      .delete()
+      .not('classId', 'is', null)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearClassesData error:', error)
+    throw error
+  }
+}
+
 export async function insertAbsent({ name, teacherId, reason, days }) {
   try {
     const absentData = {
@@ -327,6 +352,20 @@ export async function deleteAbsentById(absentId) {
   }
 }
 
+export async function clearAbsentsData() {
+  try {
+    const { error } = await supabase
+      .from('absents')
+      .delete()
+      .not('absentId', 'is', null)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearAbsentsData error:', error)
+    throw error
+  }
+}
+
 export async function deleteClassAbsenceByAbsent(absentId) {
   try {
     const { error } = await supabase
@@ -337,6 +376,34 @@ export async function deleteClassAbsenceByAbsent(absentId) {
     if (error) throw error
   } catch (error) {
     console.error('deleteClassAbsenceByAbsent error:', error)
+    throw error
+  }
+}
+
+export async function clearClassAbsenceData() {
+  try {
+    const { error } = await supabase
+      .from('class_absence')
+      .delete()
+      .not('absentId', 'is', null)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearClassAbsenceData error:', error)
+    throw error
+  }
+}
+
+export async function clearCommonLessonsData() {
+  try {
+    const { error } = await supabase
+      .from('common_lessons')
+      .delete()
+      .not('day', 'is', null)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearCommonLessonsData error:', error)
     throw error
   }
 }
@@ -532,6 +599,20 @@ export async function resetTeacherFreeData() {
   }
 }
 
+export async function clearLocksData() {
+  try {
+    const { error } = await supabase
+      .from('locks')
+      .delete()
+      .not('day', 'is', null)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('clearLocksData error:', error)
+    throw error
+  }
+}
+
 export async function replacePdfSchedule(schedule) {
   try {
     // Delete existing
@@ -646,22 +727,6 @@ export async function saveImportHistory(importHistory) {
   }
 }
 
-export async function saveSnapshots(snapshots) {
-  try {
-    if (!snapshots || snapshots.length === 0) return
-
-    const { error } = await supabase
-      .from('snapshots')
-      .upsert(snapshots, {
-        onConflict: 'id'
-      })
-
-    if (error) throw error
-  } catch (error) {
-    console.error('saveSnapshots full error:', JSON.stringify(error, null, 2))
-    throw error
-  }
-}
 export async function bulkSaveTeachers(teachers) {
   try {
     if (!teachers || teachers.length === 0) {

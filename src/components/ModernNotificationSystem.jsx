@@ -50,17 +50,18 @@ export default function ModernNotificationSystem({ notifications, onRemove, onAc
 
         .notification-card {
           display: grid;
-          grid-template-columns: 24px 1fr 24px;
+          grid-template-columns: 26px 1fr 22px;
           gap: var(--space-2);
           align-items: start;
-          padding: 10px 12px;
-          border-radius: 10px;
-          background: var(--bg-elevated);
+          padding: 14px 16px;
+          border-radius: 14px;
+          background: color-mix(in srgb, var(--bg-elevated, #0b1120) 85%, #000 15%);
           color: var(--text-primary);
-          border: 1px solid var(--border-subtle);
-          box-shadow: var(--shadow-md);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 20px 45px rgba(2, 4, 11, 0.65);
+          backdrop-filter: blur(14px);
           pointer-events: auto;
-          animation: slideIn 300ms ease-out;
+          animation: slideIn 260ms cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         @keyframes slideIn {
@@ -89,27 +90,27 @@ export default function ModernNotificationSystem({ notifications, onRemove, onAc
         }
 
         .notification-card.notification-success { 
-          border-color: rgba(var(--success-rgb, 34, 197, 94), 0.35); 
-          background: var(--success-bg, rgba(34, 197, 94, 0.1)); 
-          color: var(--success, #22c55e); 
+          border-color: rgba(34, 197, 94, 0.45); 
+          background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(13, 19, 9, 0.65)); 
+          color: #bbf7d0; 
         }
         
         .notification-card.notification-error { 
-          border-color: rgba(var(--error-rgb, 239, 68, 68), 0.35); 
-          background: var(--error-bg, rgba(239, 68, 68, 0.1)); 
-          color: var(--error, #ef4444); 
+          border-color: rgba(239, 68, 68, 0.5); 
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(24, 5, 8, 0.75)); 
+          color: #fecdd3; 
         }
         
         .notification-card.notification-warning { 
-          border-color: rgba(var(--warning-rgb, 251, 191, 36), 0.35); 
-          background: var(--warning-bg, rgba(251, 191, 36, 0.1)); 
-          color: var(--warning, #fbbf24); 
+          border-color: rgba(251, 191, 36, 0.45); 
+          background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(32, 24, 5, 0.75)); 
+          color: #fde68a; 
         }
         
         .notification-card.notification-info { 
-          border-color: rgba(var(--info-rgb, 59, 130, 246), 0.35); 
-          background: var(--info-bg, rgba(59, 130, 246, 0.1)); 
-          color: var(--info, #3b82f6); 
+          border-color: rgba(59, 130, 246, 0.5); 
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(9, 12, 25, 0.8)); 
+          color: #bfdbfe; 
         }
 
         .notification-action {
@@ -134,9 +135,9 @@ export default function ModernNotificationSystem({ notifications, onRemove, onAc
           background: transparent;
           border: none;
           color: inherit;
-          font-size: 16px;
+          font-size: 15px;
           cursor: pointer;
-          opacity: 0.8;
+          opacity: 0.75;
           transition: transform 120ms ease, opacity 120ms ease;
           padding: 0;
           line-height: 1;

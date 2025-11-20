@@ -879,8 +879,8 @@ a:hover {
   box-shadow: none;
   transition: all 0.3s ease;
   overflow-y: auto;
-  min-width: 600px; /* 3 grup için daha geniş */
-  max-width: 800px;
+  min-width: 320px;
+  max-width: 420px;
   max-height: calc(100vh - 100px); /* Header yüksekliğini hesaba kat */
   padding: 0;
   display: flex;
@@ -982,8 +982,8 @@ a:hover {
   transition: all 0.3s ease;
   overflow: visible;
   cursor: default;
-  padding: var(--space-3);
-  min-width: 200px;
+  padding: var(--space-2);
+  min-width: 220px;
   flex: 1;
 }
 
@@ -999,7 +999,7 @@ a:hover {
 
 .toolbar-group-header {
   width: 100%;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
   text-align: center;
@@ -1007,14 +1007,14 @@ a:hover {
 
 .toolbar-group-header h3 {
   margin: 0 0 var(--space-1) 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
 .toolbar-group-header p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   line-height: 1.4;
 }
