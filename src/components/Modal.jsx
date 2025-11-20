@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, memo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, memo } from 'react';
 import styles from './Modal.module.css';
 
 const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
