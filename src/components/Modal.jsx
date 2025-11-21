@@ -36,10 +36,19 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
 
   useEffect(() => {
     if (isOpen && modalRef.current) {
-      // Modal açıldığında modal'a focus ver
+      // Scroll pozisyonunu koru
+      const scrollY = window.scrollY;
+      
+      // Modal açıldığında modal'a focus ver (scroll yapmadan)
       setTimeout(() => {
         if (modalRef.current) {
+          // Scroll pozisyonunu koru
+          const currentScrollY = window.scrollY;
           modalRef.current.focus();
+          // Eğer scroll değiştiyse geri yükle
+          if (window.scrollY !== currentScrollY) {
+            window.scrollTo(0, scrollY);
+          }
         }
       }, 100); // Kısa bir gecikme ile focus'u garanti et
 

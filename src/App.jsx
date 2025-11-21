@@ -3927,7 +3927,17 @@ export default function App() {
                       <div 
                         key={teacherName} 
                         className="teacher-schedule-item clickable"
-                        onClick={() => setSelectedTeacher({ name: teacherName, schedule })}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          // Scroll pozisyonunu koru
+                          const scrollY = window.scrollY;
+                          setSelectedTeacher({ name: teacherName, schedule });
+                          // Modal açıldıktan sonra scroll pozisyonunu geri yükle
+                          setTimeout(() => {
+                            window.scrollTo(0, scrollY);
+                          }, 0);
+                        }}
                       >
                         <div className="teacher-name">
                           <Icon name="user" size={16} />
