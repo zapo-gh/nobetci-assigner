@@ -147,20 +147,6 @@ const DISABLE_LOCAL_STORAGE = true;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
 const LAST_ABSENT_CLEANUP_KEY = `${APP_ENV.mode || 'development'}_last_absent_cleanup`;
 const STORAGE_VERSION_KEY = `${APP_ENV.mode || 'development'}_storage_version`;
-
-const inferBuildSignature = () => {
-  if (typeof import.meta !== 'undefined' && typeof import.meta.url === 'string') {
-    const [clean] = import.meta.url.split('?');
-    return clean || import.meta.url;
-  }
-  return '';
-};
-
-const APP_STATE_VERSION =
-  APP_ENV.buildVersion ||
-  inferBuildSignature() ||
-  APP_ENV.mode ||
-  'development';
 const LOCAL_STORAGE_STATIC_KEYS = [
   STORAGE_KEY,
   LAST_ABSENT_CLEANUP_KEY,
@@ -176,6 +162,117 @@ const LOCAL_STORAGE_PREFIXES = [
   'absent_',
   'duty_',
 ];
+
+let cachedAppStateVersion = null;
+
+const stripQueryParams = (value = '') => {
+  if (!value) return '';
+  const index = value.indexOf('?');
+  return index >= 0 ? value.slice(0, index) : value;
+};
+
+const detectBundleScriptSignature = () => {
+  if (typeof document === 'undefined') return '';
+  try {
+    const current = document.currentScript;
+    if (current?.src) {
+      return stripQueryParams(current.src);
+    }
+    const scripts = Array.from(document.querySelectorAll('script[src]'));
+    for (const script of scripts) {
+      const src = script.getAttribute('src');
+      if (!src) continue;
+      if (src.includes('/assets/') && src.endsWith('.js')) {
+        return stripQueryParams(src);
+      }
+    }
+  } catch (err) {
+    if (typeof console !== 'undefined' && process?.env?.NODE_ENV !== 'production') {
+      console.warn('Bundle signature detection failed:', err);
+    }
+  }
+  return '';
+};
+
+const resolveAppStateVersion = ({ refresh = false } = {}) => {
+  if (!refresh && cachedAppStateVersion) {
+    return cachedAppStateVersion;
+  }
+
+  const candidates = [
+    APP_ENV.buildVersion,
+    typeof window !== 'undefined' ? window.__APP_BUILD_SIGNATURE__ : '',
+    detectBundleScriptSignature(),
+    typeof import.meta !== 'undefined' && typeof import.meta.url === 'string'
+      ? stripQueryParams(import.meta.url)
+      : '',
+    APP_ENV.mode,
+    'development',
+  ];
+
+  const resolved = candidates.find(
+    (value) => typeof value === 'string' && value.trim().length > 0
+  );
+
+  if (resolved) {
+    cachedAppStateVersion = resolved;
+    return resolved;
+  }
+
+  if (!cachedAppStateVersion) {
+    cachedAppStateVersion = 'development';
+  }
+
+  return cachedAppStateVersion;
+};
+
+const cleanupLocalStorageForVersion = () => {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return;
+  }
+
+  try {
+    const storage = window.localStorage;
+    const version = resolveAppStateVersion({ refresh: true });
+    if (!version) return;
+
+    const storedVersion = storage.getItem(STORAGE_VERSION_KEY);
+    if (storedVersion === version) {
+      return;
+    }
+
+    const keysToRemove = new Set(LOCAL_STORAGE_STATIC_KEYS);
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (!key) continue;
+      if (LOCAL_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        keysToRemove.add(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      if (!key) return;
+      try {
+        storage.removeItem(key);
+      } catch (err) {
+        logger.warn?.('LocalStorage key cleanup failed:', key, err);
+      }
+    });
+
+    try {
+      storage.setItem(STORAGE_VERSION_KEY, version);
+      logger.info?.('Yerel önbellek sürümü güncellendi:', version);
+    } catch (err) {
+      logger.warn?.('Yerel önbellek sürüm yazılamadı:', err);
+    }
+  } catch (err) {
+    logger.warn?.('Yerel önbellek sürüm kontrolü başarısız:', err);
+  }
+};
+
+if (typeof window !== 'undefined') {
+  cleanupLocalStorageForVersion();
+}
 const DAYS = [
   { key: "Mon", label: "Pazartesi", short: "Pzt" },
   { key: "Tue", label: "Salı", short: "Sal" },
@@ -439,45 +536,6 @@ export default function App() {
 
   const toggleToolbar = useCallback(() => {
     setToolbarExpanded(prev => !prev);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !APP_STATE_VERSION) {
-      return;
-    }
-
-    try {
-      const storage = window.localStorage;
-      if (!storage) return;
-
-      const storedVersion = storage.getItem(STORAGE_VERSION_KEY);
-      if (storedVersion === APP_STATE_VERSION) {
-        return;
-      }
-
-      const keysToRemove = new Set(LOCAL_STORAGE_STATIC_KEYS);
-      for (let i = 0; i < storage.length; i += 1) {
-        const key = storage.key(i);
-        if (!key) continue;
-        if (LOCAL_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
-          keysToRemove.add(key);
-        }
-      }
-
-      keysToRemove.forEach((key) => {
-        if (!key) return;
-        try {
-          storage.removeItem(key);
-        } catch (err) {
-          logger.warn('LocalStorage key cleanup failed:', key, err);
-        }
-      });
-
-      storage.setItem(STORAGE_VERSION_KEY, APP_STATE_VERSION);
-      logger.info('Yerel önbellek sürümü güncellendi:', APP_STATE_VERSION);
-    } catch (err) {
-      logger.warn('Yerel önbellek sürüm kontrolü başarısız:', err);
-    }
   }, []);
 
   // Toplu: Tüm öğretmenlerin günlük max görev değerini güncelle
