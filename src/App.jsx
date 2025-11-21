@@ -147,7 +147,20 @@ const DISABLE_LOCAL_STORAGE = true;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
 const LAST_ABSENT_CLEANUP_KEY = `${APP_ENV.mode || 'development'}_last_absent_cleanup`;
 const STORAGE_VERSION_KEY = `${APP_ENV.mode || 'development'}_storage_version`;
-const APP_STATE_VERSION = APP_ENV.buildVersion || APP_ENV.mode || 'development';
+
+const inferBuildSignature = () => {
+  if (typeof import.meta !== 'undefined' && typeof import.meta.url === 'string') {
+    const [clean] = import.meta.url.split('?');
+    return clean || import.meta.url;
+  }
+  return '';
+};
+
+const APP_STATE_VERSION =
+  APP_ENV.buildVersion ||
+  inferBuildSignature() ||
+  APP_ENV.mode ||
+  'development';
 const LOCAL_STORAGE_STATIC_KEYS = [
   STORAGE_KEY,
   LAST_ABSENT_CLEANUP_KEY,
