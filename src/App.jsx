@@ -3553,9 +3553,9 @@ export default function App() {
               LAST_ABSENT_CLEANUP_KEY,
               'theme',
             ]);
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key && (key.includes('nobetci') || key.includes('teacher') || key.includes('class'))) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('nobetci') || key.includes('teacher') || key.includes('class'))) {
                 keysToRemove.add(key);
               }
             }
@@ -3566,9 +3566,9 @@ export default function App() {
                 logger.warn('LocalStorage key remove failed:', key, err);
               }
             });
-          } catch (err) {
-            logger.warn('Veri silme hatası:', err);
-          }
+    } catch (err) {
+      logger.warn('Veri silme hatası:', err);
+    }
 
     setDay(DAYS[Math.max(0, Math.min(4, new Date().getDay() - 1))]?.key || 'Mon');
     setPeriods(PERIODS);
@@ -3897,12 +3897,24 @@ export default function App() {
                     <button 
                       className="btn-outline btn-sm"
                       onClick={() => {
-                        if (confirm('Tüm ders programları silinecek. Emin misiniz?')) {
+                        showConfirmation(
+                          'Tüm Ders Programlarını Sil',
+                          'Tüm ders programları silinecek. Emin misiniz?',
+                          'warning',
+                          () => {
+                            (async () => {
+                              try {
+                                await clearTeacherSchedules();
                           setTeacherSchedules({});
-                          clearTeacherSchedules().catch((err) => logger.error('Teacher schedule clear error:', err));
-                          setTeacherSchedulesHydrated(false);
+                                setTeacherSchedulesHydrated(false);
                           addNotification('Tüm ders programları silindi', 'info');
+                              } catch (error) {
+                                logger.error('Teacher schedule clear error:', error);
+                                addNotification('Ders programları silinemedi', 'error');
                         }
+                            })();
+                          }
+                        );
                       }}
                       title="Tüm ders programlarını sil"
                     >
