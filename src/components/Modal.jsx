@@ -14,14 +14,20 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
   }, [onClose]);
 
   useEffect(() => {
-    if (!isOpen) return undefined;
+    if (!isOpen) {
+      return undefined;
+    }
 
-    const body = document.body;
-    const previousOverflow = body.style.overflow;
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
 
-    return () => {
-      body.style.overflow = previousOverflow;
-    };
+    const currentScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: currentScroll, left: 0, behavior: 'auto' });
+    });
+
+    return undefined;
   }, [isOpen]);
 
   useEffect(() => {
@@ -36,21 +42,38 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
 
   useEffect(() => {
     if (isOpen && modalRef.current) {
-      // Scroll pozisyonunu koru
-      const scrollY = window.scrollY;
-      
       // Modal açıldığında modal'a focus ver (scroll yapmadan)
+      // Body zaten scroll lock ile kilitlendi, bu yüzden focus scroll yapmayacak
+      // Ancak yine de preventScroll ile koruma sağlayalım
+      const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+      
       setTimeout(() => {
         if (modalRef.current) {
-          // Scroll pozisyonunu koru
-          const currentScrollY = window.scrollY;
-          modalRef.current.focus();
-          // Eğer scroll değiştiyse geri yükle
-          if (window.scrollY !== currentScrollY) {
-            window.scrollTo(0, scrollY);
+          // Focus öncesi scroll pozisyonunu kontrol et
+          const beforeFocus = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+          
+          // Focus işlemi (preventScroll desteklenirse kullan)
+          try {
+            modalRef.current.focus({ preventScroll: true });
+          } catch (e) {
+            // preventScroll desteklenmiyorsa normal focus
+            modalRef.current.focus();
           }
+          
+          // Focus sonrası scroll pozisyonunu kontrol et ve gerekirse düzelt
+          requestAnimationFrame(() => {
+            const afterFocus = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+            if (Math.abs(afterFocus - scrollY) > 1) {
+              // Scroll pozisyonu değiştiyse geri yükle
+              window.scrollTo({
+                top: scrollY,
+                left: 0,
+                behavior: 'auto'
+              });
+            }
+          });
         }
-      }, 100); // Kısa bir gecikme ile focus'u garanti et
+      }, 50);
 
       // Focus trapping için event listener ekle
       const handleFocusTrap = (e) => {

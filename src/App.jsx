@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
 import html2canvas from "html2canvas";
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
@@ -381,6 +381,24 @@ export default function App() {
   const isClassEditorActiveRef = useRef(false)
   const pendingRealtimeEventsRef = useRef([])
   const [selectedTeacher, setSelectedTeacher] = useState(null) // Selected teacher for modal display
+  const scrollRestoreRef = useRef(0)
+  const openTeacherSchedule = useCallback((teacherName, schedule) => {
+    if (typeof window !== 'undefined') {
+      scrollRestoreRef.current =
+        window.scrollY ||
+        window.pageYOffset ||
+        document.documentElement.scrollTop ||
+        0
+    }
+    setSelectedTeacher({ name: teacherName, schedule })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (selectedTeacher && typeof window !== 'undefined') {
+      const target = scrollRestoreRef.current
+      window.scrollTo({ top: target, left: 0, behavior: 'auto' })
+    }
+  }, [selectedTeacher])
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     title: '',
@@ -3923,49 +3941,69 @@ export default function App() {
                     </button>
                   </div>
                   <div className="teacher-schedule-list">
-                    {teacherSchedulesList.map(([teacherName, schedule]) => (
-                      <div 
-                        key={teacherName} 
-                        className="teacher-schedule-item clickable"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // Scroll pozisyonunu koru
-                          const scrollY = window.scrollY;
-                          setSelectedTeacher({ name: teacherName, schedule });
-                          // Modal açıldıktan sonra scroll pozisyonunu geri yükle
-                          setTimeout(() => {
-                            window.scrollTo(0, scrollY);
-                          }, 0);
-                        }}
-                      >
-                        <div className="teacher-name">
-                          <Icon name="user" size={16} />
-                          <span>{teacherName}</span>
-                        </div>
-                        <div className="schedule-summary">
-                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-                            .filter((dayKey) => schedule && schedule[dayKey])
-                            .map((dayKey) => {
-                              const daySchedule = schedule[dayKey]
-                              const classCount = Object.keys(daySchedule || {}).length
-                              if (!classCount) return null
-                              const label =
-                                dayKey === 'monday' ? 'Pzt' :
-                                dayKey === 'tuesday' ? 'Sal' :
-                                dayKey === 'wednesday' ? 'Çar' :
-                                dayKey === 'thursday' ? 'Per' :
-                                dayKey === 'friday' ? 'Cum' :
-                                dayKey
-                              return (
-                                <span key={dayKey} className="day-class-count">
-                                  {label}: {classCount} ders
+                    {teacherSchedulesList.map(([teacherName, schedule]) => {
+                      const dayDefinitions = [
+                        { key: 'monday', label: 'Pzt' },
+                        { key: 'tuesday', label: 'Sal' },
+                        { key: 'wednesday', label: 'Çar' },
+                        { key: 'thursday', label: 'Per' },
+                        { key: 'friday', label: 'Cum' },
+                      ]
+
+                      const dayStats = dayDefinitions
+                        .map(({ key, label }) => {
+                          const count = Object.keys(schedule?.[key] || {}).length
+                          if (!count) return null
+                          return { key, label, count }
+                        })
+                        .filter(Boolean)
+
+                      const totalLessons = dayStats.reduce((sum, day) => sum + day.count, 0)
+
+                      return (
+                        <div 
+                          key={teacherName} 
+                          className="teacher-schedule-item clickable"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openTeacherSchedule(teacherName, schedule);
+                          }}
+                        >
+                          <div className="teacher-card-header">
+                            <div className="teacher-name">
+                              <Icon name="user" size={16} />
+                              <span>{teacherName}</span>
+                            </div>
+                            <div className="teacher-card-meta">
+                              <span className="meta-chip">
+                                <Icon name="calendar" size={12} />
+                                {dayStats.length || 0} gün
                               </span>
-                              )
-                          })}
+                              <span className="meta-chip">
+                                <Icon name="book" size={12} />
+                                {totalLessons} ders
+                              </span>
+                            </div>
+                          </div>
+                          <div className="teacher-card-body">
+                            {dayStats.length > 0 ? (
+                              dayStats.map(({ key, label, count }) => (
+                                <div key={key} className="teacher-day-row">
+                                  <span className="day-label">{label}</span>
+                                  <span className="day-count">{count} ders</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="teacher-card-empty">
+                                <Icon name="info" size={12} />
+                                <span>Günlük ders bilgisi yok</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
