@@ -146,6 +146,23 @@ function ThemeToggle({ theme, onToggle }) {
 const DISABLE_LOCAL_STORAGE = true;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
 const LAST_ABSENT_CLEANUP_KEY = `${APP_ENV.mode || 'development'}_last_absent_cleanup`;
+const STORAGE_VERSION_KEY = `${APP_ENV.mode || 'development'}_storage_version`;
+const APP_STATE_VERSION = APP_ENV.buildVersion || APP_ENV.mode || 'development';
+const LOCAL_STORAGE_STATIC_KEYS = [
+  STORAGE_KEY,
+  LAST_ABSENT_CLEANUP_KEY,
+  'theme',
+  'nobetci_persist_v4',
+  'nobetci_persist_v3',
+  'nobetci_assigner_state',
+];
+const LOCAL_STORAGE_PREFIXES = [
+  'nobetci_',
+  'teacherSchedules',
+  'classFree',
+  'absent_',
+  'duty_',
+];
 const DAYS = [
   { key: "Mon", label: "Pazartesi", short: "Pzt" },
   { key: "Tue", label: "Salı", short: "Sal" },
@@ -409,6 +426,45 @@ export default function App() {
 
   const toggleToolbar = useCallback(() => {
     setToolbarExpanded(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !APP_STATE_VERSION) {
+      return;
+    }
+
+    try {
+      const storage = window.localStorage;
+      if (!storage) return;
+
+      const storedVersion = storage.getItem(STORAGE_VERSION_KEY);
+      if (storedVersion === APP_STATE_VERSION) {
+        return;
+      }
+
+      const keysToRemove = new Set(LOCAL_STORAGE_STATIC_KEYS);
+      for (let i = 0; i < storage.length; i += 1) {
+        const key = storage.key(i);
+        if (!key) continue;
+        if (LOCAL_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+          keysToRemove.add(key);
+        }
+      }
+
+      keysToRemove.forEach((key) => {
+        if (!key) return;
+        try {
+          storage.removeItem(key);
+        } catch (err) {
+          logger.warn('LocalStorage key cleanup failed:', key, err);
+        }
+      });
+
+      storage.setItem(STORAGE_VERSION_KEY, APP_STATE_VERSION);
+      logger.info('Yerel önbellek sürümü güncellendi:', APP_STATE_VERSION);
+    } catch (err) {
+      logger.warn('Yerel önbellek sürüm kontrolü başarısız:', err);
+    }
   }, []);
 
   // Toplu: Tüm öğretmenlerin günlük max görev değerini güncelle

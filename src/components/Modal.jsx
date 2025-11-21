@@ -49,13 +49,10 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
       
       setTimeout(() => {
         if (modalRef.current) {
-          // Focus öncesi scroll pozisyonunu kontrol et
-          const beforeFocus = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-          
           // Focus işlemi (preventScroll desteklenirse kullan)
           try {
             modalRef.current.focus({ preventScroll: true });
-          } catch (e) {
+          } catch (ERROR_) {
             // preventScroll desteklenmiyorsa normal focus
             modalRef.current.focus();
           }
