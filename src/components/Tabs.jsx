@@ -18,7 +18,7 @@ export default function Tabs({ items, active, onChange, IconComponent }) {
       });
       activeTabRef.current.focus();
     }
-  }, [active, items]); // active veya items değiştiğinde yeniden hesapla
+  }, [active]); // active değiştiğinde yeniden hesapla
 
   // Resize durumunda da güncelleme yap
   React.useEffect(() => {

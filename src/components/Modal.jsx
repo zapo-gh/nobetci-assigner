@@ -52,7 +52,7 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
           // Focus işlemi (preventScroll desteklenirse kullan)
           try {
             modalRef.current.focus({ preventScroll: true });
-          } catch (ERROR_) {
+          } catch {
             // preventScroll desteklenmiyorsa normal focus
             modalRef.current.focus();
           }

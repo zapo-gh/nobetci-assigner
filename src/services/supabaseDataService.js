@@ -37,6 +37,24 @@ const createId = () => {
 const CLASS_FREE_SINGLE_ROW_ID = 1
 const TEACHER_FREE_SINGLE_ROW_ID = 1
 export const TEACHER_SCHEDULES_SNAPSHOT_KEY = '__snapshot__'
+const CLASS_ABSENCE_NO_DUTY_SUFFIX = '__NO_DUTY__'
+
+const buildAbsentIdVariants = (absentId) => {
+  const base = typeof absentId === 'string' ? absentId.trim() : absentId
+  if (!base) return []
+
+  const variants = new Set([base])
+
+  if (typeof base === 'string') {
+    if (base.endsWith(CLASS_ABSENCE_NO_DUTY_SUFFIX)) {
+      variants.add(base.slice(0, -CLASS_ABSENCE_NO_DUTY_SUFFIX.length))
+    } else {
+      variants.add(`${base}${CLASS_ABSENCE_NO_DUTY_SUFFIX}`)
+    }
+  }
+
+  return Array.from(variants).filter(Boolean)
+}
 
 export async function loadInitialData() {
   try {
@@ -288,6 +306,13 @@ export async function getClassByName(className) {
 
 export async function deleteClassById(classId) {
   try {
+    // First delete related class_absence and common_lessons records
+    await Promise.all([
+      supabase.from('class_absence').delete().eq('classId', classId),
+      supabase.from('common_lessons').delete().eq('class_id', classId)
+    ])
+
+    // Then delete the class itself
     const { error } = await supabase
       .from('classes')
       .delete()
@@ -368,14 +393,80 @@ export async function clearAbsentsData() {
 
 export async function deleteClassAbsenceByAbsent(absentId) {
   try {
-    const { error } = await supabase
+    const variants = buildAbsentIdVariants(absentId)
+    if (!variants.length) {
+      return
+    }
+    const query = supabase
       .from('class_absence')
       .delete()
-      .eq('absentId', absentId)
+      .in('absentId', variants)
+
+    const { error } = await query
 
     if (error) throw error
   } catch (error) {
     console.error('deleteClassAbsenceByAbsent error:', error)
+    throw error
+  }
+}
+
+export async function deleteClassAbsenceByClass(classId) {
+  try {
+    const { error } = await supabase
+      .from('class_absence')
+      .delete()
+      .eq('classId', classId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('deleteClassAbsenceByClass error:', error)
+    throw error
+  }
+}
+
+export async function deleteCommonLessonsByClass(classId) {
+  try {
+    const { error } = await supabase
+      .from('common_lessons')
+      .delete()
+      .eq('class_id', classId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('deleteCommonLessonsByClass error:', error)
+    throw error
+  }
+}
+
+export async function deleteCommonLessonsByTeacher(teacherName) {
+  try {
+    if (!teacherName) return
+    
+    const { error } = await supabase
+      .from('common_lessons')
+      .delete()
+      .eq('teacher_name', teacherName)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('deleteCommonLessonsByTeacher error:', error)
+    throw error
+  }
+}
+
+export async function deleteCommonLessonsBySlot(day, period, classId) {
+  try {
+    const { error } = await supabase
+      .from('common_lessons')
+      .delete()
+      .eq('day', day)
+      .eq('period', period)
+      .eq('class_id', classId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('deleteCommonLessonsBySlot error:', error)
     throw error
   }
 }
@@ -595,6 +686,34 @@ export async function resetTeacherFreeData() {
     if (error) throw error
   } catch (error) {
     console.error('resetTeacherFreeData error:', error)
+    throw error
+  }
+}
+
+export async function deleteLocksByTeacher(teacherId) {
+  try {
+    const { error } = await supabase
+      .from('locks')
+      .delete()
+      .eq('teacherId', teacherId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('deleteLocksByTeacher error:', error)
+    throw error
+  }
+}
+
+export async function deleteLocksByClass(classId) {
+  try {
+    const { error } = await supabase
+      .from('locks')
+      .delete()
+      .eq('classId', classId)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('deleteLocksByClass error:', error)
     throw error
   }
 }

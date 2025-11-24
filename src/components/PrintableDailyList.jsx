@@ -128,7 +128,6 @@ export default function PrintableDailyList({
                 <tr key={teacherName} className="common-lesson-teacher-row">
                   <td className="teacher-name">
                     <strong className="nowrap">{teacherName}</strong>
-                    <small className="muted nowrap">Ders Birleştirilecek</small>
                   </td>
                   {periods.map(p => {
                     const classesForTeacher = teacherClassMap[teacherName]?.[p] || [];

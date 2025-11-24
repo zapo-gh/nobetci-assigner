@@ -1,8 +1,9 @@
-import React, { memo, useMemo, useCallback, useState, useEffect } from 'react'
+import React, { memo, useMemo, useCallback, useState, useEffect, useLayoutEffect } from 'react'
 import styles from './AssignmentEditor.module.css';
 import { MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js'
 
 const AUTO_OPTION = '__AUTO__'
+const DEFAULT_EDITOR_HEIGHT = 150
 
 function AssignmentEditor({
   day,
@@ -25,6 +26,39 @@ function AssignmentEditor({
   const [droppedClassId, setDroppedClassId] = useState(null);
   const [editingContext, setEditingContext] = useState(null);
   const [editSelection, setEditSelection] = useState(AUTO_OPTION);
+  const [editorPosition, setEditorPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [editorHeight, setEditorHeight] = useState(DEFAULT_EDITOR_HEIGHT);
+  const editorRef = React.useRef(null);
+
+  const calculateEditorPosition = useCallback((rect, heightOverride) => {
+    if (!rect) return { top: 0, left: 0, width: 0 }
+
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || DEFAULT_EDITOR_HEIGHT
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 320
+    const effectiveHeight = Math.min(
+      Math.max(heightOverride || editorHeight || DEFAULT_EDITOR_HEIGHT, 100),
+      Math.max(100, viewportHeight - 8)
+    )
+
+    const editorWidth = Math.min(Math.max(rect.width, 200), Math.max(220, viewportWidth - 20))
+    let top = rect.bottom + 4
+    const spaceBelow = viewportHeight - rect.bottom
+    const spaceAbove = rect.top
+    if (spaceBelow < effectiveHeight + 8 && spaceAbove > effectiveHeight + 8) {
+      top = rect.top - effectiveHeight - 4
+    }
+    top = Math.max(4, Math.min(top, viewportHeight - effectiveHeight - 4))
+
+    let left = rect.left
+    if (left + editorWidth > viewportWidth - 10) {
+      left = viewportWidth - editorWidth - 10
+    }
+    if (left < 10) {
+      left = 10
+    }
+
+    return { top, left, width: editorWidth }
+  }, [editorHeight])
 
   const baseTeacherOptions = useMemo(() => {
     return [...teachers].sort((a, b) => (a.teacherName || '').localeCompare(b.teacherName || '', 'tr', { sensitivity: 'base' }))
@@ -89,10 +123,11 @@ function AssignmentEditor({
   const closeEditor = useCallback(() => {
     setEditingContext(null)
     setEditSelection(AUTO_OPTION)
+    setEditorPosition({ top: 0, left: 0, width: 0 })
     onManualEditorStateChange?.(false)
   }, [onManualEditorStateChange])
 
-  const openEditor = useCallback((period, classId, currentValue) => {
+  const openEditor = useCallback((period, classId, currentValue, event) => {
     const key = `${day}|${period}|${classId}`
     let initialValue = currentValue || AUTO_OPTION
     if (
@@ -105,7 +140,16 @@ function AssignmentEditor({
     setEditingContext({ key, period, classId })
     setEditSelection(initialValue)
     onManualEditorStateChange?.(true)
-  }, [day, teacherById, onManualEditorStateChange])
+    
+    // Calculate position for fixed editor
+    if (event && event.currentTarget) {
+      const cell = event.currentTarget.closest('td')
+      if (cell) {
+        const rect = cell.getBoundingClientRect()
+        setEditorPosition(calculateEditorPosition(rect))
+      }
+    }
+  }, [day, teacherById, onManualEditorStateChange, calculateEditorPosition])
 
   const handleManualSave = useCallback(() => {
     if (!editingContext) return
@@ -126,6 +170,54 @@ function AssignmentEditor({
       onManualEditorStateChange?.(false)
     }
   }, [onManualEditorStateChange])
+
+  // Close editor when clicking outside and update position on scroll/resize
+  useEffect(() => {
+    if (!editingContext) return
+
+    const handleClickOutside = (e) => {
+      const button = e.target.closest('button')
+      if (editorRef.current && !editorRef.current.contains(e.target) && button?.textContent !== 'Düzenle') {
+        closeEditor()
+      }
+    }
+
+    const updatePosition = () => {
+      if (editingContext) {
+        const cell = document.querySelector(`[data-editing-key="${editingContext.key}"]`)
+        if (cell) {
+          const rect = cell.getBoundingClientRect()
+          setEditorPosition(calculateEditorPosition(rect))
+        }
+      }
+    }
+
+    // Update position immediately
+    updatePosition()
+
+    document.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [editingContext, closeEditor, calculateEditorPosition])
+
+  useLayoutEffect(() => {
+    if (!editingContext || !editorRef.current) return
+    const measuredHeight = editorRef.current.getBoundingClientRect().height || DEFAULT_EDITOR_HEIGHT
+    if (Math.abs(measuredHeight - editorHeight) > 2) {
+      setEditorHeight(measuredHeight)
+      const cell = document.querySelector(`[data-editing-key="${editingContext.key}"]`)
+      if (cell) {
+        const rect = cell.getBoundingClientRect()
+        setEditorPosition(calculateEditorPosition(rect, measuredHeight))
+      }
+    }
+  }, [editingContext, editSelection, calculateEditorPosition, editorHeight])
 
   const handleDragStart = (e, period, classId, teacherId) => {
     const payload = { type: 'assignment', day, period, classId, teacherId }
@@ -216,6 +308,7 @@ function AssignmentEditor({
                   return (
                     <td key={p}
                         className={tdClasses}
+                        data-editing-key={isEditing ? k : undefined}
                         onDragOver={(e) => handleDragOver(e, cls.classId)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, p, cls.classId)}
@@ -269,7 +362,7 @@ function AssignmentEditor({
                             onClick={(e) => {
                               e.preventDefault()
                               e.stopPropagation()
-                              openEditor(p, cls.classId, manualInitialValue)
+                              openEditor(p, cls.classId, manualInitialValue, e)
                             }}
                           >
                             Düzenle
@@ -279,7 +372,14 @@ function AssignmentEditor({
 
                       {!commonLessonTeacher && isEditing && (
                         <div
+                          ref={editorRef}
                           className={styles.manualEditor}
+                          style={{
+                            position: 'fixed',
+                            top: `${editorPosition.top}px`,
+                            left: `${editorPosition.left}px`,
+                            width: `${editorPosition.width}px`,
+                          }}
                           onClick={(e) => {
                             e.stopPropagation()
                           }}
@@ -348,7 +448,6 @@ function AssignmentEditor({
                               İptal
                             </button>
                           </div>
-                          <div className={styles.manualHint}>Manuel atamalar otomatik planlamayı geçersiz kılar.</div>
                         </div>
                       )}
                     </td>
