@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import html2canvas from "html2canvas";
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
@@ -532,7 +532,7 @@ export default function App() {
     selectedTeacher, setSelectedTeacher,
     openTeacherSchedule, closeTeacherSchedule,
     confirmationModal, setConfirmationModal,
-    showConfirmation, closeConfirmation
+    requestConfirmation, // added from useUI
   } = useUI();
 
   const [periods, setPeriods] = useState(PERIODS);
@@ -562,10 +562,10 @@ export default function App() {
   const classAbsenceSnapshotRef = useRef('')
   const classAbsenceStateRef = useRef({})
   const skipNextSupabaseSaveRef = useRef(false)
-  const isAnyModalOpenRef = useRef(false)
-  const isPlanEditorActiveRef = useRef(false)
-  const isClassEditorActiveRef = useRef(false)
-  const pendingRealtimeEventsRef = useRef([])
+  // const isAnyModalOpenRef = useRef(false);
+  // const isPlanEditorActiveRef = useRef(false);
+  // const isClassEditorActiveRef = useRef(false);
+  // const pendingRealtimeEventsRef = useRef([]);
 
 
 
@@ -2108,62 +2108,24 @@ export default function App() {
   };
 
   const deleteAbsent = useCallback(async (absentIdToDelete) => {
-    // Batch işlem sırasında realtime'ı geçici olarak duraklat
-    realtimeSync.pause()
-    try {
-      await deleteAbsentById(absentIdToDelete)
-      await deleteClassAbsenceByAbsent(absentIdToDelete)
-    } catch (error) {
-      logger.error('Absent delete error:', error)
-      addNotification('Mazeret silinemedi', 'error')
-      realtimeSync.resume() // Hata durumunda da resume et
-      return
-    }
-    const validDayKeys = new Set(DAYS.map(d => d.key));
     const targetAbsent = absentPeople.find(p => p.absentId === absentIdToDelete);
+    if (!targetAbsent) {
+      addNotification('Mazeret kaydı bulunamadı', 'warning');
+      return;
+    }
+
     const absentTeacherName = targetAbsent?.name || null;
+    const validDayKeys = new Set(DAYS.map(d => d.key));
     const daysToProcess = (targetAbsent?.days || []).filter(dayKey => validDayKeys.has(dayKey));
     const fallbackDays = daysToProcess.length > 0 ? daysToProcess : Array.from(validDayKeys);
 
-    // 1) İlgili günlerde bu mazeretliye bağlı sınıfları topla
+    // STEP 1: Collect affected data for backup (optimistic update)
     const affectedClassIds = new Set();
-    const slotKeys = new Set();
     const slotsToClear = [];
-    fallbackDays.forEach((dayKey) => {
-      const dayAbs = classAbsence?.[dayKey] || {};
-      Object.values(dayAbs).forEach((byClass) => {
-        Object.entries(byClass || {}).forEach(([classId, aId]) => {
-          const { absentId } = decodeClassAbsenceValue(aId);
-          if (absentId === absentIdToDelete) {
-            affectedClassIds.add(classId);
-          }
-        });
-      });
-    });
-
-    fallbackDays.forEach((dayKey) => {
-      const dayAbs = classAbsence?.[dayKey] || {};
-      Object.entries(dayAbs).forEach(([periodKey, classesForPeriod]) => {
-        Object.entries(classesForPeriod || {}).forEach(([classId, aId]) => {
-          const { absentId } = decodeClassAbsenceValue(aId);
-          if (absentId === absentIdToDelete) {
-            const numericPeriod = Number(periodKey);
-            const slotKey = `${dayKey}|${Number.isFinite(numericPeriod) ? numericPeriod : periodKey}|${classId}`;
-            if (!slotKeys.has(slotKey)) {
-              slotKeys.add(slotKey);
-              slotsToClear.push({
-                dayKey,
-                period: Number.isFinite(numericPeriod) ? numericPeriod : Number(periodKey) || periodKey,
-                classId,
-              });
-            }
-          }
-        });
-      });
-    });
-
-    // 2) classAbsence içinden bu mazeretliyi ve ona bağlı COMMON_LESSON kayıtlarını tüm gün/periyotlardan temizle
+    const slotKeys = new Set();
     const commonLessonsToDelete = [];
+
+    // Analyze classAbsence to find affected slots
     const updatedClassAbsence = (() => {
       const next = { ...classAbsence };
       Object.keys(next).forEach(dk => {
@@ -2177,6 +2139,18 @@ export default function App() {
               decoded.commonLessonOwnerId === absentIdToDelete;
 
             if (shouldRemove) {
+              affectedClassIds.add(cid);
+
+              const slotKey = `${dk}|${numericPeriod}|${cid}`;
+              if (!slotKeys.has(slotKey)) {
+                slotKeys.add(slotKey);
+                slotsToClear.push({
+                  dayKey: dk,
+                  period: Number.isFinite(numericPeriod) ? numericPeriod : Number(pk) || pk,
+                  classId: cid,
+                });
+              }
+
               if (decoded.absentId === COMMON_LESSON_LABEL) {
                 commonLessonsToDelete.push({
                   day: dk,
@@ -2194,104 +2168,24 @@ export default function App() {
       return next;
     })();
 
-    setClassAbsence(() => updatedClassAbsence);
-
-    if (slotsToClear.length > 0) {
-      const uniqueSlots = Array.from(slotsToClear);
-      setClassFree((prev) => {
-        const next = { ...prev };
-        uniqueSlots.forEach(({ dayKey, period, classId }) => {
-          const periodKey = Number(period);
-          const dayEntry = next[dayKey];
-          if (!dayEntry) return;
-          const slotSet = dayEntry[periodKey];
-          if (slotSet instanceof Set) {
-            slotSet.delete(classId);
-          } else if (Array.isArray(slotSet)) {
-            dayEntry[periodKey] = new Set(slotSet.filter((cid) => cid !== classId));
-          }
-        });
-        return next;
-      });
-
-      // Also check if any commonLessons entries match the deleted teacher's name (geri uyum)
-      Object.keys(commonLessons || {}).forEach(dayKey => {
-        Object.keys(commonLessons[dayKey] || {}).forEach(periodKey => {
-          const period = Number(periodKey);
-          Object.entries(commonLessons[dayKey][period] || {}).forEach(([classId, teacherName]) => {
-            // If the teacher name matches the deleted absent teacher, mark for deletion
-            if (teacherName === absentTeacherName) {
-              const existing = commonLessonsToDelete.find(s =>
-                s.day === dayKey && s.period === period && s.classId === classId
-              );
-              if (!existing) {
-                commonLessonsToDelete.push({ day: dayKey, period, classId });
-              }
-            }
-          });
-        });
-      });
-
-      // Delete from Supabase - delete by class slots
-      if (commonLessonsToDelete.length > 0) {
-        try {
-          await Promise.all(commonLessonsToDelete.map(({ day, period, classId }) =>
-            deleteCommonLessonsBySlot(day, period, classId)
-          ));
-        } catch (err) {
-          logger.warn('Common lessons cleanup error:', err);
-        }
-      }
-
-      // Ayrıca öğretmen adına göre silmeyi de dene (geri uyum)
-      if (absentTeacherName) {
-        try {
-          await deleteCommonLessonsByTeacher(absentTeacherName);
-        } catch (err) {
-          logger.warn('Common lessons cleanup by teacher name error:', err);
-        }
-      }
-
-      // Remove from local state
-      setCommonLessons((prev) => {
-        const next = { ...prev };
-        // First remove slots from classAbsence
-        uniqueSlots.forEach(({ dayKey, period, classId }) => {
-          if (!next[dayKey]?.[period]) return;
-          if (next[dayKey][period][classId]) {
-            next[dayKey][period] = { ...next[dayKey][period] };
-            delete next[dayKey][period][classId];
-            if (Object.keys(next[dayKey][period]).length === 0) {
-              delete next[dayKey][period];
+    // Find common lessons by teacher name
+    Object.keys(commonLessons || {}).forEach(dayKey => {
+      Object.keys(commonLessons[dayKey] || {}).forEach(periodKey => {
+        const period = Number(periodKey);
+        Object.entries(commonLessons[dayKey][period] || {}).forEach(([classId, teacherName]) => {
+          if (teacherName === absentTeacherName) {
+            const existing = commonLessonsToDelete.find(s =>
+              s.day === dayKey && s.period === period && s.classId === classId
+            );
+            if (!existing) {
+              commonLessonsToDelete.push({ day: dayKey, period, classId });
             }
           }
-          if (next[dayKey] && Object.keys(next[dayKey]).length === 0) {
-            delete next[dayKey];
-          }
         });
-        // Then remove common lessons associated with the deleted absent teacher
-        commonLessonsToDelete.forEach(({ day, period, classId }) => {
-          if (next[day]?.[period]?.[classId]) {
-            next[day][period] = { ...next[day][period] };
-            delete next[day][period][classId];
-            if (Object.keys(next[day][period]).length === 0) {
-              delete next[day][period];
-            }
-          }
-          if (next[day] && Object.keys(next[day]).length === 0) {
-            delete next[day];
-          }
-        });
-        return next;
       });
+    });
 
-      uniqueSlots.forEach(({ dayKey, period, classId }) => {
-        upsertClassFree({ day: dayKey, period: Number(period), classId, isSelected: false }).catch((err) =>
-          logger.warn('Class free cleanup error:', err)
-        );
-      });
-    }
-
+    // Determine classes to remove (no longer have any absents)
     const stillHasAbsent = new Set();
     fallbackDays.forEach((dayKey) => {
       const dayRecords = updatedClassAbsence?.[dayKey] || {};
@@ -2304,48 +2198,113 @@ export default function App() {
         });
       });
     });
-
     const classesToRemove = Array.from(affectedClassIds).filter(cid => !stillHasAbsent.has(cid));
 
-    if (classesToRemove.length > 0) {
-      try {
-        await Promise.all(classesToRemove.map((cid) => deleteClassById(cid)));
-      } catch (err) {
-        logger.error('Auto class delete error:', err);
-      }
-    }
+    // STEP 2: OPTIMISTIC UPDATE - Update UI immediately
+    setAbsentPeople(prev => prev.filter(p => p.absentId !== absentIdToDelete));
+    setClassAbsence(() => updatedClassAbsence);
 
-    if (classesToRemove.length > 0) {
-      setClassFree(prev => {
-        const next = { ...prev };
-        fallbackDays.forEach((dayKey) => {
-          if (!next[dayKey]) return;
-          Object.keys(next[dayKey]).forEach(pk => {
-            const set = next[dayKey][pk];
-            if (set instanceof Set) {
-              classesToRemove.forEach(cid => set.delete(cid));
-            }
-          });
-        });
-        return next;
+    setClassFree((prev) => {
+      const next = { ...prev };
+      slotsToClear.forEach(({ dayKey, period, classId }) => {
+        const periodKey = Number(period);
+        const dayEntry = next[dayKey];
+        if (!dayEntry) return;
+        const slotSet = dayEntry[periodKey];
+        if (slotSet instanceof Set) {
+          slotSet.delete(classId);
+        } else if (Array.isArray(slotSet)) {
+          dayEntry[periodKey] = new Set(slotSet.filter((cid) => cid !== classId));
+        }
       });
-    }
+      fallbackDays.forEach((dayKey) => {
+        if (!next[dayKey]) return;
+        Object.keys(next[dayKey]).forEach(pk => {
+          const set = next[dayKey][pk];
+          if (set instanceof Set) {
+            classesToRemove.forEach(cid => set.delete(cid));
+          }
+        });
+      });
+      return next;
+    });
+
+    setCommonLessons((prev) => {
+      const next = { ...prev };
+      commonLessonsToDelete.forEach(({ day, period, classId }) => {
+        if (next[day]?.[period]?.[classId]) {
+          next[day][period] = { ...next[day][period] };
+          delete next[day][period][classId];
+          if (Object.keys(next[day][period]).length === 0) {
+            delete next[day][period];
+          }
+        }
+        if (next[day] && Object.keys(next[day]).length === 0) {
+          delete next[day];
+        }
+      });
+      return next;
+    });
 
     setClasses(prevClasses => {
       const filtered = prevClasses.filter(c => !classesToRemove.includes(c.classId));
       if (classesToRemove.length > 0) {
-        addNotification(`${classesToRemove.length} sınıf otomatik kaldırıldı (mazeretli kalmadı)`, 'info');
+        addNotification(`${classesToRemove.length} sınıf otomatik kaldırıldı`, 'info');
       }
       return filtered;
     });
 
-    // 4) Mazeret kaydını kaldır
-    setAbsentPeople(prev => prev.filter(p => p.absentId !== absentIdToDelete));
-    addNotification("Mazeret kaydı silindi", "info");
+    addNotification("Mazeret siliniyor...", "info");
 
-    // Batch işlem tamamlandı, realtime'ı tekrar etkinleştir
-    realtimeSync.resume()
-  }, [absentPeople, classAbsence, setClassAbsence, setClassFree, setClasses, setAbsentPeople, addNotification]);
+    // STEP 3: BATCH DELETE - Background cleanup (parallel)
+    try {
+      const deletePromises = [
+        deleteAbsentById(absentIdToDelete),
+        deleteClassAbsenceByAbsent(absentIdToDelete)
+      ];
+
+      // Batch delete common lessons
+      if (commonLessonsToDelete.length > 0) {
+        deletePromises.push(
+          ...commonLessonsToDelete.map(({ day, period, classId }) =>
+            deleteCommonLessonsBySlot(day, period, classId)
+          )
+        );
+      }
+
+      // Delete by teacher name (fallback)
+      if (absentTeacherName) {
+        deletePromises.push(deleteCommonLessonsByTeacher(absentTeacherName));
+      }
+
+      // Delete affected classes
+      if (classesToRemove.length > 0) {
+        deletePromises.push(
+          ...classesToRemove.map((cid) => deleteClassById(cid))
+        );
+      }
+
+      // Execute all deletes in parallel
+      await Promise.all(deletePromises);
+
+      // Update class_free in Supabase
+      if (slotsToClear.length > 0) {
+        await Promise.all(
+          slotsToClear.map(({ dayKey, period, classId }) =>
+            upsertClassFree({ day: dayKey, period: Number(period), classId, isSelected: false })
+          )
+        );
+      }
+
+      addNotification("Mazeret kaydı silindi", "success");
+    } catch (error) {
+      logger.error('Batch delete error:', error);
+      addNotification('Silme işlemi tamamlanamadı, sayfa yenilenecek', 'error');
+
+      // Reload page to get fresh data from server
+      setTimeout(() => window.location.reload(), 2000);
+    }
+  }, [absentPeople, classAbsence, commonLessons, setClassAbsence, setClassFree, setCommonLessons, setClasses, setAbsentPeople, addNotification]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
