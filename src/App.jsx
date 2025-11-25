@@ -181,6 +181,11 @@ const SMART_POLLING_TABLES = Object.freeze({
   common_lessons: true,
 });
 const CURRENT_BUILD_VERSION = APP_ENV.buildVersion || 'dev';
+const SHOULD_CHECK_VERSION =
+  APP_ENV.isProduction &&
+  typeof CURRENT_BUILD_VERSION === 'string' &&
+  CURRENT_BUILD_VERSION !== '' &&
+  CURRENT_BUILD_VERSION !== 'dev';
 let cachedAppStateVersion = null;
 
 const stripQueryParams = (value = '') => {
@@ -981,7 +986,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!APP_ENV.isProduction) return undefined;
+    if (!SHOULD_CHECK_VERSION) return undefined;
 
     const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -991,7 +996,7 @@ export default function App() {
         const response = await fetch(`${getAssetUrl('version.json')}?t=${Date.now()}`, {
           cache: 'no-store',
         });
-        if (!response.ok) return;
+      if (!response.ok) return;
         const payload = await response.json();
         const remoteVersion = payload?.version;
         if (
