@@ -3513,6 +3513,8 @@ export default function App() {
                 transform: none;
                 border: 1px solid var(--primary);
               }
+            `}</style>
+            <style>{`
               @media (max-width: 768px) {
                 .day-selector-header .day-selector {
                   height: 36px;
@@ -3522,6 +3524,40 @@ export default function App() {
                   font-size: 0.75rem;
                   min-width: 28px;
                   height: 28px;
+                }
+              }
+              @media (max-width: 640px) {
+                .day-selector-header h1 {
+                  font-size: 1.25rem;
+                }
+                .day-selector-header p {
+                  font-size: 0.8rem;
+                }
+              }
+            `}</style>
+            <style>{`
+              @media (max-width: 480px) {
+                .day-selector-header {
+                  flex-direction: column;
+                  align-items: flex-start;
+                  gap: var(--space-2);
+                }
+                .day-selector-header h1 {
+                  font-size: 1rem;
+                }
+                .day-selector-header p {
+                  font-size: 0.65rem;
+                }
+                .day-selector-header .day-selector {
+                  width: 100%;
+                  flex-wrap: wrap;
+                  gap: 4px;
+                }
+                .day-selector-header .day-btn {
+                  flex: 1 0 calc(20% - 4px);
+                  min-width: auto;
+                  font-size: 0.68rem;
+                  height: 26px;
                 }
               }
             `}</style>
