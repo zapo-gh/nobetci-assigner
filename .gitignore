@@ -17,6 +17,7 @@ out/
 *.njsproj
 *.sln
 *.sw?
+public/version.json
 .DS_Store
 
 # environment files

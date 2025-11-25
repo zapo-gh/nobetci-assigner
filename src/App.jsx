@@ -17,7 +17,7 @@ import {
 } from "./utils/helpers.js";
 import "./styles.css";
 import styles from './components/Tabs.module.css'; // Tabs.module.css dosyasını import et
-import { APP_ENV } from './config/index.js';
+import { APP_ENV, getAssetUrl } from './config/index.js';
 import {
   loadInitialData,
   insertTeacher,
@@ -180,6 +180,7 @@ const SMART_POLLING_TABLES = Object.freeze({
   class_absence: true,
   common_lessons: true,
 });
+const CURRENT_BUILD_VERSION = APP_ENV.buildVersion || 'dev';
 let cachedAppStateVersion = null;
 
 const stripQueryParams = (value = '') => {
@@ -529,6 +530,7 @@ export default function App() {
   const skipNextSupabaseSaveRef = useRef(false)
   const autoSaveTimeoutRef = useRef(null)
   const isPollingUpdateRef = useRef(false)
+  const versionMismatchHandledRef = useRef(false)
 
 
 
@@ -966,6 +968,55 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
     }
   }, [])
+
+  useEffect(() => {
+    if (!APP_ENV.isProduction) return undefined;
+
+    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+    const checkForNewVersion = async () => {
+      if (versionMismatchHandledRef.current) return;
+      try {
+        const response = await fetch(`${getAssetUrl('version.json')}?t=${Date.now()}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const remoteVersion = payload?.version;
+        if (
+          remoteVersion &&
+          CURRENT_BUILD_VERSION &&
+          remoteVersion !== CURRENT_BUILD_VERSION &&
+          !versionMismatchHandledRef.current
+        ) {
+          versionMismatchHandledRef.current = true;
+          addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
+          }, 1200);
+        }
+      } catch (error) {
+        logger.warn('Version check failed:', error);
+      }
+    };
+
+    checkForNewVersion();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkForNewVersion();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    const intervalId = window.setInterval(checkForNewVersion, CHECK_INTERVAL);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(intervalId);
+    };
+  }, [addNotification]);
 
   const refreshAbsenceData = useCallback(async () => {
     setAbsenceRefreshState((prev) => ({ ...prev, isRefreshing: true, error: null }));
