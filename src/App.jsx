@@ -181,6 +181,7 @@ const SMART_POLLING_TABLES = Object.freeze({
   common_lessons: true,
 });
 const CURRENT_BUILD_VERSION = APP_ENV.buildVersion || 'dev';
+const VERSION_RELOAD_STORAGE_KEY = `${APP_ENV.mode || 'development'}_last_version_reload`;
 const SHOULD_CHECK_VERSION =
   APP_ENV.isProduction &&
   typeof CURRENT_BUILD_VERSION === 'string' &&
@@ -253,6 +254,28 @@ const resolveAppStateVersion = ({ refresh = false } = {}) => {
   }
 
   return cachedAppStateVersion;
+};
+
+const getLastReloadedVersion = () => {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    return sessionStorage.getItem(VERSION_RELOAD_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const persistReloadedVersion = (version) => {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    if (version) {
+      sessionStorage.setItem(VERSION_RELOAD_STORAGE_KEY, version);
+    } else {
+      sessionStorage.removeItem(VERSION_RELOAD_STORAGE_KEY);
+    }
+  } catch {
+    // ignore
+  }
 };
 
 const cleanupLocalStorageForVersion = () => {
@@ -1005,11 +1028,24 @@ export default function App() {
           remoteVersion !== CURRENT_BUILD_VERSION &&
           !versionMismatchHandledRef.current
         ) {
+        const lastReloaded = getLastReloadedVersion();
+        if (lastReloaded === remoteVersion) {
           versionMismatchHandledRef.current = true;
-          addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
-          setTimeout(() => {
-            forceReloadWithVersion(remoteVersion);
-          }, 1200);
+          addNotification(
+            'Yeni sürüm algılandı ancak tarayıcı önbelleği nedeniyle otomatik yenileme başarısız oldu. Lütfen sayfayı manuel olarak yenileyin.',
+            'warning',
+          );
+          return;
+        }
+
+        versionMismatchHandledRef.current = true;
+        persistReloadedVersion(remoteVersion);
+        addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
+        setTimeout(() => {
+          forceReloadWithVersion(remoteVersion);
+        }, 1200);
+      } else if (remoteVersion === CURRENT_BUILD_VERSION) {
+        persistReloadedVersion(null);
         }
       } catch (error) {
         logger.warn('Version check failed:', error);
