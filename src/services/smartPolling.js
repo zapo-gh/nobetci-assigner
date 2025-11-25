@@ -17,20 +17,21 @@ export class SmartPollingService {
         this.retryAttempts = new Map()
 
         // Tablo bazlı polling interval'leri (milisaniye)
+        // Supabase request sıklığını azaltmak için interval'leri önemli ölçüde artırdık
         this.tableIntervals = {
-            // Sık değişenler - 3-5 saniye
-            absents: 3000,
-            class_free: 3000,
-            class_absence: 3000,
+            // Sık değişenler - 15-20 saniye (önceden 5-8 saniye)
+            absents: 15000,
+            class_free: 15000,
+            class_absence: 20000, // class_absence için daha uzun interval
 
-            // Orta sıklıkta - 8-10 saniye
-            common_lessons: 8000,
-            teachers: 10000,
-            classes: 10000,
+            // Orta sıklıkta - 30-45 saniye (önceden 10-15 saniye)
+            common_lessons: 30000,
+            teachers: 45000,
+            classes: 45000,
 
-            // Az değişenler - 15-20 saniye
-            locks: 15000,
-            teacher_schedules: 20000
+            // Az değişenler - 60-90 saniye (önceden 20-30 saniye)
+            locks: 60000,
+            teacher_schedules: 90000
         }
 
         // Idle durumunda interval çarpanı
@@ -38,6 +39,32 @@ export class SmartPollingService {
 
         // Page Visibility API listener'ı ekle
         this.setupVisibilityListener()
+    }
+
+    clearTableInterval(tableName) {
+        const timerId = this.intervals.get(tableName)
+        if (timerId) {
+            clearTimeout(timerId)
+            this.intervals.delete(tableName)
+        }
+    }
+
+    startPollingLoop(tableName, callback) {
+        const baseInterval = this.tableIntervals[tableName] || 10000
+
+        const executePoll = async () => {
+            if (!this.isActive) return
+
+            await this.pollTable(tableName, callback)
+            if (!this.isActive) return
+
+            const effectiveInterval = this.isVisible ? baseInterval : baseInterval * this.idleMultiplier
+            const timerId = setTimeout(executePoll, effectiveInterval)
+            this.intervals.set(tableName, timerId)
+        }
+
+        // İlk poll'u hemen başlat
+        executePoll()
     }
 
     /**
@@ -81,23 +108,8 @@ export class SmartPollingService {
         const cleanupFunctions = []
 
         this.callbacks.forEach((callback, tableName) => {
-            const baseInterval = this.tableIntervals[tableName] || 10000
-
-            // İlk poll'u hemen yap
-            this.pollTable(tableName, callback)
-
-            // Periyodik polling
-            const interval = setInterval(() => {
-                if (!this.isActive) return
-
-                // Tab görünür değilse interval'i artır
-                const effectiveInterval = this.isVisible ? baseInterval : baseInterval * this.idleMultiplier
-
-                this.pollTable(tableName, callback)
-            }, baseInterval)
-
-            this.intervals.set(tableName, interval)
-            cleanupFunctions.push(() => clearInterval(interval))
+            this.startPollingLoop(tableName, callback)
+            cleanupFunctions.push(() => this.clearTableInterval(tableName))
         })
 
         logger.info(`[SmartPolling] Started for ${this.intervals.size} tables`)
@@ -145,11 +157,33 @@ export class SmartPollingService {
             }
 
         } catch (err) {
-            // Hata yönetimi - exponential backoff
+            // Hata yönetimi - exponential backoff (daha az agresif)
             const currentAttempts = this.retryAttempts.get(tableName) || 0
+            
+            // ERR_INSUFFICIENT_RESOURCES gibi network hatalarında daha uzun bekle
+            const isResourceError = err?.message?.includes('ERR_INSUFFICIENT_RESOURCES') || 
+                                   err?.code === 'ERR_INSUFFICIENT_RESOURCES' ||
+                                   err?.message?.includes('network') ||
+                                   err?.message?.includes('rate limit')
+            
+            if (isResourceError && currentAttempts >= 3) {
+                // Resource hatalarında daha uzun bekle (max 60 saniye)
+                const backoffDelay = Math.min(5000 * Math.pow(2, currentAttempts - 3), 60000)
+                logger.warn(`[SmartPolling] ${tableName} resource error (attempt ${currentAttempts + 1}), waiting ${backoffDelay}ms`)
+                
+                setTimeout(() => {
+                    if (this.isActive) {
+                        this.retryAttempts.set(tableName, currentAttempts + 1)
+                        this.pollTable(tableName, callback)
+                    }
+                }, backoffDelay)
+                return
+            }
+            
             this.retryAttempts.set(tableName, currentAttempts + 1)
-
-            const backoffDelay = Math.min(1000 * Math.pow(2, currentAttempts), 30000) // Max 30 saniye
+            
+            // Normal hatalar için daha kısa backoff (max 15 saniye)
+            const backoffDelay = Math.min(2000 * Math.pow(1.5, currentAttempts), 15000)
 
             logger.error(`[SmartPolling] ${tableName} fetch error (attempt ${currentAttempts + 1}):`, err)
             logger.info(`[SmartPolling] Retrying ${tableName} in ${backoffDelay}ms`)
@@ -176,7 +210,7 @@ export class SmartPollingService {
      * Polling'i durdur
      */
     stop() {
-        this.intervals.forEach(interval => clearInterval(interval))
+        this.intervals.forEach(timerId => clearTimeout(timerId))
         this.intervals.clear()
         this.callbacks.clear()
         this.retryAttempts.clear()
@@ -193,16 +227,10 @@ export class SmartPollingService {
         // Eğer tablo zaten poll ediliyorsa, interval'i yeniden başlat
         if (this.intervals.has(tableName)) {
             const callback = this.callbacks.get(tableName)
-            const oldInterval = this.intervals.get(tableName)
-
-            clearInterval(oldInterval)
-
-            const newInterval = setInterval(() => {
-                if (!this.isActive) return
-                this.pollTable(tableName, callback)
-            }, ms)
-
-            this.intervals.set(tableName, newInterval)
+            this.clearTableInterval(tableName)
+            if (this.isActive && callback) {
+                this.startPollingLoop(tableName, callback)
+            }
             logger.info(`[SmartPolling] Updated ${tableName} interval to ${ms}ms`)
         }
     }

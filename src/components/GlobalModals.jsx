@@ -37,7 +37,8 @@ export default function GlobalModals({
     handleCloseDutyTeacherExcelModal,
     loadDutyTeachersFromExcel,
     selectedTeacher,
-    setSelectedTeacher
+    setSelectedTeacher,
+    blockedAbsentTeacherNames = new Set(),
 }) {
     const Icon = IconComponent;
 
@@ -67,6 +68,7 @@ export default function GlobalModals({
                     currentDayKey={day}
                     currentDayLabel={DAYS.find(d => d.key === day)?.label || day}
                     teacherOptions={scheduledTeacherOptions}
+                    blockedTeacherNames={blockedAbsentTeacherNames}
                 />
             )}
 

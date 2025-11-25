@@ -18,9 +18,13 @@ export default function ModernClassAvailabilityGrid({
   onDropdownStateChange,
 }) {
   const getAbsentInfo = (absentId) => absentPeople.find(a => a.absentId === absentId)
-  
+
   const getCommonLessonInfo = (day, period, classId) => {
-    return commonLessons?.[day]?.[period]?.[classId] || null
+    const teacherVal = commonLessons?.[day]?.[period]?.[classId]
+    if (!teacherVal) return null
+    // Check if it's a teacher ID and resolve to name
+    const teacher = teacherMap.get(teacherVal)
+    return teacher?.teacherName || teacherVal
   }
 
   const teacherMap = React.useMemo(() => {
@@ -86,7 +90,7 @@ export default function ModernClassAvailabilityGrid({
                 <th key={p} className="text-center min-w-32">
                   <div className="flex flex-col items-center gap-1">
                     <span className="font-mono">{p}. Saat</span>
-                    
+
                   </div>
                 </th>
               ))}
@@ -224,7 +228,7 @@ export default function ModernClassAvailabilityGrid({
                                 <span className="badge badge-muted text-xs">{selectedAbsent}</span>
                               </div>
                             )}
-                            
+
 
                             {/* Common Lesson Info */}
                             {selectedAbsent === "COMMON_LESSON" && (

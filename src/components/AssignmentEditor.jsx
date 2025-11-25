@@ -95,7 +95,7 @@ function AssignmentEditor({
     return [...classes].sort((a, b) => {
       const nameA = a.className || '';
       const nameB = b.className || '';
-      
+
       // Sınıf ismini sayı ve harf kısımlarına ayır (örn: "10-A" -> [10, "A"])
       const parseClass = (name) => {
         const match = name.match(/^(\d+)[\s-]*(.*)$/);
@@ -104,15 +104,15 @@ function AssignmentEditor({
         }
         return [0, name]; // Eğer sayı yoksa başa al
       };
-      
+
       const [numA, letterA] = parseClass(nameA);
       const [numB, letterB] = parseClass(nameB);
-      
+
       // Önce sayıya göre karşılaştır
       if (numA !== numB) {
         return numA - numB;
       }
-      
+
       // Sayılar eşitse harfe göre karşılaştır
       return letterA.localeCompare(letterB, 'tr', { numeric: true });
     });
@@ -140,7 +140,7 @@ function AssignmentEditor({
     setEditingContext({ key, period, classId })
     setEditSelection(initialValue)
     onManualEditorStateChange?.(true)
-    
+
     // Calculate position for fixed editor
     if (event && event.currentTarget) {
       const cell = event.currentTarget.closest('td')
@@ -259,7 +259,7 @@ function AssignmentEditor({
       if (!teacherId || srcDay !== day || period !== targetPeriod) return
 
       onDropAssign({ day, period, fromClassId: classId, toClassId: targetClassId, teacherId })
-      
+
       setDroppedClassId(targetClassId);
       setTimeout(() => setDroppedClassId(null), 600);
     } catch (err) {
@@ -297,8 +297,9 @@ function AssignmentEditor({
                   const isManualEmpty = lockValue === MANUAL_EMPTY_TEACHER_ID
                   const isEditing = editingContext?.key === k
                   const manualInitialValue = lockValue || teacherId || AUTO_OPTION
-                  const commonLessonTeacher = commonLessons?.[day]?.[p]?.[cls.classId]
-                  
+                  const commonLessonTeacherVal = commonLessons?.[day]?.[p]?.[cls.classId]
+                  const commonLessonTeacherName = teacherById[commonLessonTeacherVal]?.teacherName || commonLessonTeacherVal
+
                   const tdClasses = [
                     styles.dndTarget,
                     dragOverClassId === cls.classId ? styles.dragOver : '',
@@ -307,17 +308,17 @@ function AssignmentEditor({
 
                   return (
                     <td key={p}
-                        className={tdClasses}
-                        data-editing-key={isEditing ? k : undefined}
-                        onDragOver={(e) => handleDragOver(e, cls.classId)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, p, cls.classId)}
+                      className={tdClasses}
+                      data-editing-key={isEditing ? k : undefined}
+                      onDragOver={(e) => handleDragOver(e, cls.classId)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, p, cls.classId)}
                     >
                       <div className={styles.cellContent}>
-                        {commonLessonTeacher ? (
+                        {commonLessonTeacherName ? (
                           <div className="text-center">
                             <div className="text-xs text-primary font-medium">📚 Ders Birleştirilecek</div>
-                            <div className="text-sm font-medium">{commonLessonTeacher}</div>
+                            <div className="text-sm font-medium">{commonLessonTeacherName}</div>
                           </div>
                         ) : t ? (
                           <div className={styles.teacherRow}>
@@ -355,7 +356,7 @@ function AssignmentEditor({
                           <span className="text-muted">—</span>
                         )}
 
-                        {!commonLessonTeacher && (t || isManualEmpty) && (
+                        {!commonLessonTeacherName && (t || isManualEmpty) && (
                           <button
                             className="btn-ghost btn-sm"
                             type="button"
@@ -370,7 +371,7 @@ function AssignmentEditor({
                         )}
                       </div>
 
-                      {!commonLessonTeacher && isEditing && (
+                      {!commonLessonTeacherName && isEditing && (
                         <div
                           ref={editorRef}
                           className={styles.manualEditor}
@@ -419,8 +420,8 @@ function AssignmentEditor({
 
                                 return result.map((teacher) => (
                                   <option key={teacher.teacherId} value={teacher.teacherId}>
-                                  {teacher.teacherName}
-                                </option>
+                                    {teacher.teacherName}
+                                  </option>
                                 ))
                               })()}
                             </select>

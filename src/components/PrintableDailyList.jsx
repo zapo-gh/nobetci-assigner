@@ -108,10 +108,12 @@ export default function PrintableDailyList({
               // Get all unique common lesson teachers for this day
               const commonLessonTeachers = new Set();
               const teacherClassMap = {};
-              
+              const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
+
               periods.forEach(p => {
                 const commonLessonsForPeriod = commonLessons?.[day]?.[p] || {};
-                Object.entries(commonLessonsForPeriod).forEach(([classId, teacherName]) => {
+                Object.entries(commonLessonsForPeriod).forEach(([classId, teacherVal]) => {
+                  const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
                   commonLessonTeachers.add(teacherName);
                   if (!teacherClassMap[teacherName]) {
                     teacherClassMap[teacherName] = {};
@@ -122,7 +124,7 @@ export default function PrintableDailyList({
                   teacherClassMap[teacherName][p].push(classId);
                 });
               });
-              
+
               // Render a row for each common lesson teacher
               return Array.from(commonLessonTeachers).map(teacherName => (
                 <tr key={teacherName} className="common-lesson-teacher-row">
@@ -131,7 +133,7 @@ export default function PrintableDailyList({
                   </td>
                   {periods.map(p => {
                     const classesForTeacher = teacherClassMap[teacherName]?.[p] || [];
-                    
+
                     return (
                       <td key={p} className="cell text-center">
                         {classesForTeacher.length > 0 ? (
@@ -157,7 +159,7 @@ export default function PrintableDailyList({
           </tbody>
         </table>
       </div>
-      
+
 
       <style>{`
         .print-wrap { width: 100%; }

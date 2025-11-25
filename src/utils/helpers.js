@@ -73,6 +73,12 @@ export function validateClassData(row) {
   return errs;
 }
 
+export const normalizeClassLabel = (value = '') =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
 export function validateAbsentRow(row) {
   const errs = [];
   if (!row.name) errs.push('İsim boş');

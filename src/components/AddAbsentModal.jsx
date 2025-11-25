@@ -17,6 +17,7 @@ export default function AddAbsentModal({
   currentDayKey,
   currentDayLabel,
   teacherOptions = [],
+  blockedTeacherNames = new Set(),
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +26,13 @@ export default function AddAbsentModal({
   });
   const [errors, setErrors] = useState({});
   const [selectedTeacher, setSelectedTeacher] = useState(null);
+
+  const blockedSet = useMemo(() => {
+    if (!blockedTeacherNames) return new Set();
+    if (blockedTeacherNames instanceof Set) return blockedTeacherNames;
+    if (Array.isArray(blockedTeacherNames)) return new Set(blockedTeacherNames.map(normalizeForComparison));
+    return new Set();
+  }, [blockedTeacherNames]);
 
   const preparedTeacherOptions = useMemo(() => {
     if (!Array.isArray(teacherOptions)) return [];
@@ -37,12 +45,13 @@ export default function AddAbsentModal({
       }))
       .filter(opt => {
         if (!opt.teacherName || !opt.normalizedName) return false;
+        if (blockedSet.has(opt.normalizedName)) return false;
         if (seen.has(opt.normalizedName)) return false;
         seen.add(opt.normalizedName);
         return true;
       })
       .sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'tr', { sensitivity: 'base' }));
-  }, [teacherOptions]);
+  }, [teacherOptions, blockedSet]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -81,6 +90,12 @@ export default function AddAbsentModal({
       return;
     }
 
+    if (blockedSet.has(normalized)) {
+      setSelectedTeacher(null);
+      setErrors(prev => ({ ...prev, name: 'Bu öğretmen seçili gün için zaten mazeretli' }));
+      return;
+    }
+
     const exactMatch = preparedTeacherOptions.find(
       opt => opt.normalizedName === normalized
     );
@@ -105,6 +120,8 @@ export default function AddAbsentModal({
         newErrors.name = 'Öğretmen adı zorunludur';
       } else if (!selectedTeacher) {
         newErrors.name = 'Listeden bir öğretmen seçmelisiniz';
+      } else if (blockedSet.has(normalizeForComparison(trimmed))) {
+        newErrors.name = 'Bu öğretmen seçili gün için zaten mazeretli';
       }
     }
     if (!formData.reason) {

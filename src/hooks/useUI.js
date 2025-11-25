@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
-import { APP_ENV } from '../config/index.js';
 
 // Bugünün gününü otomatik seç (Pazartesi=1, Cuma=5)
 const getTodayKey = () => {
@@ -53,7 +52,9 @@ export function useUI() {
             const next = prev === "dark" ? "light" : "dark";
             try {
                 localStorage.setItem("theme", next);
-            } catch { }
+            } catch (storageError) {
+                console.warn('[useUI] Failed to persist theme preference', storageError);
+            }
             return next;
         });
     }, []);
@@ -67,10 +68,6 @@ export function useUI() {
                 0;
         }
         setSelectedTeacher({ name: teacherName, schedule });
-    }, []);
-
-    const closeTeacherSchedule = useCallback(() => {
-        setSelectedTeacher(null);
     }, []);
 
     // Restore scroll when modal closes
@@ -157,7 +154,6 @@ export function useUI() {
         selectedTeacher,
         setSelectedTeacher,
         openTeacherSchedule,
-        closeTeacherSchedule,
         confirmationModal,
         setConfirmationModal,
         showConfirmation,

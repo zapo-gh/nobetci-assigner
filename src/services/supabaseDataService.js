@@ -34,10 +34,49 @@ const createId = () => {
   return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
 
-const CLASS_FREE_SINGLE_ROW_ID = 1
-const TEACHER_FREE_SINGLE_ROW_ID = 1
 export const TEACHER_SCHEDULES_SNAPSHOT_KEY = '__snapshot__'
 const CLASS_ABSENCE_NO_DUTY_SUFFIX = '__NO_DUTY__'
+
+const CLASS_FREE_SINGLE_ROW_ID = 1
+const TEACHER_FREE_SINGLE_ROW_ID = 1
+
+const parseClassFreeRows = (classFreeRaw = []) => {
+  let classFree = {}
+  const classFreeJsonRow = classFreeRaw.find(item => typeof item?.data === 'object')
+  if (classFreeJsonRow) {
+    classFree = classFreeJsonRow.data || {}
+  } else {
+    classFreeRaw.forEach(item => {
+      if (!item?.day) return
+      if (!classFree[item.day]) classFree[item.day] = {}
+      classFree[item.day][item.period] = item.classIds || []
+    })
+  }
+  return classFree
+}
+
+const parseTeacherFreeRows = (teacherFreeRaw = []) => {
+  let teacherFree = {}
+  const teacherFreeJsonRow = teacherFreeRaw.find(item => typeof item?.data === 'object')
+  if (teacherFreeJsonRow) {
+    teacherFree = teacherFreeJsonRow.data || {}
+  } else {
+    teacherFreeRaw.forEach(item => {
+      teacherFree[item.period] = item.teacherIds || []
+    })
+  }
+  return teacherFree
+}
+
+const parseClassAbsenceRows = (classAbsenceRaw = []) => {
+  const classAbsence = {}
+  classAbsenceRaw.forEach(item => {
+    if (!classAbsence[item.day]) classAbsence[item.day] = {}
+    if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
+    classAbsence[item.day][item.period][item.classId] = item.absentId
+  })
+  return classAbsence
+}
 
 const buildAbsentIdVariants = (absentId) => {
   const base = typeof absentId === 'string' ? absentId.trim() : absentId
@@ -84,34 +123,9 @@ export async function loadInitialData() {
     const commonLessonsRaw = getTableData(commonLessonsRes, { fallback: [], tableName: 'common_lessons' })
 
     // Transform data to expected format
-    let classFree = {}
-    const classFreeJsonRow = classFreeRaw.find(item => typeof item?.data === 'object')
-    if (classFreeJsonRow) {
-      classFree = classFreeJsonRow.data || {}
-    } else {
-      classFreeRaw.forEach(item => {
-        if (!item?.day) return
-        if (!classFree[item.day]) classFree[item.day] = {}
-        classFree[item.day][item.period] = item.classIds || []
-      })
-    }
-
-    let teacherFree = {}
-    const teacherFreeJsonRow = teacherFreeRaw.find(item => typeof item?.data === 'object')
-    if (teacherFreeJsonRow) {
-      teacherFree = teacherFreeJsonRow.data || {}
-    } else {
-      teacherFreeRaw.forEach(item => {
-        teacherFree[item.period] = item.teacherIds || []
-      })
-    }
-
-    const classAbsence = {}
-    classAbsenceRaw.forEach(item => {
-      if (!classAbsence[item.day]) classAbsence[item.day] = {}
-      if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
-      classAbsence[item.day][item.period][item.classId] = item.absentId
-    })
+    const classFree = parseClassFreeRows(classFreeRaw)
+    const teacherFree = parseTeacherFreeRows(teacherFreeRaw)
+    const classAbsence = parseClassAbsenceRows(classAbsenceRaw)
 
     const locked = {}
     lockedRaw.forEach(item => {
@@ -156,6 +170,27 @@ export async function loadInitialData() {
   } catch (error) {
     console.error('loadInitialData error:', error)
     throw error
+  }
+}
+
+export async function loadAbsenceRelatedData() {
+  const [absentsRes, classFreeRes, classAbsenceRes, commonLessonsRes] = await Promise.all([
+    supabase.from('absents').select('*').order('createdAt', { ascending: false }),
+    supabase.from('class_free').select('*'),
+    supabase.from('class_absence').select('*'),
+    supabase.from('common_lessons').select('*'),
+  ])
+
+  const absents = getTableData(absentsRes, { fallback: [], tableName: 'absents' })
+  const classFreeRaw = getTableData(classFreeRes, { fallback: [], tableName: 'class_free' })
+  const classAbsenceRaw = getTableData(classAbsenceRes, { fallback: [], tableName: 'class_absence' })
+  const commonLessons = getTableData(commonLessonsRes, { fallback: [], tableName: 'common_lessons' })
+
+  return {
+    absents,
+    classFree: parseClassFreeRows(classFreeRaw),
+    classAbsence: parseClassAbsenceRows(classAbsenceRaw),
+    commonLessons,
   }
 }
 
@@ -827,21 +862,6 @@ export async function saveCommonLessons(commonLessons) {
     if (error) throw error
   } catch (error) {
     console.error('saveCommonLessons full error:', JSON.stringify(error, null, 2))
-    throw error
-  }
-}
-
-export async function saveImportHistory(importHistory) {
-  try {
-    if (!importHistory || importHistory.length === 0) return
-
-    const { error } = await supabase
-      .from('import_history')
-      .insert(importHistory)
-
-    if (error) throw error
-  } catch (error) {
-    console.error('saveImportHistory full error:', JSON.stringify(error, null, 2))
     throw error
   }
 }

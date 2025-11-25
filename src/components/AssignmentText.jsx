@@ -40,9 +40,11 @@ export default function AssignmentText({
       ];
     }
 
+    const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
+
     for (const p of periods) {
       const arr = assignment[day]?.[p] || [];
-      
+
       // Her görevlendirmeyi ayrı satıra yaz
       arr.forEach(a => {
         const c = classes.find(x => x.classId === a.classId);
@@ -57,8 +59,9 @@ export default function AssignmentText({
 
       // Common lessons for this period
       if (commonLessons?.[day]?.[p]) {
-        Object.entries(commonLessons[day][p]).forEach(([classId, teacherName]) => {
+        Object.entries(commonLessons[day][p]).forEach(([classId, teacherVal]) => {
           const c = classes.find(x => x.classId === classId);
+          const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
           lines.push(`${p}. saat — ${c?.className || classId}: Ders Birleştirilecek - ${teacherName}`);
         });
       }
@@ -70,10 +73,10 @@ export default function AssignmentText({
     return [header, ...lines]; // Dizi olarak döndür
   }, [day, periods, classes, teachers, assignment, displayDate, classAbsence, commonLessons, absentMap]);
 
-  const copy = () => { 
-    try { 
+  const copy = () => {
+    try {
       // Kopyalama işlemi için metni birleştir
-      navigator.clipboard?.writeText(text.join("\n")); 
+      navigator.clipboard?.writeText(text.join("\n"));
       // Kopyalama başarılı olduğunda bir bildirim gösterilebilir.
     } catch (err) {
       console.error('Kopyalama hatası:', err);
@@ -98,10 +101,10 @@ export default function AssignmentText({
 
       {/* Ekran için */}
       <div className={styles.screenOnly}>
-        <textarea 
-          readOnly 
+        <textarea
+          readOnly
           value={text.join("\n")} // textarea için metni birleştir
-          rows={Math.max(5, text.length)} 
+          rows={Math.max(5, text.length)}
           className={styles.textarea}
         />
         <div className={styles.toolbar}>

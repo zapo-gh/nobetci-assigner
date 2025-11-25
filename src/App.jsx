@@ -1,3 +1,4 @@
+/* global process */
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import html2canvas from "html2canvas";
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
@@ -11,7 +12,8 @@ import {
   validateClassData,
   mapSetToArray,
   arrayToSetMap,
-  PERIODS as HELPER_PERIODS
+  PERIODS as HELPER_PERIODS,
+  normalizeClassLabel,
 } from "./utils/helpers.js";
 import "./styles.css";
 import styles from './components/Tabs.module.css'; // Tabs.module.css dosyasını import et
@@ -21,9 +23,7 @@ import {
   insertTeacher,
   deleteTeacherById,
   insertClass,
-  getClassByName,
   deleteClassById,
-  insertAbsent,
   deleteAbsentById,
   deleteClassAbsenceByAbsent,
   deleteClassAbsenceByClass,
@@ -41,42 +41,42 @@ import {
   saveCommonLessons,
   bulkSaveClassFree,
   bulkSaveClassAbsence,
-  clearTeacherSchedules,
-  clearTeachersData,
-  clearClassesData,
-  clearAbsentsData,
-  clearClassAbsenceData,
-  clearCommonLessonsData,
-  resetClassFreeData,
-  resetTeacherFreeData,
-  clearLocksData,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
+  loadAbsenceRelatedData,
 } from './services/supabaseDataService.js';
 import { smartPolling } from './services/smartPolling.js';
 import { useUI } from './hooks/useUI.js';
+import { useDutyTeacherFilter } from './hooks/useDutyTeacherFilter.js';
+import {
+  useFreeTeachersByDay,
+  useClassFreeForDay,
+  useFilteredClassAbsence,
+} from './hooks/useDerivedAvailability.js';
+import { useAbsentManager } from './hooks/useAbsentManager.js';
+import { useBulkDeleteActions } from './hooks/useBulkDeleteActions.js';
+import {
+  COMMON_LESSON_LABEL,
+  encodeClassAbsenceValue,
+  decodeClassAbsenceValue,
+} from './utils/classAbsence.js';
 
 import Tabs from "./components/Tabs.jsx";
-import PrintableDailyList from "./components/PrintableDailyList.jsx";
-import AssignmentText from "./components/AssignmentText.jsx";
 import ModernNotificationSystem from "./components/ModernNotificationSystem.jsx";
-import ModernClassAvailabilityGrid from "./components/ModernClassAvailabilityGrid.jsx";
-import ModernAvailabilityGrid from "./components/ModernAvailabilityGrid.jsx";
-import AssignmentEditor from "./components/AssignmentEditor.jsx";
-import EmptyState from "./components/EmptyState.jsx";
-import ConflictSuggestions from "./components/ConflictSuggestions.jsx";
-import CsvValidationReport from "./components/CsvValidationReport.jsx";
 import AddTeacherModal from "./components/AddTeacherModal.jsx";
 import AddClassModal from "./components/AddClassModal.jsx";
 import AddAbsentModal from "./components/AddAbsentModal.jsx";
 import CommonLessonModal from "./components/CommonLessonModal.jsx";
-import AbsenteeList from './components/AbsenteeList.jsx';
+import AbsentsSection from "./components/AbsentsSection.jsx";
 import ConfirmationModal from "./components/ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./components/PdfScheduleImportModal.jsx";
 import TeacherScheduleModal from "./components/TeacherScheduleModal.jsx";
 import DutyTeacherExcelImportModal from "./components/DutyTeacherExcelImportModal.jsx";
-import AssignmentInsights from "./components/AssignmentInsights.jsx";
-import AssignmentOptions from "./components/AssignmentOptions.jsx";
 import GlobalModals from "./components/GlobalModals.jsx";
+import TeachersSection from "./components/TeachersSection.jsx";
+import ClassesSection from "./components/ClassesSection.jsx";
+import CourseScheduleSection from "./components/CourseScheduleSection.jsx";
+import ScheduleSection from "./components/ScheduleSection.jsx";
+import OutputsSection from "./components/OutputsSection.jsx";
 
 // ================= ICONS =================
 // Feather Icons (https://feathericons.com/)
@@ -105,6 +105,7 @@ const Icon = ({ name, size = 20 }) => {
     info: <><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></>,
     user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></>,
     alertTriangle: <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></>,
+    refreshCw: <><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 11"></path><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 13"></path></>,
   };
   return (
     <svg
@@ -172,55 +173,13 @@ const LOCAL_STORAGE_PREFIXES = [
   'duty_',
 ];
 
-const CLASS_ABSENCE_NO_DUTY_SUFFIX = '__NO_DUTY__';
-const COMMON_LESSON_LABEL = 'COMMON_LESSON';
-const COMMON_LESSON_PREFIX = `${COMMON_LESSON_LABEL}::`;
-
-const isCommonLessonToken = (value) => typeof value === 'string' && value.startsWith(COMMON_LESSON_LABEL);
-
-const encodeClassAbsenceValue = (absentId, allowDuty = true, options = {}) => {
-  if (!absentId) return absentId;
-  if (absentId === COMMON_LESSON_LABEL) {
-    const ownerId = options.commonLessonOwnerId;
-    return ownerId ? `${COMMON_LESSON_PREFIX}${ownerId}` : COMMON_LESSON_LABEL;
-  }
-  return allowDuty ? absentId : `${absentId}${CLASS_ABSENCE_NO_DUTY_SUFFIX}`;
-};
-
-const decodeClassAbsenceValue = (value) => {
-  if (!value) return { absentId: value, allowDuty: true };
-  if (typeof value === 'string' && value.startsWith(COMMON_LESSON_PREFIX)) {
-    return {
-      absentId: COMMON_LESSON_LABEL,
-      allowDuty: true,
-      commonLessonOwnerId: value.slice(COMMON_LESSON_PREFIX.length) || null,
-    };
-  }
-  if (value === COMMON_LESSON_LABEL) {
-    return { absentId: COMMON_LESSON_LABEL, allowDuty: true, commonLessonOwnerId: null };
-  }
-  if (typeof value === 'string' && value.endsWith(CLASS_ABSENCE_NO_DUTY_SUFFIX)) {
-    return {
-      absentId: value.slice(0, -CLASS_ABSENCE_NO_DUTY_SUFFIX.length),
-      allowDuty: false,
-    };
-  }
-  return { absentId: value, allowDuty: true };
-};
-
-const normalizeGradeCheckKey = (value = '') =>
-  String(value || '')
-    .trim()
-    .toUpperCase();
-
-const isTwelfthGradeClassName = (value = '') => {
-  const normalized = normalizeGradeCheckKey(value);
-  if (!normalized) return false;
-  const compact = normalized.replace(/[^0-9A-ZÇĞİÖŞÜ]/g, '');
-  if (!compact.startsWith('12')) return false;
-  return compact.length > 2;
-};
-
+const SMART_POLLING_ENABLED = false;
+const SMART_POLLING_TABLES = Object.freeze({
+  absents: true,
+  class_free: true,
+  class_absence: true,
+  common_lessons: true,
+});
 let cachedAppStateVersion = null;
 
 const stripQueryParams = (value = '') => {
@@ -530,8 +489,9 @@ export default function App() {
     excelReplaceModal, setExcelReplaceModal,
     currentCommonLesson, setCurrentCommonLesson,
     selectedTeacher, setSelectedTeacher,
-    openTeacherSchedule, closeTeacherSchedule,
+    openTeacherSchedule,
     confirmationModal, setConfirmationModal,
+    showConfirmation,
     requestConfirmation, // added from useUI
   } = useUI();
 
@@ -553,6 +513,11 @@ export default function App() {
   const [locked, setLocked] = useState({})
 
   const [notifications, setNotifications] = useState([]);
+  const [absenceRefreshState, setAbsenceRefreshState] = useState({
+    isRefreshing: false,
+    lastRefreshedAt: null,
+    error: null,
+  });
 
   const hydratedRef = useRef(false);
   const [pdfSchedule, setPdfSchedule] = useState({})
@@ -562,10 +527,9 @@ export default function App() {
   const classAbsenceSnapshotRef = useRef('')
   const classAbsenceStateRef = useRef({})
   const skipNextSupabaseSaveRef = useRef(false)
-  // const isAnyModalOpenRef = useRef(false);
-  // const isPlanEditorActiveRef = useRef(false);
-  // const isClassEditorActiveRef = useRef(false);
-  // const pendingRealtimeEventsRef = useRef([]);
+  const autoSaveTimeoutRef = useRef(null)
+  const isPollingUpdateRef = useRef(false)
+
 
 
 
@@ -577,55 +541,73 @@ export default function App() {
     setTeachers(prev => prev.map(t => ({ ...t, maxDutyPerDay: safe })));
   }, []);
 
-  const shouldDeferRealtime = useCallback(() => {
-    return isAnyModalOpenRef.current || isPlanEditorActiveRef.current || isClassEditorActiveRef.current;
-  }, []);
+  // Performance: Öğretmen Map (O(1) lookup)
+  const teacherMap = useMemo(() =>
+    new Map(teachers.map(t => [t.teacherId, t])),
+    [teachers]
+  );
 
-  // Polling handler for classes (replaces realtime)
-  const handlePollingClasses = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    setClasses(data);
-  }, []);
+  const teacherNameLookup = useMemo(() => {
+    const map = new Map();
+    teachers.forEach((t) => {
+      if (!t?.teacherName) return;
+      map.set(normalizeForComparison(t.teacherName), t.teacherName);
+    });
+    return map;
+  }, [teachers]);
 
-  // Polling handler for teachers (replaces realtime)
-  const handlePollingTeachers = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    setTeachers(data);
-  }, []);
-
-  // Polling handler for teacher schedules (replaces realtime)
-  const handlePollingTeacherSchedules = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    skipNextSupabaseSaveRef.current = true;
-    setTeacherSchedulesHydrated(true);
-
-    const schedules = {};
-    data.forEach(row => {
-      const teacherName = row?.teacher_name || row?.teacherName;
-      if (!teacherName) return;
-
-      if (teacherName === TEACHER_SCHEDULES_SNAPSHOT_KEY) {
-        Object.assign(schedules, row?.schedule || {});
-      } else {
-        schedules[teacherName] = row?.schedule || {};
+  const absentIdToNameMap = useMemo(() => {
+    const map = new Map();
+    (absentPeople || []).forEach(person => {
+      if (!person?.absentId) return;
+      const label = person.name || person.displayName || person.teacherName || person.originalName;
+      if (label) {
+        map.set(person.absentId, label);
       }
     });
+    return map;
+  }, [absentPeople]);
 
-    setTeacherSchedules(schedules);
-  }, []);
+  const normalizeCommonLessonTeacherName = useCallback((rawValue) => {
+    if (!rawValue) return '';
+    const trimmed = String(rawValue).trim();
+    if (!trimmed) return '';
 
-  // Polling handler for locks (replaces realtime)
-  const handlePollingLocks = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    const lockedMap = {};
-    data.forEach(row => {
-      if (row?.day && typeof row.period !== 'undefined' && row.classId && row.teacherId) {
-        const key = `${row.day}|${row.period}|${row.classId}`;
-        lockedMap[key] = row.teacherId;
-      }
+    const teacherById = teacherMap.get(trimmed);
+    if (teacherById?.teacherName) return teacherById.teacherName;
+
+    const normalizedName = normalizeForComparison(trimmed);
+    const teacherByName = teacherNameLookup.get(normalizedName);
+    if (teacherByName) return teacherByName;
+
+    const absentName = absentIdToNameMap.get(trimmed);
+    if (absentName) return absentName;
+
+    return trimmed;
+  }, [teacherMap, teacherNameLookup, absentIdToNameMap]);
+
+  const sanitizeCommonLessonsMap = useCallback((lessons = {}) => {
+    let changed = false;
+    const next = {};
+
+    Object.entries(lessons || {}).forEach(([dayKey, perMap]) => {
+      if (!perMap) return;
+      Object.entries(perMap).forEach(([periodKey, byClass]) => {
+        if (!byClass) return;
+        Object.entries(byClass).forEach(([classId, rawValue]) => {
+          const normalizedName = normalizeCommonLessonTeacherName(rawValue);
+          if (!next[dayKey]) next[dayKey] = {};
+          if (!next[dayKey][periodKey]) next[dayKey][periodKey] = {};
+          next[dayKey][periodKey][classId] = normalizedName;
+          if (normalizedName !== rawValue) {
+            changed = true;
+          }
+        });
+      });
     });
-    setLocked(lockedMap);
-  }, []);
+
+    return { map: next, changed };
+  }, [normalizeCommonLessonTeacherName]);
 
   // Polling handler for absents
   const handlePollingAbsents = useCallback((data) => {
@@ -650,6 +632,7 @@ export default function App() {
   // Polling handler for class_absence
   const handlePollingClassAbsence = useCallback((data) => {
     if (!Array.isArray(data)) return;
+    isPollingUpdateRef.current = true;
     const absenceMap = {};
     data.forEach(row => {
       const { day, period, classId, absentId } = row;
@@ -659,6 +642,10 @@ export default function App() {
       absenceMap[day][period][classId] = absentId;
     });
     setClassAbsence(absenceMap);
+    // Reset flag after state update
+    setTimeout(() => {
+      isPollingUpdateRef.current = false;
+    }, 100);
   }, []);
 
   // Polling handler for common_lessons
@@ -670,10 +657,10 @@ export default function App() {
       if (!day || !period || !class_id || !teacher_name) return;
       if (!lessonsMap[day]) lessonsMap[day] = {};
       if (!lessonsMap[day][period]) lessonsMap[day][period] = {};
-      lessonsMap[day][period][class_id] = teacher_name;
+      lessonsMap[day][period][class_id] = normalizeCommonLessonTeacherName(teacher_name);
     });
     setCommonLessons(lessonsMap);
-  }, []);
+  }, [normalizeCommonLessonTeacherName]);
 
   // handleRealtimeTeacherSchedules removed - now using polling
 
@@ -685,7 +672,7 @@ export default function App() {
   const handleDayChange = useCallback((nextDay) => {
     if (!nextDay || nextDay === day) return;
     setDay(nextDay);
-  }, [day]);
+  }, [day, setDay]);
 
   const toggleToolbar = useCallback(() => {
     setToolbarExpanded(prev => !prev);
@@ -703,27 +690,46 @@ export default function App() {
     classAbsenceSnapshotRef.current = stableStringify(classAbsence);
   }, [classAbsence]);
 
+  useEffect(() => {
+    if (!commonLessons || Object.keys(commonLessons).length === 0) return;
+    const { map: sanitizedMap, changed } = sanitizeCommonLessonsMap(commonLessons);
+    if (!changed) return;
+    setCommonLessons(sanitizedMap);
+    saveCommonLessons(sanitizedMap).catch(err => logger.error('Common lesson sanitize save error:', err));
+  }, [commonLessons, sanitizeCommonLessonsMap, setCommonLessons]);
+
+
+  const smartPollingCallbacks = useMemo(() => {
+    const callbacks = {};
+    if (SMART_POLLING_TABLES.absents) callbacks.absents = handlePollingAbsents;
+    if (SMART_POLLING_TABLES.class_free) callbacks.class_free = handlePollingClassFree;
+    if (SMART_POLLING_TABLES.class_absence) callbacks.class_absence = handlePollingClassAbsence;
+    if (SMART_POLLING_TABLES.common_lessons) callbacks.common_lessons = handlePollingCommonLessons;
+    return callbacks;
+  }, [handlePollingAbsents, handlePollingClassFree, handlePollingClassAbsence, handlePollingCommonLessons]);
 
 
   useEffect(() => {
-    // Smart Polling subscription (tüm tablolar için optimize edilmiş interval'ler)
-    const unsubscribePolling = smartPolling.start({
-      absents: handlePollingAbsents,
-      class_free: handlePollingClassFree,
-      class_absence: handlePollingClassAbsence,
-      common_lessons: handlePollingCommonLessons,
-      teachers: handlePollingTeachers,
-      classes: handlePollingClasses,
-      teacher_schedules: handlePollingTeacherSchedules,
-      locks: handlePollingLocks,
-    });
+    if (!SMART_POLLING_ENABLED) {
+      logger.info('[SmartPolling] Disabled via SMART_POLLING_ENABLED flag');
+      return undefined;
+    }
+
+    const callbackEntries = Object.entries(smartPollingCallbacks);
+    if (callbackEntries.length === 0) {
+      logger.info('[SmartPolling] No tables configured for polling');
+      return undefined;
+    }
+
+    // Smart Polling subscription (sadece mazeret işlemleriyle ilişkili tablolar)
+    const unsubscribePolling = smartPolling.start(Object.fromEntries(callbackEntries));
 
     return () => {
       if (typeof unsubscribePolling === 'function') {
         unsubscribePolling();
       }
     };
-  }, [handlePollingAbsents, handlePollingClassFree, handlePollingClassAbsence, handlePollingCommonLessons, handlePollingTeachers, handlePollingClasses, handlePollingTeacherSchedules, handlePollingLocks]);
+  }, [smartPollingCallbacks]);
 
   // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
@@ -752,7 +758,8 @@ export default function App() {
           setPdfSchedule(supabaseData.pdfSchedule || {})
           setTeacherSchedules(supabaseData.teacherSchedules || {})
           setTeacherSchedulesHydrated(true)
-          setCommonLessons(supabaseData.commonLessons || {})
+          const { map: initialCommonLessons } = sanitizeCommonLessonsMap(supabaseData.commonLessons || {})
+          setCommonLessons(initialCommonLessons)
 
           if (!DISABLE_LOCAL_STORAGE) {
             // Supabase'den başarılı veri çekildi, localStorage'i güncelle
@@ -852,16 +859,45 @@ export default function App() {
     return () => {
       isMounted = false
     }
-  }, [day, periods, options])
+  }, [
+    day,
+    periods,
+    options,
+    setTeachers,
+    setClasses,
+    setAbsentPeople,
+    setTeacherFree,
+    setClassFree,
+    setClassAbsence,
+    setLocked,
+    setPdfSchedule,
+    setTeacherSchedules,
+    setTeacherSchedulesHydrated,
+    setCommonLessons,
+    setDay,
+    setPeriods,
+    setOptions,
+    sanitizeCommonLessonsMap,
+  ])
 
-  // Otomatik kaydet
+  // Otomatik kaydet (debounced)
   useEffect(() => {
-    if (!hydratedRef.current || !teacherSchedulesHydrated) return
+    if (!hydratedRef.current) return
 
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Debounce auto-save, especially for classAbsence
+    autoSaveTimeoutRef.current = setTimeout(() => {
     const shouldSkipSupabaseSync = skipNextSupabaseSaveRef.current
     if (shouldSkipSupabaseSync) {
       skipNextSupabaseSaveRef.current = false
     }
+
+      // Skip Supabase sync if this is a polling update
+      const shouldSkipDueToPolling = isPollingUpdateRef.current
 
     const serializedTeacherFree = mapSetToArray(teacherFree)
     const serializedClassFree = mapSetToArray(classFree)
@@ -890,7 +926,7 @@ export default function App() {
       }
     }
 
-    if (!shouldSkipSupabaseSync) {
+      if (!shouldSkipSupabaseSync && !shouldSkipDueToPolling) {
       if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
         saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
       }
@@ -898,6 +934,13 @@ export default function App() {
       bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
       saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
     }
+    }, 1000); // 1 second debounce
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
   }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, pdfSchedule, teacherSchedules, teacherSchedulesHydrated]);
 
   // Bildirim sistemi (diğer fonksiyonlardan önce tanımlanmalı)
@@ -923,6 +966,44 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
     }
   }, [])
+
+  const refreshAbsenceData = useCallback(async () => {
+    setAbsenceRefreshState((prev) => ({ ...prev, isRefreshing: true, error: null }));
+    try {
+      const {
+        absents,
+        classAbsence: absenceMap = {},
+        classFree: classFreeMap = {},
+        commonLessons: commonLessonRows = [],
+      } = await loadAbsenceRelatedData();
+
+      setClassFree(migrateClassFree(classFreeMap || {}));
+      setClassAbsence(migrateClassAbsence(absenceMap || {}));
+      setAbsentPeople(normalizeAbsentPeople(absents || [], absenceMap || {}));
+      handlePollingCommonLessons(commonLessonRows || []);
+
+      setAbsenceRefreshState({
+        isRefreshing: false,
+        lastRefreshedAt: new Date(),
+        error: null,
+      });
+      addNotification('Mazeret verileri Supabase ile yenilendi', 'success');
+    } catch (error) {
+      logger.error('Manual absence refresh failed:', error);
+      setAbsenceRefreshState((prev) => ({
+        ...prev,
+        isRefreshing: false,
+        error: error?.message || 'Bilinmeyen hata',
+      }));
+      addNotification(`Mazeret verileri yenilenemedi: ${error?.message || error}`, 'error');
+    }
+  }, [
+    addNotification,
+    handlePollingCommonLessons,
+    setAbsentPeople,
+    setClassAbsence,
+    setClassFree,
+  ]);
 
   // Nöbetçi öğretmenlerin boş saatlerini otomatik işaretle (referanslardan önce tanımlandı)
   const autoMarkDutyTeachersFree = useCallback(() => {
@@ -978,15 +1059,72 @@ export default function App() {
     });
   }, [day, teacherSchedules, pdfSchedule, teachers, periods]);
 
-  // Sistem yüklendiğinde nöbetçi öğretmenlerin boş saatlerini otomatik işaretle
+  // Sistem yüklendiğinde ve gün değiştiğinde nöbetçi öğretmenlerin boş saatlerini otomatik işaretle
   useEffect(() => {
-    if (hydratedRef.current && teacherSchedules && pdfSchedule) {
-      const timer = setTimeout(() => {
+    if (!hydratedRef.current) return;
+    if (!teacherSchedulesHydrated) return;
+    if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return;
+    if (!pdfSchedule || Object.keys(pdfSchedule).length === 0) return;
+
+    // requestAnimationFrame kullanarak hemen çalıştır (gecikme yok)
+    const rafId = requestAnimationFrame(() => {
         autoMarkDutyTeachersFree();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [teacherSchedules, pdfSchedule, autoMarkDutyTeachersFree]);
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [day, teacherSchedules, pdfSchedule, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
+
+  const handleTeacherScheduleUpload = useCallback(
+    async (event) => {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
+        addNotification("Önce mevcut ders programını silmelisiniz.", "warning");
+        if (event?.target) {
+          event.target.value = '';
+        }
+        return;
+      }
+      try {
+        console.log('Starting teacher schedule upload from Excel...');
+        const schedules = await parseTeacherSchedulesFromExcel(file);
+        setTeacherSchedules(schedules);
+        setTeacherSchedulesHydrated(true);
+        await saveTeacherSchedules(schedules).catch((err) => {
+          logger.error('Teacher schedule Supabase save error:', err);
+          throw err;
+        });
+        addNotification(`${Object.keys(schedules).length} öğretmenin ders programı yüklendi`, 'success');
+      } catch (error) {
+        console.error('Excel parsing error:', error);
+        addNotification(`Ders programı yükleme hatası: ${error.message}`, 'error');
+      } finally {
+        if (event?.target) {
+          event.target.value = '';
+        }
+      }
+    },
+    [teacherSchedules, setTeacherSchedules, setTeacherSchedulesHydrated, addNotification],
+  );
+
+  // Sekme açıldığında (sayfa görünür olduğunda) nöbetçi öğretmen işaretlemelerini güncelle
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (!teacherSchedulesHydrated) return;
+    if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return;
+    if (!pdfSchedule || Object.keys(pdfSchedule).length === 0) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Sekme açıldığında hemen işaretle
+        requestAnimationFrame(() => {
+          autoMarkDutyTeachersFree();
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [day, teacherSchedules, pdfSchedule, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
 
   // period değişince Set'leri garantiye al
   useEffect(() => {
@@ -1048,12 +1186,22 @@ export default function App() {
   const toggleClassFree = useCallback((day, p, cid) => {
     let wasSelected = false;
 
+    // Check if it's selected in classFree
+    const isFree = classFree?.[day]?.[p] instanceof Set
+      ? classFree[day][p].has(cid)
+      : Array.isArray(classFree?.[day]?.[p])
+        ? classFree[day][p].includes(cid)
+        : false;
+
+    // Check if it's selected in classAbsence
+    const isAbsent = !!classAbsence?.[day]?.[p]?.[cid];
+
+    // Consider it selected if EITHER is true
+    wasSelected = isFree || isAbsent;
+
     setClassFree((prev) => {
       // Mevcut Set'i al veya boş bir Set oluştur
       const prevSet = prev[day]?.[p] || new Set();
-
-      // Önce mevcut durumu kontrol et (callback içinde güvenli)
-      wasSelected = prevSet.has(cid);
 
       // Değişiklik yapmak için mevcut Set'in bir kopyasını oluştur
       const nextSet = new Set(prevSet);
@@ -1108,7 +1256,7 @@ export default function App() {
       });
     }
   },
-    []
+    [classFree, classAbsence]
   );
   const setAllTeachersFree = useCallback(
     (p, on) => {
@@ -1160,35 +1308,92 @@ export default function App() {
     });
   }, []);
 
+  const updateClassAbsenceForCommonLesson = useCallback((day, period, classId, hasCommonLesson) => {
+    setClassAbsence(prev => {
+      const next = { ...prev };
+      if (!next[day]) next[day] = {};
+      if (!next[day][period]) next[day][period] = {};
+
+      if (hasCommonLesson) {
+        const encodedValue = encodeClassAbsenceValue(COMMON_LESSON_LABEL, false);
+        next[day][period][classId] = encodedValue;
+      } else {
+        if (next[day][period][classId]) {
+          const decoded = decodeClassAbsenceValue(next[day][period][classId]);
+          if (decoded.absentId === COMMON_LESSON_LABEL) {
+            delete next[day][period][classId];
+          }
+        }
+        if (Object.keys(next[day][period]).length === 0) {
+          delete next[day][period];
+        }
+        if (Object.keys(next[day]).length === 0) {
+          delete next[day];
+        }
+      }
+
+      return next;
+    });
+
+    // Directly persist to Supabase (auto-save will handle it, but we want immediate sync for common lessons)
+    // Use a small delay to batch multiple updates
+    setTimeout(() => {
+      const persistedValue = hasCommonLesson
+        ? encodeClassAbsenceValue(COMMON_LESSON_LABEL, false)
+        : null;
+
+      upsertClassAbsence({
+        day,
+        period,
+        classId,
+        absentId: persistedValue
+      }).catch(err => logger.error('Common lesson absence sync error:', err));
+    }, 100);
+  }, []);
+
   const handleSetCommonLesson = useCallback((day, period, classId, teacherName) => {
     setCommonLessons((prev) => {
       const next = { ...prev };
       if (!next[day]) next[day] = {};
       if (!next[day][period]) next[day][period] = {};
-      if (teacherName) next[day][period][classId] = teacherName;
-      else delete next[day][period][classId];
+      if (teacherName) {
+        const normalized = normalizeCommonLessonTeacherName(teacherName);
+        next[day][period][classId] = normalized;
+        updateClassAbsenceForCommonLesson(day, period, classId, true);
+      } else {
+        if (next[day][period][classId]) {
+          delete next[day][period][classId];
+        }
+        updateClassAbsenceForCommonLesson(day, period, classId, false);
+        if (Object.keys(next[day][period] || {}).length === 0) {
+          delete next[day][period];
+        }
+        if (Object.keys(next[day] || {}).length === 0) {
+          delete next[day];
+        }
+      }
       return next;
     });
-  }, []);
+  }, [normalizeCommonLessonTeacherName, updateClassAbsenceForCommonLesson]);
 
 
   const handleOpenCommonLessonModal = useCallback((day, period, classId) => {
     setCurrentCommonLesson({ day, period, classId });
     setModals(m => ({ ...m, commonLesson: true }));
-  }, []);
+  }, [setCurrentCommonLesson, setModals]);
 
   const handleCloseCommonLessonModal = useCallback(() => {
     setModals(m => ({ ...m, commonLesson: false }));
     setCurrentCommonLesson({ day: null, period: null, classId: null });
-  }, []);
+  }, [setCurrentCommonLesson, setModals]);
 
   const handleOpenDutyTeacherExcelModal = useCallback(() => {
     setModals(m => ({ ...m, dutyTeacherExcel: true }));
-  }, []);
+  }, [setModals]);
 
   const handleCloseDutyTeacherExcelModal = useCallback(() => {
     setModals(m => ({ ...m, dutyTeacherExcel: false }));
-  }, []);
+  }, [setModals]);
 
   const importDutyTeachersData = useCallback(async ({ dutyTeachers, dayTeachers }) => {
     const validTeachers = dutyTeachers.filter(teacher => teacher.teacherName && teacher.teacherName.trim().length > 0);
@@ -1282,12 +1487,12 @@ export default function App() {
     } finally {
       // no-op
     }
-  }, [excelReplaceModal, addNotification, importDutyTeachersData, setActiveSection]);
+  }, [excelReplaceModal, addNotification, importDutyTeachersData, setActiveSection, setExcelReplaceModal]);
 
   const handleExcelReplaceCancel = useCallback(() => {
     setExcelReplaceModal({ isOpen: false, data: null });
     addNotification("Excel yükleme iptal edildi", "info");
-  }, [addNotification]);
+  }, [addNotification, setExcelReplaceModal]);
 
   const handleOptionChange = (name, value) => {
     setOptions(prev => ({ ...prev, [name]: value }));
@@ -1304,12 +1509,7 @@ export default function App() {
       // Mevcut öğretmenleri kontrol et
       const existingTeachers = teachers.filter(t => t.source === 'duty_schedule');
       if (existingTeachers.length > 0) {
-        // Modern modal ile onay iste
-        setExcelReplaceModal({
-          isOpen: true,
-          data: data,
-          existingCount: existingTeachers.length
-        });
+        addNotification("Önce mevcut nöbetçi öğretmen listesini silmelisiniz.", "warning");
         return;
       }
 
@@ -1519,7 +1719,7 @@ export default function App() {
     });
 
     setActiveSection("schedule");
-  }, [teachers, classes, addNotification]);
+  }, [teachers, classes, addNotification, setActiveSection]);
 
   /* ===================== Manuel ekleme/silme işlemleri ===================== */
 
@@ -1544,6 +1744,11 @@ export default function App() {
       addNotification(errs.join(", "), "error");
       return;
     }
+    const normalizedInput = normalizeClassLabel(data.className);
+    if (normalizedClassNames.has(normalizedInput)) {
+      addNotification("Bu sınıf zaten mevcut", "warning");
+      return;
+    }
     try {
       const created = await insertClass({ className: data.className });
       setClasses((prev) => [...prev, created]);
@@ -1553,559 +1758,65 @@ export default function App() {
       addNotification("Sınıf eklenemedi", "error");
     }
   };
-  const addAbsent = async (data) => {
-    const effectiveDays = [day];
-    const dayLabelMap = new Map(DAYS.map(d => [d.key, d.label]));
-    const normalizeDayKey = (value = '') => {
-      const trimmed = String(value || '').trim().toLowerCase();
-      if (!trimmed) return '';
 
-      const removeDiacritics = (str) =>
-        typeof str.normalize === 'function'
-          ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          : str;
+  const absentPeopleForCurrentDay = useMemo(() => {
+    if (!Array.isArray(absentPeople)) return [];
+    return absentPeople.filter(person => {
+      if (!person || typeof person !== 'object') return false;
+      if (!Array.isArray(person.days) || person.days.length === 0) return true;
+      return person.days.includes(day);
+    });
+  }, [absentPeople, day]);
+  const { addAbsent } = useAbsentManager({
+    day,
+    DAYS,
+    teachers,
+    classes,
+    periods,
+    teacherSchedules,
+    teacherNameLookup,
+    teacherMap,
+    normalizeCommonLessonTeacherName,
+    absentPeople,
+    filteredAbsentPeople: absentPeopleForCurrentDay,
+    setAbsentPeople,
+    setClasses,
+    setClassFree,
+    setClassAbsence,
+    setCommonLessons,
+    classAbsenceStateRef,
+    requestConfirmation,
+    addNotification,
+    logger,
+  });
 
-      const sanitized = removeDiacritics(trimmed).replace(/[^a-z]/g, '');
-
-      const startsWithAny = (needle, ...haystack) =>
-        haystack.some(prefix => needle.startsWith(prefix));
-
-      if (startsWithAny(sanitized, 'mon', 'paz')) return 'monday';
-      if (startsWithAny(sanitized, 'tue', 'sali', 'sal')) return 'tuesday';
-      if (startsWithAny(sanitized, 'wed', 'cars', 'car', 'çar', 'carsamba')) return 'wednesday';
-      if (startsWithAny(sanitized, 'thu', 'per', 'pers', 'persembe')) return 'thursday';
-      if (startsWithAny(sanitized, 'fri', 'cum')) return 'friday';
-
-      return sanitized || trimmed;
-    };
-
-    const resolveDaySchedule = (scheduleObj = {}, requestedKey) => {
-      if (!scheduleObj || typeof scheduleObj !== 'object') return {};
-      if (!requestedKey) return {};
-      const normalizedTarget = normalizeDayKey(requestedKey);
-
-      const availableKeys = Object.keys(scheduleObj);
-      const directKey = availableKeys.find(
-        key => normalizeDayKey(key) === normalizedTarget
-      );
-
-      if (directKey && scheduleObj[directKey]) {
-        return scheduleObj[directKey] || {};
-      }
-
-      logger.warn(
-        `[addAbsent] resolveDaySchedule: Could not find schedule for "${requestedKey}" (normalized: "${normalizedTarget}"). Available keys:`,
-        availableKeys
-      );
-
-      return {};
-    };
-    // 1) Mazeret kaydını ekle (gün bilgisiyle)
-    let createdAbsent;
-    try {
-      createdAbsent = await insertAbsent({ name: data.name, teacherId: data.teacherId, reason: data.reason, days: effectiveDays });
-      // Realtime sync zaten ekleyecek, manuel eklemeyelim (duplicate önlemek için)
-    } catch (error) {
-      logger.error('Absent insert error:', error);
-      addNotification('Mazeret kaydedilemedi', 'error');
-      return;
-    }
-
-    const absentId = createdAbsent?.absentId;
-    if (!absentId) {
-      logger.error('Absent ID not found after insert');
-      addNotification('Mazeret kaydı oluşturulamadı', 'error');
-      return;
-    }
-    const dayLabelText = effectiveDays.map(key => dayLabelMap.get(key) || key).join(', ');
-    addNotification(`${data.name} (${data.reason}) eklendi${dayLabelText ? ` — Günler: ${dayLabelText}` : ''}`, 'success');
-
-    // 2) Seçilen günlere göre öğretmenin derslerini işaretle
-    try {
-      if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) {
-        logger.warn(`[addAbsent] teacherSchedules is empty or null`);
-        return;
-      }
-
-      const dayKeyMapping = { Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday', Fri: 'friday' };
-
-      // İsim eşleştirme (normalize edilmiş)
-      const targetNameNorm = normalizeForComparison(data.name);
-      logger.log(`[addAbsent] Looking for teacher: "${data.name}" (normalized: "${targetNameNorm}")`);
-      logger.log(`[addAbsent] Available teachers in teacherSchedules:`, Object.keys(teacherSchedules));
-      const matchedTeacherName = Object.keys(teacherSchedules).find((n) => normalizeForComparison(n) === targetNameNorm);
-      if (!matchedTeacherName) {
-        logger.warn(`[addAbsent] Teacher not found in teacherSchedules: "${data.name}"`);
-        return;
-      }
-      logger.log(`[addAbsent] Found teacher: "${matchedTeacherName}"`);
-
-      const teacherSchedule = teacherSchedules[matchedTeacherName] || {};
-      logger.log(`[addAbsent] Teacher schedule keys for ${matchedTeacherName}:`, Object.keys(teacherSchedule || {}));
-      logger.log(
-        `[addAbsent] Teacher schedule normalized keys:`,
-        Object.keys(teacherSchedule || {}).map(key => `${key} -> ${normalizeDayKey(key)}`)
-      );
-      const daySchedules = {};
-
-      const normalizeClassKey = (name = '') => String(name || '').trim().toUpperCase();
-      const classNameCache = new Map();
-      const existingClassIds = new Set(classes.map((c) => c.classId));
-      classes.forEach((c) => {
-        classNameCache.set(normalizeClassKey(c.className), c);
-      });
-      const classNamesToResolve = new Map();
-      const classResolutionPromises = new Map();
-      const newlyDiscoveredClasses = [];
-      const teacherNameLookup = new Map(
-        teachers.map((t) => [normalizeForComparison(t.teacherName), t])
-      );
-
-      const ensureClassRecord = async (rawName) => {
-        const canonicalLabel = String(rawName || '').trim();
-        if (!canonicalLabel) return null;
-        const key = normalizeClassKey(canonicalLabel);
-        if (classNameCache.has(key)) {
-          return classNameCache.get(key);
-        }
-        if (classResolutionPromises.has(key)) {
-          return classResolutionPromises.get(key);
-        }
-
-        const promise = (async () => {
-          let record = await getClassByName(canonicalLabel);
-          if (!record) {
-            record = await insertClass({ className: canonicalLabel });
-          }
-          classNameCache.set(key, record);
-          if (!existingClassIds.has(record.classId)) {
-            existingClassIds.add(record.classId);
-            newlyDiscoveredClasses.push(record);
-          }
-          return record;
-        })();
-
-        classResolutionPromises.set(key, promise);
-        return promise;
-      };
-
-      const classNameToId = new Map();
-      const peerTeacherSchedules = Object.entries(teacherSchedules || {}).map(([key, schedule]) => {
-        const normalizedName = normalizeForComparison(key);
-        const teacherById = teacherMap.get(key);
-        const teacherByName = teacherNameLookup.get(normalizedName);
-        const displayName = teacherById?.teacherName || teacherByName?.teacherName || key;
-        const teacherId = teacherById?.teacherId || teacherByName?.teacherId || key;
-        return {
-          key,
-          normalizedName,
-          schedule,
-          displayName,
-          teacherId,
-        };
-      });
-
-      const findOverlappingTeachers = (scheduleDayKey, period, normalizedClassKey) => {
-        if (!scheduleDayKey || !normalizedClassKey) return [];
-        return peerTeacherSchedules
-          .filter((entry) => entry.normalizedName !== targetNameNorm)
-          .map((entry) => {
-            const daySchedule = resolveDaySchedule(entry.schedule, scheduleDayKey);
-            const otherClassName = daySchedule?.[period];
-            if (!otherClassName) return null;
-            if (normalizeClassKey(otherClassName) !== normalizedClassKey) return null;
-            return {
-              teacherId: entry.teacherId,
-              displayName: entry.displayName,
-            };
-          })
-          .filter(Boolean);
-      };
-
-      const daysWithoutLessons = [];
-
-      effectiveDays.forEach((uiDay) => {
-        const scheduleDayKey = dayKeyMapping[uiDay];
-        if (!scheduleDayKey) {
-          logger.warn(`[addAbsent] No scheduleDayKey for uiDay: ${uiDay}`);
-          return;
-        }
-        let scheduleForDay = resolveDaySchedule(teacherSchedule, scheduleDayKey);
-        if (!scheduleForDay || Object.keys(scheduleForDay).length === 0) {
-          logger.warn(`[addAbsent] teacherSchedule[${scheduleDayKey}] is empty or undefined for uiDay: ${uiDay}`);
-        }
-        daySchedules[uiDay] = scheduleForDay || {};
-        logger.log(`[addAbsent] uiDay: ${uiDay}, scheduleDayKey: ${scheduleDayKey}, scheduleForDay:`, scheduleForDay);
-
-        const hasLessons = Object.values(scheduleForDay || {}).some((className) =>
-          typeof className === 'string' && className.trim().length > 0
-        );
-        if (!hasLessons) {
-          daysWithoutLessons.push({
-            dayKey: uiDay,
-            label: dayLabelMap.get(uiDay) || uiDay,
-          });
-        }
-
-        const classListForDay = Array.from(new Set(Object.values(scheduleForDay).filter(Boolean)));
-        logger.log(`[addAbsent] classListForDay for ${uiDay}:`, classListForDay);
-        classListForDay.forEach((className) => {
-          const canonicalLabel = String(className).trim();
-          if (!canonicalLabel) return;
-          const key = normalizeClassKey(canonicalLabel);
-          if (!classNamesToResolve.has(key)) {
-            classNamesToResolve.set(key, canonicalLabel);
-          }
-        });
-      });
-
-      // Önce classNameCache'deki TÜM mevcut sınıfları classNameToId'ye ekle
-      // Bu, schedule'dan gelen sınıf isimlerinin cache'deki sınıflarla eşleşmesini sağlar
-      classNameCache.forEach((classRecord, key) => {
-        if (classRecord?.classId) {
-          classNameToId.set(key, classRecord.classId);
-        }
-      });
-
-      // Schedule'dan gelen tüm sınıf isimlerini normalize edip topla
-      // Eğer daySchedules boşsa, teacherSchedule'dan direkt al
-      const scheduleClassNamesMap = new Map(); // normalizedKey -> originalClassName
-      effectiveDays.forEach((uiDay) => {
-        let scheduleForDay = daySchedules[uiDay];
-        if (!scheduleForDay || Object.keys(scheduleForDay).length === 0) {
-          // daySchedules boşsa, teacherSchedule'dan direkt al
-          const scheduleDayKey = dayKeyMapping[uiDay];
-          if (scheduleDayKey) {
-            scheduleForDay = resolveDaySchedule(teacherSchedule, scheduleDayKey);
-            daySchedules[uiDay] = scheduleForDay; // daySchedules'ı güncelle
-            logger.log(`[addAbsent] daySchedules[${uiDay}] was empty, loaded from teacherSchedule[${scheduleDayKey}]:`, scheduleForDay);
-          }
-        }
-        Object.values(scheduleForDay || {}).forEach((className) => {
-          if (className) {
-            const normalizedKey = normalizeClassKey(className);
-            if (!scheduleClassNamesMap.has(normalizedKey)) {
-              scheduleClassNamesMap.set(normalizedKey, String(className).trim());
-            }
-          }
-        });
-      });
-
-      // Schedule'dan gelen her sınıf ismi için classNameToId'de kayıt olduğundan emin ol
-      await Promise.all(
-        Array.from(scheduleClassNamesMap.entries()).map(async ([normalizedKey, originalClassName]) => {
-          if (!classNameToId.has(normalizedKey)) {
-            // Önce cache'de bu sınıf var mı kontrol et
-            if (classNameCache.has(normalizedKey)) {
-              const cachedClass = classNameCache.get(normalizedKey);
-              if (cachedClass?.classId) {
-                classNameToId.set(normalizedKey, cachedClass.classId);
-                return;
-              }
-            }
-            // Cache'de yoksa, classNamesToResolve'dan label'ı bul ve ensureClassRecord ile resolve et
-            const label = classNamesToResolve.get(normalizedKey);
-            if (label) {
-              const record = await ensureClassRecord(label);
-              if (record) {
-                classNameToId.set(normalizedKey, record.classId);
-              }
-            } else {
-              // classNamesToResolve'da da yoksa, orijinal sınıf ismini kullan ve resolve et
-              const record = await ensureClassRecord(originalClassName);
-              if (record) {
-                classNameToId.set(normalizedKey, record.classId);
-              }
-            }
-          }
-        })
-      );
-
-      // classNamesToResolve'daki tüm sınıfları da resolve et (ekstra güvenlik için)
-      await Promise.all(
-        Array.from(classNamesToResolve.entries()).map(async ([key, label]) => {
-          if (!classNameToId.has(key)) {
-            const record = await ensureClassRecord(label);
-            if (record) {
-              classNameToId.set(key, record.classId);
-            }
-          }
-        })
-      );
-
-      // Debug: classNameToId Map'inin içeriğini kontrol et
-      logger.log(`[addAbsent] classNameToId Map size: ${classNameToId.size}`);
-      logger.log(`[addAbsent] classNameToId keys:`, Array.from(classNameToId.keys()));
-      logger.log(`[addAbsent] classNamesToResolve keys:`, Array.from(classNamesToResolve.keys()));
-      logger.log(`[addAbsent] scheduleClassNamesMap:`, Array.from(scheduleClassNamesMap.entries()));
-      logger.log(`[addAbsent] daySchedules:`, daySchedules);
-      logger.log(`[addAbsent] teacherSchedule:`, teacherSchedule);
-
-      if (daysWithoutLessons.length > 0) {
-        const dayListText = daysWithoutLessons.map(({ label }) => label).join(', ');
-        const proceedForEmptyDays = await requestConfirmation({
-          title: 'Ders bulunamadı',
-          message: `${data.name} öğretmeninin ${dayListText} günü için ders programında kayıt bulunmuyor. Yine de mazeret eklemek ister misiniz?`,
-          type: 'warning',
-          confirmText: 'Mazereti Kaydet',
-          cancelText: 'İptal Et',
-        });
-
-        if (!proceedForEmptyDays) {
-          try {
-            await deleteAbsentById(absentId);
-          } catch (deleteErr) {
-            logger.warn('Mazeret iptal edilirken silme hatası:', deleteErr);
-          }
-          setAbsentPeople((prev) => prev.filter((p) => p.absentId !== absentId));
-          addNotification(`${data.name} için mazeret eklenmedi; bu gün için ders bulunamadı.`, 'info');
-          return;
-        }
-      }
-
-      if (newlyDiscoveredClasses.length > 0) {
-        setClasses((prev) => {
-          const existingIds = new Set(prev.map((c) => c.classId));
-          const additions = newlyDiscoveredClasses.filter((c) => !existingIds.has(c.classId));
-          if (!additions.length) return prev;
-          const next = [...prev, ...additions];
-          const unique = [];
-          const seen = new Set();
-          next.forEach((cls) => {
-            if (!cls?.classId || seen.has(cls.classId)) return;
-            seen.add(cls.classId);
-            unique.push(cls);
-          });
-          return unique;
-        });
-      }
-
-      const classFreeOps = [];
-      const classAbsenceOps = [];
-      const twelfthGradeFreeOps = [];
-      const twelfthGradeAbsenceOps = [];
-      const twelfthGradeSummaries = [];
-      const commonLessonOps = [];
-      const pendingAssignments = [];
-
-      effectiveDays.forEach((uiDay) => {
-        const scheduleDayKey = dayKeyMapping[uiDay];
-        let scheduleForDay = daySchedules[uiDay];
-
-        if (!scheduleForDay || Object.keys(scheduleForDay).length === 0) {
-          if (scheduleDayKey) {
-            scheduleForDay = resolveDaySchedule(teacherSchedule, scheduleDayKey);
-            daySchedules[uiDay] = scheduleForDay;
-            logger.log(`[addAbsent] daySchedules[${uiDay}] was empty, using teacherSchedule[${scheduleDayKey}]:`, scheduleForDay);
-          } else {
-            scheduleForDay = {};
-          }
-        }
-
-        logger.log(`[addAbsent] Processing day ${uiDay}, scheduleForDay:`, scheduleForDay);
-
-        Object.entries(scheduleForDay).forEach(([periodStr, className]) => {
-          const period = Number(periodStr);
-          if (!className || !periods.includes(period)) {
-            logger.log(`[addAbsent] Skipping: className="${className}", period=${period}`);
-            return;
-          }
-          const normalizedKey = normalizeClassKey(className);
-          const id = classNameToId.get(normalizedKey);
-          logger.log(`[addAbsent] className="${className}", normalizedKey="${normalizedKey}", id=${id}`);
-          if (!id) {
-            logger.warn(`[addAbsent] Sınıf ID bulunamadı: "${className}" (normalized: "${normalizedKey}")`);
-            logger.warn(`[addAbsent] classNameToId keys:`, Array.from(classNameToId.keys()));
-            logger.warn(`[addAbsent] classNameToId entries:`, Array.from(classNameToId.entries()));
-            return;
-          }
-          const baseFreeOp = { day: uiDay, period, classId: id };
-          const baseAbsenceOp = { day: uiDay, period, classId: id, absentId, allowDuty: true };
-          const overlaps = findOverlappingTeachers(scheduleDayKey, period, normalizedKey);
-          pendingAssignments.push({
-            baseFreeOp,
-            baseAbsenceOp,
-            className: String(className).trim(),
-            isTwelfthGrade: isTwelfthGradeClassName(className),
-            overlaps,
-            dayLabel: dayLabelMap.get(uiDay) || uiDay,
-          });
-          logger.log(`[addAbsent] Pending ops for day ${uiDay}, period ${period}, classId ${id}, overlaps:`, overlaps);
-        });
-      });
-
-      for (const assignment of pendingAssignments) {
-        const overlapNames = assignment.overlaps.map(({ displayName, teacherId }) => {
-          if (displayName) return displayName;
-          const teacherById = teacherMap.get(teacherId);
-          if (teacherById?.teacherName) return teacherById.teacherName;
-          return teacherId;
-        });
-
-        if (overlapNames.length > 0) {
-          const overlapLabel = overlapNames.join(', ');
-          const mergeConfirmed = await requestConfirmation({
-            title: 'Ders birleştirilsin mi?',
-            message: `${assignment.dayLabel} ${assignment.baseFreeOp.period}. saat ${assignment.className} dersine ayrıca ${overlapLabel} giriyor. Ders birleştirilsin mi?`,
-            type: 'info',
-            confirmText: 'Birleştir',
-            cancelText: 'Hayır',
-          });
-
-          if (mergeConfirmed) {
-            const teacherLabel = overlapNames[0] || overlapLabel || 'Diğer Öğretmen';
-            classAbsenceOps.push({
-              day: assignment.baseAbsenceOp.day,
-              period: assignment.baseAbsenceOp.period,
-              classId: assignment.baseAbsenceOp.classId,
-              absentId: COMMON_LESSON_LABEL,
-              allowDuty: false,
-              commonLessonOwnerId: assignment.baseAbsenceOp.absentId,
-            });
-            commonLessonOps.push({
-              day: assignment.baseAbsenceOp.day,
-              period: assignment.baseAbsenceOp.period,
-              classId: assignment.baseAbsenceOp.classId,
-              teacherName: teacherLabel,
-            });
-            continue;
-          }
-        }
-
-        if (assignment.isTwelfthGrade) {
-          twelfthGradeFreeOps.push(assignment.baseFreeOp);
-          twelfthGradeAbsenceOps.push(assignment.baseAbsenceOp);
-          twelfthGradeSummaries.push({
-            ...assignment.baseFreeOp,
-            className: assignment.className,
-            dayLabel: assignment.dayLabel,
-          });
-        } else {
-          classFreeOps.push(assignment.baseFreeOp);
-          classAbsenceOps.push(assignment.baseAbsenceOp);
-        }
-      }
-
-      logger.log(`[addAbsent] classFreeOps length: ${classFreeOps.length}`, classFreeOps);
-      logger.log(`[addAbsent] classAbsenceOps length: ${classAbsenceOps.length}`, classAbsenceOps);
-
-      let finalClassFreeOps = classFreeOps;
-
-      if (twelfthGradeFreeOps.length > 0) {
-        const summaryText = twelfthGradeSummaries
-          .map(({ dayLabel, period, className }) => `${dayLabel} ${period}. saat ${className}`)
-          .join(', ');
-
-        const allowCoverage = await requestConfirmation({
-          title: '12. sınıf dersleri tespit edildi',
-          message: `${data.name} öğretmeninin 12. sınıf dersleri bulunuyor: ${summaryText}. Bu dersler için nöbetçi öğretmen görevlendirilsin mi?`,
-          type: 'info',
-          confirmText: 'Nöbet Ata',
-          cancelText: 'Atama Yapma',
-        });
-
-        if (allowCoverage) {
-          finalClassFreeOps = [...classFreeOps, ...twelfthGradeFreeOps];
-          classAbsenceOps.push(...twelfthGradeAbsenceOps);
-        } else {
-          twelfthGradeAbsenceOps.forEach((op) => {
-            op.allowDuty = false;
-          });
-          classAbsenceOps.push(...twelfthGradeAbsenceOps);
-          addNotification('12. sınıf dersleri nöbet atamasına dahil edilmedi.', 'info');
-        }
-      }
-
-      if (finalClassFreeOps.length > 0) {
-        setClassFree((prev) => {
-          const next = { ...prev };
-          const ensureSet = (d, p) => {
-            if (!next[d]) next[d] = {};
-            if (!(next[d][p] instanceof Set)) {
-              next[d][p] = new Set(Array.isArray(next[d][p]) ? next[d][p] : []);
-            }
-          };
-
-          finalClassFreeOps.forEach(({ day: dKey, period: per, classId: cId }) => {
-            ensureSet(dKey, per);
-            next[dKey][per].add(cId);
-          });
-
-          return next;
-        });
-      } else {
-        logger.warn('[addAbsent] No classFreeOps generated');
-      }
-
-      if (classAbsenceOps.length > 0) {
-        setClassAbsence((prev) => {
-          const next = { ...prev };
-
-          classAbsenceOps.forEach(({ day: dKey, period: per, classId: cId, absentId: aId, allowDuty, commonLessonOwnerId }) => {
-            if (!next[dKey]) next[dKey] = {};
-            if (!next[dKey][per]) next[dKey][per] = {};
-            const encodedValue = encodeClassAbsenceValue(aId, allowDuty !== false, { commonLessonOwnerId });
-            next[dKey][per][cId] = encodedValue;
-          });
-
-          return next;
-        });
-      } else {
-        logger.warn('[addAbsent] No classAbsenceOps generated');
-      }
-
-      if (commonLessonOps.length > 0) {
-        setCommonLessons((prev) => {
-          const next = { ...prev };
-          commonLessonOps.forEach(({ day: dKey, period: per, classId: cId, teacherName }) => {
-            if (!next[dKey]) next[dKey] = {};
-            if (!next[dKey][per]) next[dKey][per] = {};
-            next[dKey][per][cId] = teacherName;
-          });
-          return next;
-        });
-      }
-
-      try {
-        await Promise.all(finalClassFreeOps.map(({ day: dKey, period: per, classId: cId }) =>
-          upsertClassFree({ day: dKey, period: per, classId: cId, isSelected: true })
-        ));
-      } catch (err) {
-        logger.error('Class free bulk insert error:', err);
-        addNotification('Sınıfların boşluk bilgisi Supabase’e yazılamadı. Lütfen tekrar deneyin.', 'error');
-      }
-
-      try {
-        await Promise.all(
-          classAbsenceOps.map(({ day: dKey, period: per, classId: cId, absentId: aId, allowDuty, commonLessonOwnerId }) =>
-            upsertClassAbsence({
-              day: dKey,
-              period: per,
-              classId: cId,
-              absentId:
-                encodeClassAbsenceValue(aId, allowDuty !== false, { commonLessonOwnerId }),
-            })
-          )
-        );
-      } catch (err) {
-        logger.error('Class absence bulk insert error:', err);
-        addNotification('Mazeretli sınıf işaretleri Supabase’e kaydedilemedi.', 'error');
-      }
-
-      const addedCount = newlyDiscoveredClasses.length;
-      const allowedMarkedCount = finalClassFreeOps.length;
-
-      if (addedCount > 0 || allowedMarkedCount > 0) {
-        addNotification(
-          `${data.name} için ${addedCount} sınıf eklendi${allowedMarkedCount > 0 ? `, ${allowedMarkedCount} saat işaretlendi` : ''}`,
-          'info'
-        );
-      }
-    } catch (err) {
-      console.warn('Mazeret eklemede sınıf/periyot işaretleme hatası:', err);
-      addNotification(`Sınıf işaretleme başarısız: ${err.message || err}`, 'error');
-    }
-  };
+  const {
+    deleteAllTeachers,
+    deleteAllClasses,
+    deleteAllAbsents,
+    deleteAllTeacherSchedules,
+    clearAllData,
+  } = useBulkDeleteActions({
+    showConfirmation,
+    addNotification,
+    logger,
+    setTeachers,
+    setTeacherFree,
+    setClasses,
+    setClassFree,
+    setClassAbsence,
+    setCommonLessons,
+    setAbsentPeople,
+    setTeacherSchedules,
+    setTeacherSchedulesHydrated,
+    setDay,
+    setPeriods,
+    setOptions,
+    setLocked,
+    DAYS,
+    STORAGE_KEY,
+    LAST_ABSENT_CLEANUP_KEY,
+  });
 
   const deleteAbsent = useCallback(async (absentIdToDelete) => {
     const targetAbsent = absentPeople.find(p => p.absentId === absentIdToDelete);
@@ -2129,8 +1840,14 @@ export default function App() {
     const updatedClassAbsence = (() => {
       const next = { ...classAbsence };
       Object.keys(next).forEach(dk => {
-        Object.keys(next[dk] || {}).forEach(pk => {
+        // Shallow copy the day object
+        next[dk] = { ...(next[dk] || {}) };
+
+        Object.keys(next[dk]).forEach(pk => {
+          // Shallow copy the period object
           const per = { ...(next[dk][pk] || {}) };
+          let changed = false;
+
           Object.keys(per).forEach(cid => {
             const decoded = decodeClassAbsenceValue(per[cid]);
             const numericPeriod = Number(pk);
@@ -2139,6 +1856,7 @@ export default function App() {
               decoded.commonLessonOwnerId === absentIdToDelete;
 
             if (shouldRemove) {
+              changed = true;
               affectedClassIds.add(cid);
 
               const slotKey = `${dk}|${numericPeriod}|${cid}`;
@@ -2161,9 +1879,19 @@ export default function App() {
               delete per[cid];
             }
           });
-          if (Object.keys(per).length === 0) delete next[dk][pk];
+
+          // Assign back the modified period object or delete if empty
+          if (changed) {
+            if (Object.keys(per).length === 0) {
+              delete next[dk][pk];
+            } else {
+              next[dk][pk] = per;
+            }
+          }
         });
-        if (next[dk] && Object.keys(next[dk]).length === 0) delete next[dk];
+
+        // Clean up empty days
+        if (Object.keys(next[dk]).length === 0) delete next[dk];
       });
       return next;
     })();
@@ -2173,7 +1901,7 @@ export default function App() {
       Object.keys(commonLessons[dayKey] || {}).forEach(periodKey => {
         const period = Number(periodKey);
         Object.entries(commonLessons[dayKey][period] || {}).forEach(([classId, teacherName]) => {
-          if (teacherName === absentTeacherName) {
+          if (teacherName === absentTeacherName || teacherName === absentIdToDelete) {
             const existing = commonLessonsToDelete.find(s =>
               s.day === dayKey && s.period === period && s.classId === classId
             );
@@ -2465,7 +2193,7 @@ export default function App() {
       setLocked(prev => {
         const next = { ...prev };
         Object.keys(next).forEach(key => {
-          const [day, period, classId] = key.split('|');
+          const [, , classId] = key.split('|');
           if (classId === classIdToDelete) {
             delete next[key];
           }
@@ -2481,20 +2209,39 @@ export default function App() {
 
   /* ======================= Atama verilerini hazırlama ======================= */
 
-  // Performance: Öğretmen Map (O(1) lookup)
-  const teacherMap = useMemo(() =>
-    new Map(teachers.map(t => [t.teacherId, t])),
-    [teachers]
-  );
-
-  const absentPeopleForCurrentDay = useMemo(() => {
-    if (!Array.isArray(absentPeople)) return [];
-    return absentPeople.filter(person => {
-      if (!person || typeof person !== 'object') return false;
-      if (!Array.isArray(person.days) || person.days.length === 0) return true;
-      return person.days.includes(day);
+  const blockedAbsentTeacherNames = useMemo(() => {
+    const blocked = new Set();
+    (absentPeople || []).forEach((person) => {
+      if (!person) return;
+      const baseName = person.name || person.teacherName || person.displayName;
+      const normalizedName = normalizeForComparison(baseName);
+      if (!normalizedName) return;
+      const effectiveDays =
+        Array.isArray(person.days) && person.days.length > 0
+          ? person.days
+          : DAYS.map((d) => d.key);
+      if (effectiveDays.includes(day)) {
+        blocked.add(normalizedName);
+      }
     });
+    return blocked;
   }, [absentPeople, day]);
+
+  const lastAbsenceRefreshLabel = useMemo(() => {
+    const { lastRefreshedAt } = absenceRefreshState;
+    if (!lastRefreshedAt) {
+      return "Henüz yapılmadı";
+    }
+    try {
+      return new Intl.DateTimeFormat("tr-TR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }).format(lastRefreshedAt);
+    } catch {
+      return String(lastRefreshedAt);
+    }
+  }, [absenceRefreshState]);
 
   const scheduledTeacherOptions = useMemo(() => {
     if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return [];
@@ -2549,140 +2296,37 @@ export default function App() {
     });
   }, [classFree, day, classes]);
 
-  // PDF'den gelen schedule verisine göre o günün nöbetçi öğretmenlerini filtrele
-  const teachersForCurrentDay = useMemo(() => {
-    // Gün adı mapping: sistem gün adları -> PDF gün adları
-    const dayMapping = {
-      'Mon': 'monday',
-      'Tue': 'tuesday',
-      'Wed': 'wednesday',
-      'Thu': 'thursday',
-      'Fri': 'friday'
-    };
+  const teachersForCurrentDay = useDutyTeacherFilter(teachers, pdfSchedule, day);
 
-    const pdfDayKey = dayMapping[day];
-
-    if (!pdfSchedule[pdfDayKey] || Object.keys(pdfSchedule[pdfDayKey]).length === 0) {
-      // PDF schedule yoksa tüm öğretmenleri göster
-      return teachers;
-    }
-
-    // O günün nöbetçi öğretmenlerini topla
-    const dutyTeachers = new Set();
-    Object.values(pdfSchedule[pdfDayKey]).forEach(periodTeachers => {
-      if (Array.isArray(periodTeachers)) {
-        periodTeachers.forEach(teacherName => {
-          // Öğretmen adını normalize et ve eşleştir
-          const normalizedName = teacherName.toUpperCase().replace(/[ÇĞIİÖŞÜ]/g, (match) => {
-            const map = { 'Ç': 'C', 'Ğ': 'G', 'I': 'I', 'İ': 'I', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U' };
-            return map[match] || match;
-          });
-
-          // Öğretmen listesinde eşleşen öğretmeni bul
-          const matchingTeacher = teachers.find(t => {
-            const normalizedTeacherName = t.teacherName.toUpperCase().replace(/[ÇĞIİÖŞÜ]/g, (match) => {
-              const map = { 'Ç': 'C', 'Ğ': 'G', 'I': 'I', 'İ': 'I', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U' };
-              return map[match] || match;
-            });
-            return normalizedTeacherName === normalizedName;
-          });
-
-          if (matchingTeacher) {
-            dutyTeachers.add(matchingTeacher.teacherId);
-          }
-        });
-      }
+  const normalizedClassNames = useMemo(() => {
+    const set = new Set();
+    (classes || []).forEach((cls) => {
+      const normalized = normalizeClassLabel(cls?.className);
+      if (normalized) set.add(normalized);
     });
+    return set;
+  }, [classes]);
 
-    // Sadece o gün nöbetçi olan öğretmenleri döndür
-    // Önce teacherId ile eşleştirmeyi dene
-    let filteredTeachers = teachers.filter(t => dutyTeachers.has(t.teacherId));
+  const freeTeachersByDay = useFreeTeachersByDay({
+    teacherFree,
+    day,
+    periods,
+    teacherMap,
+    absentPeople,
+  });
 
-    // Eğer hiç eşleşme yoksa, teacherName ile eşleştirmeyi dene
-    if (filteredTeachers.length === 0) {
-      filteredTeachers = teachers.filter(t => {
-        const normalizedName = normalizeForComparison(t.teacherName);
-        return dutyTeachers.has(normalizedName);
-      });
-    }
+  const classFreeForCurrentDay = useClassFreeForDay({ classFree, day, periods });
 
-    console.log('Filtered teachers count:', filteredTeachers.length);
-    console.log('Filtered teachers:', filteredTeachers.map(t => t.teacherName));
-    return filteredTeachers;
-  }, [teachers, pdfSchedule, day]);
+  const absentIdsForCurrentDay = useMemo(
+    () => new Set(absentPeopleForCurrentDay.map((person) => person.absentId)),
+    [absentPeopleForCurrentDay],
+  );
 
-  const freeTeachersByDay = useMemo(() => {
-    // Okula gelemeyen öğretmenlerin adlarını normalize edilmiş halde topla
-    const absentNames = new Set(
-      absentPeople.map(a => a.name.trim().toLowerCase().replace(/\s+/g, ' '))
-    );
-
-    return {
-      [day]: Object.fromEntries(
-        periods.map(p => {
-          const freeTids = Array.from(teacherFree[p] || []);
-          // Absent olmayan öğretmenleri filtrele (Map ile O(1) lookup)
-          const available = freeTids.filter(tid => {
-            const teacher = teacherMap.get(tid); // O(1) instead of O(n)
-            if (!teacher) return false;
-            const teacherName = teacher.teacherName.trim().toLowerCase().replace(/\s+/g, ' ');
-            return !absentNames.has(teacherName);
-          });
-          return [p, new Set(available)];
-        })
-      )
-    };
-  }, [teacherFree, day, periods, teacherMap, absentPeople]);
-  const absentIdsForCurrentDay = useMemo(() => {
-    return new Set(absentPeopleForCurrentDay.map(person => person.absentId));
-  }, [absentPeopleForCurrentDay]);
-
-  const filteredClassAbsence = useMemo(() => {
-    const result = { [day]: {} };
-    const dayAbsences = classAbsence?.[day] || {};
-    Object.entries(dayAbsences).forEach(([periodKey, classesForPeriod]) => {
-      const filtered = Object.entries(classesForPeriod || {}).reduce((acc, [classId, rawValue]) => {
-        const { absentId, allowDuty } = decodeClassAbsenceValue(rawValue);
-        const isCommonLesson = absentId === COMMON_LESSON_LABEL;
-        if (isCommonLesson || (allowDuty && absentIdsForCurrentDay.has(absentId))) {
-          acc[classId] = isCommonLesson ? COMMON_LESSON_LABEL : absentId;
-        }
-        return acc;
-      }, {});
-      if (Object.keys(filtered).length > 0) {
-        result[day][periodKey] = filtered;
-      }
-    });
-    return result;
-  }, [classAbsence, day, absentIdsForCurrentDay]);
-
-  const classFreeForCurrentDay = useMemo(() => {
-    const dayData = classFree?.[day];
-    if (dayData && Object.keys(dayData).length > 0) {
-      const normalized = {};
-      periods.forEach((p) => {
-        const set = dayData[p];
-        normalized[p] = new Set(
-          set instanceof Set ? Array.from(set) : Array.isArray(set) ? set : []
-        );
-      });
-      return { [day]: normalized };
-    }
-
-    const fallback = {};
-    periods.forEach((p) => {
-      fallback[p] = new Set();
-      Object.values(classFree || {}).forEach((dayMap) => {
-        const set = dayMap?.[p];
-        if (set instanceof Set) {
-          set.forEach((cid) => fallback[p].add(cid));
-        } else if (Array.isArray(set)) {
-          set.forEach((cid) => fallback[p].add(cid));
-        }
-      });
-    });
-    return { [day]: fallback };
-  }, [classFree, day, periods]);
+  const filteredClassAbsence = useFilteredClassAbsence({
+    classAbsence,
+    day,
+    absentIdsForCurrentDay,
+  });
 
   const classesForCurrentDay = useMemo(() => {
     const includedIds = new Set();
@@ -2765,7 +2409,7 @@ export default function App() {
         duration: 4000
       });
     }
-  }, [teachers, locked, addNotification]); // teachers veya kilitler değiştiğinde çalışır
+  }, [teachers, locked, addNotification, teacherMap]); // teachers veya kilitler değiştiğinde çalışır
 
   // Gün değiştiğinde, o güne ait geçersiz locked kayıtlarını temizle
   useEffect(() => {
@@ -3708,84 +3352,6 @@ export default function App() {
     }
   }
 
-  function clearAllData() {
-    showConfirmation(
-      'Tüm Verileri Sil',
-      'Tüm veriler (öğretmenler, sınıflar, boş saatler, mazeretler, kilitler) silinsin mi?',
-      'danger',
-      () => {
-        (async () => {
-          // Batch işlem sırasında realtime'ı geçici olarak duraklat
-          realtimeSync.pause()
-          try {
-            await Promise.all([
-              clearTeachersData(),
-              clearClassesData(),
-              clearAbsentsData(),
-              clearClassAbsenceData(),
-              clearCommonLessonsData(),
-              resetTeacherFreeData(),
-              resetClassFreeData(),
-              clearLocksData(),
-              clearTeacherSchedules(),
-              replacePdfSchedule({})
-            ]);
-          } catch (err) {
-            logger.error('clearAllData remote error:', err);
-            addNotification('Veriler silinirken bir hata oluştu', 'error');
-            realtimeSync.resume() // Hata durumunda da resume et
-            return;
-          }
-
-          try {
-            const keysToRemove = new Set([
-              STORAGE_KEY,
-              LAST_ABSENT_CLEANUP_KEY,
-              'theme',
-            ]);
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key && (key.includes('nobetci') || key.includes('teacher') || key.includes('class'))) {
-                keysToRemove.add(key);
-              }
-            }
-            keysToRemove.forEach((key) => {
-              try {
-                localStorage.removeItem(key);
-              } catch (err) {
-                logger.warn('LocalStorage key remove failed:', key, err);
-              }
-            });
-          } catch (err) {
-            logger.warn('Veri silme hatası:', err);
-          }
-
-          setDay(DAYS[Math.max(0, Math.min(4, new Date().getDay() - 1))]?.key || 'Mon');
-          setPeriods(PERIODS);
-          setTeachers([]);
-          setClasses([]);
-          setTeacherFree({});
-          setClassFree({});
-          setAbsentPeople([]);
-          setClassAbsence({});
-          setCommonLessons({});
-          setOptions({ preventConsecutive: true, maxClassesPerSlot: 1, ignoreConsecutiveLimit: false });
-          setLocked({});
-          setTeacherSchedules({});
-          setTeacherSchedulesHydrated(false);
-          addNotification({ message: 'Tüm veriler temizlendi', type: 'warning', duration: 2500 });
-
-          // Batch işlem tamamlandı, realtime'ı tekrar etkinleştir
-          realtimeSync.resume()
-
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
-        })();
-      }
-    );
-  }
-
   /* ================================ Render ================================ */
 
   useEffect(() => {
@@ -3799,7 +3365,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [setActiveSection])
 
   return (
     <div className={`wrap ${toolbarExpanded ? 'toolbarExpanded' : ''}`}>
@@ -3925,6 +3491,45 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          <div className="toolbar-group">
+            <div className="toolbar-group-header">
+              <h3>🔄 Veri Senkronizasyonu</h3>
+              <p>Supabase ile manuel olarak eşitle</p>
+            </div>
+            <div className="toolbar-group-content">
+              <button
+                className="btn"
+                onClick={refreshAbsenceData}
+                disabled={absenceRefreshState.isRefreshing}
+              >
+                <Icon name="refreshCw" size={16} />
+                <span className="btn-text">
+                  {absenceRefreshState.isRefreshing ? 'Yenileniyor...' : 'Mazeret Verilerini Yenile'}
+                </span>
+              </button>
+              <small
+                style={{
+                  display: 'block',
+                  marginTop: '8px',
+                  color: 'var(--text-muted, #8b9dc3)',
+                }}
+              >
+                Son yenileme: {lastAbsenceRefreshLabel}
+              </small>
+              {absenceRefreshState.error && (
+                <small
+                  style={{
+                    display: 'block',
+                    marginTop: '4px',
+                    color: 'var(--danger, #ff6b6b)',
+                  }}
+                >
+                  {absenceRefreshState.error}
+                </small>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3945,483 +3550,110 @@ export default function App() {
 
       <main className="content">
         {activeSection === "teachers" && (
-          <div
-            role="tabpanel"
-            id="panel-teachers"
-            aria-labelledby="tab-teachers"
-          >
-            <div className="section-toolbar">
-              <button className="btn-tertiary" onClick={handleOpenDutyTeacherExcelModal}>
-                <Icon name="upload" size={16} />
-                <span>Nöbetçi Öğretmen Excel Yükle</span>
-              </button>
-              <button className="btn-tertiary" onClick={() => setPdfImportModal(true)}>
-                <Icon name="upload" size={16} />
-                <span>PDF Çizelgesi Yükle</span>
-              </button>
-              <button className="btn-secondary" onClick={() => setModals(m => ({ ...m, teacher: true }))}>
-                <span style={{ marginRight: '4px', fontWeight: 'bold' }}>+</span>
-                <Icon name="users" size={16} />
-                <span className="btn-text">Yeni Öğretmen Ekle</span>
-              </button>
-              <div className="toolbar-spacer"></div>
-              {teachers.some(t => t.teacherId.startsWith('auto_')) && (
-                <button
-                  className="btn-danger"
-                  onClick={deleteAllPdfTeachers}
-                  title="PDF'den eklenen tüm öğretmenleri sil"
-                  aria-label="PDF'den eklenen tüm öğretmenleri sil"
-                >
-                  <Icon name="trash" size={16} />
-                </button>
-              )}
-              {teachers.length > 0 && (
-                <button
-                  className="btn-outline btn-sm"
-                  onClick={() => {
-                    showConfirmation(
-                      'Tüm Öğretmenleri Sil',
-                      'Listedeki tüm öğretmenler silinsin mi?',
-                      'warning',
-                      () => {
-                        (async () => {
-                          try {
-                            await clearTeachersData();
-                            await resetTeacherFreeData();
-                            setTeachers([]);
-                            setTeacherFree({});
-                            addNotification('Tüm öğretmen kayıtları silindi', 'info');
-                          } catch (error) {
-                            logger.error('Teacher bulk delete error:', error);
-                            addNotification('Öğretmenler silinemedi', 'error');
-                          }
-                        })();
-                      }
-                    );
-                  }}
-                  title="Tüm öğretmenleri sil"
-                >
-                  <Icon name="trash" size={14} />
-                  <span>Tümünü Sil</span>
-                </button>
-              )}
-            </div>
-            <ModernAvailabilityGrid
-              rows={teachersForCurrentDay}
-              rowKey="teacherId"
-              rowNameKey="teacherName"
+          <TeachersSection
+            teachers={teachers}
+            teachersForCurrentDay={teachersForCurrentDay}
               periods={periods}
-              selectedMap={teacherFree}
-              onToggle={toggleTeacherFree}
-              onToggleAll={setAllTeachersFree}
-              onDelete={deleteTeacher}
-              //extraCol={(t) => `Max ${t.maxDutyPerDay} görev`}
+            teacherFree={teacherFree}
+            onToggleTeacherFree={toggleTeacherFree}
+            onToggleAllTeachersFree={setAllTeachersFree}
+            onDeleteTeacher={deleteTeacher}
+            onOpenDutyTeacherExcelModal={handleOpenDutyTeacherExcelModal}
+            onOpenPdfImport={() => setPdfImportModal(true)}
+            onOpenAddTeacherModal={() => setModals((m) => ({ ...m, teacher: true }))}
+            onDeletePdfTeachers={deleteAllPdfTeachers}
+            onDeleteAllTeachers={deleteAllTeachers}
               IconComponent={Icon}
             />
-          </div>
         )}
 
         {activeSection === "courseSchedule" && (
-          <div
-            role="tabpanel"
-            id="panel-courseSchedule"
-            aria-labelledby="tab-courseSchedule"
-          >
-            <div className="section-toolbar">
-              <div className="toolbar-actions">
-                <input
-                  type="file"
-                  accept=".pdf,.xlsx,.xls"
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      try {
-                        console.log('Starting teacher schedule upload from Excel...');
-                        const schedules = await parseTeacherSchedulesFromExcel(file);
-                        setTeacherSchedules(schedules);
-                        setTeacherSchedulesHydrated(true);
-                        await saveTeacherSchedules(schedules).catch((err) => {
-                          logger.error('Teacher schedule Supabase save error:', err);
-                          throw err;
-                        });
-                        addNotification(
-                          `${Object.keys(schedules).length} öğretmenin ders programı yüklendi`,
-                          "success"
-                        );
-
-                      } catch (error) {
-                        console.error('Excel parsing error:', error);
-                        addNotification(
-                          `Ders programı yükleme hatası: ${error.message}`,
-                          "error"
-                        );
-                      }
-                    }
-                  }}
-                  style={{ display: 'none' }}
-                  id="teacher-schedule-upload-direct"
-                />
-                <label
-                  htmlFor="teacher-schedule-upload-direct"
-                  className="btn-tertiary"
-                  title="Excel'den Ders Programı Yükle"
-                >
-                  <Icon name="upload" size={16} />
-                  <span className="btn-text">Excel Yükle</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="course-schedule-content">
-              {teacherSchedulesList.length === 0 ? (
-                <EmptyState
+          <CourseScheduleSection
+            uploadInputId="teacher-schedule-upload-direct"
+            onUpload={handleTeacherScheduleUpload}
+            teacherSchedulesList={teacherSchedulesList}
+            onDeleteAllSchedules={deleteAllTeacherSchedules}
+            onOpenTeacherSchedule={openTeacherSchedule}
                   IconComponent={Icon}
-                  icon="calendar"
-                  title="Henüz Ders Programı Eklenmedi"
-                  size={44}
-                  className="empty-state-card"
-                />
-              ) : null}
-
-              {teacherSchedulesList.length > 0 && (
-                <div className="schedule-preview">
-                  <div className="schedule-preview-header">
-                    <h3>Yüklenen Ders Programları</h3>
-                    <button
-                      className="btn-outline btn-sm"
-                      onClick={() => {
-                        showConfirmation(
-                          'Tüm Ders Programlarını Sil',
-                          'Tüm ders programları silinecek. Emin misiniz?',
-                          'warning',
-                          () => {
-                            (async () => {
-                              try {
-                                await clearTeacherSchedules();
-                                setTeacherSchedules({});
-                                setTeacherSchedulesHydrated(false);
-                                addNotification('Tüm ders programları silindi', 'info');
-                              } catch (error) {
-                                logger.error('Teacher schedule clear error:', error);
-                                addNotification('Ders programları silinemedi', 'error');
-                              }
-                            })();
-                          }
-                        );
-                      }}
-                      title="Tüm ders programlarını sil"
-                    >
-                      <Icon name="trash" size={14} />
-                      <span>Tümünü Sil</span>
-                    </button>
-                  </div>
-                  <div className="teacher-schedule-list">
-                    {teacherSchedulesList.map(([teacherName, schedule]) => {
-                      const dayDefinitions = [
-                        { key: 'monday', label: 'Pzt' },
-                        { key: 'tuesday', label: 'Sal' },
-                        { key: 'wednesday', label: 'Çar' },
-                        { key: 'thursday', label: 'Per' },
-                        { key: 'friday', label: 'Cum' },
-                      ]
-
-                      const dayStats = dayDefinitions
-                        .map(({ key, label }) => {
-                          const count = Object.keys(schedule?.[key] || {}).length
-                          if (!count) return null
-                          return { key, label, count }
-                        })
-                        .filter(Boolean)
-
-                      const totalLessons = dayStats.reduce((sum, day) => sum + day.count, 0)
-
-                      return (
-                        <div
-                          key={teacherName}
-                          className="teacher-schedule-item clickable"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            openTeacherSchedule(teacherName, schedule);
-                          }}
-                        >
-                          <div className="teacher-card-header">
-                            <div className="teacher-name">
-                              <Icon name="user" size={16} />
-                              <span>{teacherName}</span>
-                            </div>
-                            <div className="teacher-card-meta">
-                              <span className="meta-chip">
-                                <Icon name="calendar" size={12} />
-                                {dayStats.length || 0} gün
-                              </span>
-                              <span className="meta-chip">
-                                <Icon name="book" size={12} />
-                                {totalLessons} ders
-                              </span>
-                            </div>
-                          </div>
-                          <div className="teacher-card-body">
-                            {dayStats.length > 0 ? (
-                              dayStats.map(({ key, label, count }) => (
-                                <div key={key} className="teacher-day-row">
-                                  <span className="day-label">{label}</span>
-                                  <span className="day-count">{count} ders</span>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="teacher-card-empty">
-                                <Icon name="info" size={12} />
-                                <span>Günlük ders bilgisi yok</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          />
         )}
 
         {activeSection === "classes" && (
-          <div
-            role="tabpanel"
-            id="panel-classes"
-            aria-labelledby="tab-classes"
-          >
-            <div className="section-toolbar">
-              <button className="btn-secondary" onClick={() => setModals(m => ({ ...m, class: true }))}>
-                <span style={{ marginRight: '4px', fontWeight: 'bold' }}>+</span>
-                <Icon name="home" size={16} />
-                <span className="btn-text">Yeni Sınıf Ekle</span>
-              </button>
-              <div className="toolbar-spacer"></div>
-              {classes.length > 0 && (
-                <button
-                  className="btn-outline btn-sm"
-                  onClick={() => {
-                    showConfirmation(
-                      'Tüm Sınıfları Sil',
-                      'Tüm sınıf kayıtları silinecek. Emin misiniz?',
-                      'warning',
-                      () => {
-                        (async () => {
-                          // Batch işlem sırasında realtime'ı geçici olarak duraklat
-                          realtimeSync.pause()
-                          try {
-                            await Promise.all([
-                              clearClassesData(),
-                              clearClassAbsenceData(),
-                              clearCommonLessonsData(),
-                              resetClassFreeData(),
-                            ]);
-                            setClasses([]);
-                            setClassAbsence({});
-                            setClassFree({});
-                            setCommonLessons({});
-                            addNotification('Tüm sınıf kayıtları silindi', 'info');
-                          } catch (error) {
-                            logger.error('Class bulk delete error:', error);
-                            addNotification('Sınıflar silinemedi', 'error');
-                            realtimeSync.resume() // Hata durumunda da resume et
-                            return;
-                          }
-                          // Batch işlem tamamlandı, realtime'ı tekrar etkinleştir
-                          realtimeSync.resume()
-                        })();
-                      }
-                    );
-                  }}
-                  title="Tüm sınıfları sil"
-                >
-                  <Icon name="trash" size={14} />
-                  <span>Tümünü Sil</span>
-                </button>
-              )}
-            </div>
-            <ModernClassAvailabilityGrid
-              classes={classesForCurrentDay}
+          <ClassesSection
+            classes={classes}
+            classesForCurrentDay={classesForCurrentDay}
               periods={periods}
-              classFree={classFreeForCurrentDay}
+            classFreeForCurrentDay={classFreeForCurrentDay}
+            absentPeopleForCurrentDay={absentPeopleForCurrentDay}
+            filteredClassAbsence={filteredClassAbsence}
+            commonLessons={commonLessons}
+            day={day}
               onToggleClassFree={toggleClassFree}
               onSetAllClassesFree={setAllClassesFree}
-              absentPeople={absentPeopleForCurrentDay}
-              classAbsence={filteredClassAbsence}
               onSelectAbsence={handleSelectAbsence}
-              commonLessons={commonLessons}
-              onOpenCommonLessonModal={(day, period, classId) => handleOpenCommonLessonModal(day, period, classId)}
-              onDelete={deleteClass}
-              day={day}
-              IconComponent={Icon}
+            onOpenCommonLessonModal={(slotDay, period, classId) =>
+              handleOpenCommonLessonModal(slotDay, period, classId)
+            }
+            onDeleteClass={deleteClass}
               teachers={teachers}
+            onAddClass={() => setModals((m) => ({ ...m, class: true }))}
+            onDeleteAllClasses={deleteAllClasses}
+            IconComponent={Icon}
             />
-          </div>
         )}
 
         {activeSection === "absents" && (
-          <div
-            role="tabpanel"
-            id="panel-absents"
-            aria-labelledby="tab-absents"
-          >
-            <div className="section-toolbar">
-              <button className="btn-secondary" onClick={() => setModals(m => ({ ...m, absent: true }))}>
-                <span style={{ marginRight: '4px', fontWeight: 'bold' }}>+</span>
-                <Icon name="userX" size={16} />
-                <span className="btn-text">Yeni Mazeretli Ekle</span>
-              </button>
-              <div className="toolbar-spacer"></div>
-              {absentPeople.length > 0 && (
-                <button
-                  className="btn-outline btn-sm"
-                  onClick={() => {
-                    showConfirmation(
-                      'Tüm Mazeretleri Sil',
-                      'Bu işlem tüm mazeret kayıtlarını ve mevcut sınıf atamalarını temizleyecek. Devam edilsin mi?',
-                      'warning',
-                      () => {
-                        (async () => {
-                          // Batch işlem sırasında realtime'ı geçici olarak duraklat
-                          realtimeSync.pause()
-                          try {
-                            await Promise.all([
-                              clearAbsentsData(),
-                              clearClassAbsenceData(),
-                              resetClassFreeData(),
-                            ]);
-                            setAbsentPeople([]);
-                            setClassAbsence({});
-                            setClasses([]);
-                            setClassFree({});
-                            addNotification('Tüm mazeret kayıtları silindi', 'info');
-                          } catch (error) {
-                            logger.error('Absent bulk delete error:', error);
-                            addNotification('Mazeret kayıtları silinemedi', 'error');
-                            realtimeSync.resume() // Hata durumunda da resume et
-                            return;
-                          }
-                          // Batch işlem tamamlandı, realtime'ı tekrar etkinleştir
-                          realtimeSync.resume()
-                        })();
-                      }
-                    );
-                  }}
-                  title="Tüm mazeretleri sil"
-                >
-                  <Icon name="trash" size={14} />
-                  <span>Tümünü Sil</span>
-                </button>
-              )}
-            </div>
-            <AbsenteeList
-              absentPeople={absentPeopleForCurrentDay}
-              onDelete={deleteAbsent}
+          <AbsentsSection
+            absentPeople={absentPeople}
+            absentPeopleForCurrentDay={absentPeopleForCurrentDay}
+            onAddAbsent={() => setModals((m) => ({ ...m, absent: true }))}
+            onDeleteAbsent={deleteAbsent}
+            onDeleteAllAbsents={deleteAllAbsents}
               IconComponent={Icon}
             />
-          </div>
         )}
 
         {activeSection === "schedule" && (
-          <div
-            role="tabpanel"
-            id="panel-schedule"
-            aria-labelledby="tab-schedule"
-          >
-            {/* Atama Seçenekleri */}
-            {/* Atama Seçenekleri */}
-            <AssignmentOptions
-              options={options}
-              handleOptionChange={handleOptionChange}
-              setAllTeachersMaxDuty={setAllTeachersMaxDuty}
-              IconComponent={Icon}
-            />
-            <AssignmentEditor
+          <ScheduleSection
               day={day}
               periods={periods}
-              classes={classesForCurrentDay}
-              teachers={teachersForCurrentDay}
-              availableTeachersByPeriod={freeTeachersByDay[day] || {}}
+            classesForCurrentDay={classesForCurrentDay}
+            teachersForCurrentDay={teachersForCurrentDay}
+            freeTeachersByDay={freeTeachersByDay}
+            freeClassesByDay={freeClassesByDay}
               assignment={assignment}
               locked={locked}
+            options={options}
+            assignmentInsights={assignmentInsights}
+            unassignedForSelectedDay={unassignedForSelectedDay}
+            commonLessons={commonLessons}
+            classes={classes}
+            IconComponent={Icon}
+            onOptionChange={handleOptionChange}
+            onSetAllTeachersMaxDuty={setAllTeachersMaxDuty}
               onDropAssign={dropAssign}
               onManualAssign={handleManualAssign}
               onManualClear={handleManualClear}
               onManualRelease={handleManualRelease}
-              commonLessons={commonLessons}
-              IconComponent={Icon}
-            />
-            {unassignedForSelectedDay.length > 0 && (
-              <div className="unassigned-card" role="alert">
-                <div className="unassigned-header">
-                  <Icon name="alertTriangle" size={16} />
-                  <span>Atanamayan sınıflar ({unassignedForSelectedDay.length})</span>
-                </div>
-                <p className="unassigned-description">
-                  Bu sınıflar için uygun öğretmen bulunamadı. Kuralları gevşetebilir, manuel atama yapabilir veya ilgili öğretmenlerin boş saatlerini kontrol edebilirsiniz.
-                </p>
-                <ul className="unassigned-list">
-                  {unassignedForSelectedDay.map(({ period, classId, className }) => (
-                    <li key={`${period}-${classId}`}>
-                      <span className="badge">{period}. saat</span>
-                      <span>{className}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <ConflictSuggestions
-              assignment={assignment}
-              day={day}
-              teachers={teachersForCurrentDay}
-              classes={classes}
-              freeTeachersByDay={freeTeachersByDay}
-              freeClassesByDay={freeClassesByDay}
-              maxClassesPerSlot={options.maxClassesPerSlot}
-            />
-
-            <AssignmentInsights
-              insights={assignmentInsights}
-              IconComponent={Icon}
-            />
-          </div>
+          />
         )}
 
         {activeSection === "outputs" && (
-          <div
-            id="panel-outputs"
-            role="tabpanel"
-            aria-labelledby="tab-outputs"
-          >
-            <div className="toolbar no-print">
-              <button className="btn" onClick={exportJPG}><Icon name="download" size={16} /> JPG indir</button>
-              <button className="btn" onClick={() => window.print()}><Icon name="printer" size={16} /> Yazdır</button>
-            </div>
-            <PrintableDailyList
+          <OutputsSection
               day={day}
               displayDate={displayDate}
               periods={periods}
               assignment={assignment}
-              teachers={teachersForCurrentDay}
-              classes={classes}
-              classAbsence={filteredClassAbsence}
-              absentPeople={absentPeopleForCurrentDay}
-              commonLessons={commonLessons}
-            />
-            <AssignmentText
-              day={day}
-              displayDate={displayDate}
-              periods={periods}
-              assignment={assignment}
-              teachers={teachersForCurrentDay}
+            teachersForCurrentDay={teachersForCurrentDay}
               classes={classes}
               classAbsence={classAbsence}
-              absentPeople={absentPeopleForCurrentDay}
+            filteredClassAbsence={filteredClassAbsence}
+            absentPeopleForCurrentDay={absentPeopleForCurrentDay}
               commonLessons={commonLessons}
+            onExportJPG={exportJPG}
+            onPrint={() => window.print()}
+            IconComponent={Icon}
             />
-          </div>
         )}
       </main>
 
@@ -4455,6 +3687,7 @@ export default function App() {
         loadDutyTeachersFromExcel={loadDutyTeachersFromExcel}
         selectedTeacher={selectedTeacher}
         setSelectedTeacher={setSelectedTeacher}
+      blockedAbsentTeacherNames={blockedAbsentTeacherNames}
       />
 
       {/* Footer removed as per request */}
