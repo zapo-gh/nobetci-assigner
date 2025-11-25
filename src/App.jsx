@@ -1005,6 +1005,12 @@ export default function App() {
     setClassFree,
   ]);
 
+  const handleManualRefreshClick = useCallback(() => {
+    if (absenceRefreshState.isRefreshing) return;
+    setToolbarExpanded(false);
+    refreshAbsenceData();
+  }, [absenceRefreshState.isRefreshing, refreshAbsenceData, setToolbarExpanded]);
+
   // Nöbetçi öğretmenlerin boş saatlerini otomatik işaretle (referanslardan önce tanımlandı)
   const autoMarkDutyTeachersFree = useCallback(() => {
     if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return;
@@ -3500,7 +3506,7 @@ export default function App() {
             <div className="toolbar-group-content">
               <button
                 className="btn"
-                onClick={refreshAbsenceData}
+                onClick={handleManualRefreshClick}
                 disabled={absenceRefreshState.isRefreshing}
               >
                 <Icon name="refreshCw" size={16} />
