@@ -969,6 +969,17 @@ export default function App() {
     }
   }, [])
 
+  const forceReloadWithVersion = useCallback((targetVersion) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (targetVersion) {
+      url.searchParams.set('build', targetVersion);
+    } else {
+      url.searchParams.set('ts', Date.now().toString());
+    }
+    window.location.replace(url.toString());
+  }, []);
+
   useEffect(() => {
     if (!APP_ENV.isProduction) return undefined;
 
@@ -992,9 +1003,7 @@ export default function App() {
           versionMismatchHandledRef.current = true;
           addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
           setTimeout(() => {
-            if (typeof window !== 'undefined') {
-              window.location.reload();
-            }
+            forceReloadWithVersion(remoteVersion);
           }, 1200);
         }
       } catch (error) {
@@ -1016,7 +1025,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(intervalId);
     };
-  }, [addNotification]);
+  }, [addNotification, forceReloadWithVersion]);
 
   const refreshAbsenceData = useCallback(async () => {
     setAbsenceRefreshState((prev) => ({ ...prev, isRefreshing: true, error: null }));
