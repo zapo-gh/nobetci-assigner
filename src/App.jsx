@@ -997,14 +997,51 @@ export default function App() {
     }
   }, [])
 
-  const forceReloadWithVersion = useCallback((targetVersion) => {
+  const forceReloadWithVersion = useCallback(async (targetVersion) => {
     if (typeof window === 'undefined') return;
+
+    // Cache'i temizle (hard refresh için)
+    try {
+      // Service worker'ları kaldır
+      if (
+        typeof navigator !== 'undefined' &&
+        'serviceWorker' in navigator &&
+        navigator.serviceWorker?.getRegistrations
+      ) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          registrations.map((registration) =>
+            registration.unregister().catch(() => {})
+          )
+        );
+      }
+    } catch (err) {
+      logger.warn?.('Service worker cleanup failed:', err);
+    }
+
+    try {
+      // Cache'leri temizle
+      if (typeof caches !== 'undefined' && caches?.keys) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(
+          cacheKeys.map((cacheKey) =>
+            caches.delete(cacheKey).catch(() => false)
+          )
+        );
+      }
+    } catch (err) {
+      logger.warn?.('Cache cleanup failed:', err);
+    }
+
+    // Cache bypass için timestamp ekle ve hard refresh yap
     const url = new URL(window.location.href);
     if (targetVersion) {
       url.searchParams.set('build', targetVersion);
-    } else {
-      url.searchParams.set('ts', Date.now().toString());
     }
+    // Her zaman cache bypass için timestamp ekle
+    url.searchParams.set('_t', Date.now().toString());
+    
+    // location.replace ile cache bypass yaparak yenile
     window.location.replace(url.toString());
   }, []);
 
