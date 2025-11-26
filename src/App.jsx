@@ -615,6 +615,29 @@ export default function App() {
     return trimmed;
   }, [teacherMap, teacherNameLookup, absentIdToNameMap]);
 
+  const sanitizeCommonLessonsMap = useCallback((lessons = {}) => {
+    let changed = false;
+    const next = {};
+
+    Object.entries(lessons || {}).forEach(([dayKey, perMap]) => {
+      if (!perMap) return;
+      Object.entries(perMap).forEach(([periodKey, byClass]) => {
+        if (!byClass) return;
+        Object.entries(byClass).forEach(([classId, rawValue]) => {
+          const normalizedName = normalizeCommonLessonTeacherName(rawValue);
+          if (!next[dayKey]) next[dayKey] = {};
+          if (!next[dayKey][periodKey]) next[dayKey][periodKey] = {};
+          next[dayKey][periodKey][classId] = normalizedName;
+          if (normalizedName !== rawValue) {
+            changed = true;
+          }
+        });
+      });
+    });
+
+    return { map: next, changed };
+  }, [normalizeCommonLessonTeacherName]);
+
   const applySupabaseSnapshot = useCallback(
     (supabaseData, { persistLocal = true } = {}) => {
       if (!supabaseData || typeof supabaseData !== 'object') return;
@@ -695,29 +718,6 @@ export default function App() {
       setTeacherSchedulesHydrated,
     ],
   );
-
-  const sanitizeCommonLessonsMap = useCallback((lessons = {}) => {
-    let changed = false;
-    const next = {};
-
-    Object.entries(lessons || {}).forEach(([dayKey, perMap]) => {
-      if (!perMap) return;
-      Object.entries(perMap).forEach(([periodKey, byClass]) => {
-        if (!byClass) return;
-        Object.entries(byClass).forEach(([classId, rawValue]) => {
-          const normalizedName = normalizeCommonLessonTeacherName(rawValue);
-          if (!next[dayKey]) next[dayKey] = {};
-          if (!next[dayKey][periodKey]) next[dayKey][periodKey] = {};
-          next[dayKey][periodKey][classId] = normalizedName;
-          if (normalizedName !== rawValue) {
-            changed = true;
-          }
-        });
-      });
-    });
-
-    return { map: next, changed };
-  }, [normalizeCommonLessonTeacherName]);
 
   // Polling handler for absents
   const handlePollingAbsents = useCallback((data) => {
