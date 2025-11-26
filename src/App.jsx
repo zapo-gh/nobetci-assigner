@@ -1014,44 +1014,62 @@ export default function App() {
     const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     const checkForNewVersion = async () => {
+      // Sayfa yüklendiğinde, eğer sessionStorage'da lastReloaded varsa ve bu mevcut sürümle eşleşiyorsa, kontrolü atla
+      // Bu, sayfa yenilendiğinde döngüye girmeyi önler
+      const lastReloaded = getLastReloadedVersion();
+      if (lastReloaded === CURRENT_BUILD_VERSION) {
+        // Zaten bu sürüme yenilendi, tekrar kontrol etmeye gerek yok
+        return;
+      }
+
+      // Eğer ref zaten set edilmişse (aynı render cycle'da tekrar çağrılmışsa), atla
       if (versionMismatchHandledRef.current) return;
+      
       try {
         const response = await fetch(`${getAssetUrl('version.json')}?t=${Date.now()}`, {
           cache: 'no-store',
         });
-      if (!response.ok) return;
+        if (!response.ok) return;
+        
         const payload = await response.json();
         const remoteVersion = payload?.version;
+        
+        // Sürümler eşleşiyorsa, lastReloaded'ı temizle (artık gerek yok)
+        if (remoteVersion === CURRENT_BUILD_VERSION) {
+          persistReloadedVersion(null);
+          return;
+        }
+        
+        // Yeni sürüm varsa
         if (
           remoteVersion &&
           CURRENT_BUILD_VERSION &&
-          remoteVersion !== CURRENT_BUILD_VERSION &&
-          !versionMismatchHandledRef.current
+          remoteVersion !== CURRENT_BUILD_VERSION
         ) {
-        const lastReloaded = getLastReloadedVersion();
-        if (lastReloaded === remoteVersion) {
-          versionMismatchHandledRef.current = true;
-          addNotification(
-            'Yeni sürüm algılandı ancak tarayıcı önbelleği nedeniyle otomatik yenileme başarısız oldu. Lütfen sayfayı manuel olarak yenileyin.',
-            'warning',
-          );
-          return;
-        }
+          // Eğer bu sürüme zaten yenilendi ama hala eski sürüm görünüyorsa (cache sorunu)
+          if (lastReloaded === remoteVersion) {
+            versionMismatchHandledRef.current = true;
+            addNotification(
+              'Yeni sürüm algılandı ancak tarayıcı önbelleği nedeniyle otomatik yenileme başarısız oldu. Lütfen sayfayı manuel olarak yenileyin.',
+              'warning',
+            );
+            return;
+          }
 
-        versionMismatchHandledRef.current = true;
-        persistReloadedVersion(remoteVersion);
-        addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
-        setTimeout(() => {
-          forceReloadWithVersion(remoteVersion);
-        }, 1200);
-      } else if (remoteVersion === CURRENT_BUILD_VERSION) {
-        persistReloadedVersion(null);
+          // Yeni sürüm bulundu, yenile
+          versionMismatchHandledRef.current = true;
+          persistReloadedVersion(remoteVersion);
+          addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
+          setTimeout(() => {
+            forceReloadWithVersion(remoteVersion);
+          }, 1200);
         }
       } catch (error) {
         logger.warn('Version check failed:', error);
       }
     };
 
+    // Sayfa açılır açılmaz kontrol et
     checkForNewVersion();
 
     const handleVisibility = () => {
