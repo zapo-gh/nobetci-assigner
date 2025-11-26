@@ -42,7 +42,6 @@ import {
   bulkSaveClassFree,
   bulkSaveClassAbsence,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
-  loadAbsenceRelatedData,
 } from './services/supabaseDataService.js';
 import { smartPolling } from './services/smartPolling.js';
 import { useUI } from './hooks/useUI.js';
@@ -616,6 +615,87 @@ export default function App() {
     return trimmed;
   }, [teacherMap, teacherNameLookup, absentIdToNameMap]);
 
+  const applySupabaseSnapshot = useCallback(
+    (supabaseData, { persistLocal = true } = {}) => {
+      if (!supabaseData || typeof supabaseData !== 'object') return;
+
+      isPollingUpdateRef.current = true;
+      const releasePollingGuard = () => {
+        setTimeout(() => {
+          isPollingUpdateRef.current = false;
+        }, 150);
+      };
+
+      try {
+        const teacherFreeSets = arrayToSetMap(supabaseData.teacherFree || {});
+        const classFreeSets = migrateClassFree(supabaseData.classFree || {});
+        const classAbsenceMap = migrateClassAbsence(supabaseData.classAbsence || {});
+        const normalizedAbsents = normalizeAbsentPeople(
+          supabaseData.absents || [],
+          classAbsenceMap || {},
+        );
+        const { map: sanitizedCommonLessons } = sanitizeCommonLessonsMap(
+          supabaseData.commonLessons || {},
+        );
+
+        setTeachers(supabaseData.teachers || []);
+        setClasses(supabaseData.classes || []);
+        setTeacherFree(teacherFreeSets);
+        setClassFree(classFreeSets);
+        setClassAbsence(classAbsenceMap);
+        setAbsentPeople(normalizedAbsents);
+        setCommonLessons(sanitizedCommonLessons);
+        setLocked(supabaseData.locked || {});
+        setPdfSchedule(supabaseData.pdfSchedule || {});
+        setTeacherSchedules(supabaseData.teacherSchedules || {});
+        setTeacherSchedulesHydrated(true);
+
+        if (!DISABLE_LOCAL_STORAGE && persistLocal && typeof localStorage !== 'undefined') {
+          try {
+            const payload = {
+              day,
+              periods,
+              teachers: supabaseData.teachers || [],
+              classes: supabaseData.classes || [],
+              teacherFree: mapSetToArray(teacherFreeSets),
+              classFree: mapSetToArray(classFreeSets),
+              absentPeople: normalizedAbsents,
+              classAbsence: classAbsenceMap,
+              commonLessons: sanitizedCommonLessons,
+              options,
+              locked: supabaseData.locked || {},
+              pdfSchedule: supabaseData.pdfSchedule || {},
+              teacherSchedules: supabaseData.teacherSchedules || {},
+              lastSaved: Date.now(),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          } catch (storageError) {
+            logger.warn('LocalStorage update failed:', storageError);
+          }
+        }
+      } finally {
+        releasePollingGuard();
+      }
+    },
+    [
+      day,
+      periods,
+      options,
+      sanitizeCommonLessonsMap,
+      setTeachers,
+      setClasses,
+      setTeacherFree,
+      setClassFree,
+      setClassAbsence,
+      setAbsentPeople,
+      setCommonLessons,
+      setLocked,
+      setPdfSchedule,
+      setTeacherSchedules,
+      setTeacherSchedulesHydrated,
+    ],
+  );
+
   const sanitizeCommonLessonsMap = useCallback((lessons = {}) => {
     let changed = false;
     const next = {};
@@ -777,44 +857,7 @@ export default function App() {
           const supabaseData = await loadInitialData()
           if (!isMounted) return
 
-          // Supabase verilerini state'e yükle
-          setTeachers(supabaseData.teachers || [])
-          setClasses(supabaseData.classes || [])
-          setAbsentPeople(normalizeAbsentPeople(supabaseData.absents || [], supabaseData.classAbsence || {}))
-          setTeacherFree(arrayToSetMap(supabaseData.teacherFree || {}))
-          setClassFree(migrateClassFree(supabaseData.classFree || {}))
-          setClassAbsence(migrateClassAbsence(supabaseData.classAbsence || {}))
-          setLocked(supabaseData.locked || {})
-          setPdfSchedule(supabaseData.pdfSchedule || {})
-          setTeacherSchedules(supabaseData.teacherSchedules || {})
-          setTeacherSchedulesHydrated(true)
-          const { map: initialCommonLessons } = sanitizeCommonLessonsMap(supabaseData.commonLessons || {})
-          setCommonLessons(initialCommonLessons)
-
-          if (!DISABLE_LOCAL_STORAGE) {
-            // Supabase'den başarılı veri çekildi, localStorage'i güncelle
-            const localStoragePayload = {
-              day,
-              periods,
-              teachers: supabaseData.teachers || [],
-              classes: supabaseData.classes || [],
-              teacherFree: mapSetToArray(supabaseData.teacherFree || {}),
-              classFree: mapSetToArray(migrateClassFree(supabaseData.classFree || {})),
-              absentPeople: normalizeAbsentPeople(supabaseData.absents || [], supabaseData.classAbsence || {}),
-              classAbsence: migrateClassAbsence(supabaseData.classAbsence || {}),
-              commonLessons: supabaseData.commonLessons || {},
-              options,
-              locked: supabaseData.locked || {},
-              pdfSchedule: supabaseData.pdfSchedule || {},
-              teacherSchedules: supabaseData.teacherSchedules || {},
-              lastSaved: Date.now(),
-            }
-            try {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(localStoragePayload))
-            } catch (storageError) {
-              logger.warn('LocalStorage update failed:', storageError)
-            }
-          }
+          applySupabaseSnapshot(supabaseData)
 
           logger.info('Data loaded from Supabase successfully')
           if (isMounted) {
@@ -908,6 +951,7 @@ export default function App() {
     setPeriods,
     setOptions,
     sanitizeCommonLessonsMap,
+    applySupabaseSnapshot,
   ])
 
   // Otomatik kaydet (debounced)
@@ -1126,24 +1170,15 @@ export default function App() {
   const refreshAbsenceData = useCallback(async () => {
     setAbsenceRefreshState((prev) => ({ ...prev, isRefreshing: true, error: null }));
     try {
-      const {
-        absents,
-        classAbsence: absenceMap = {},
-        classFree: classFreeMap = {},
-        commonLessons: commonLessonRows = [],
-      } = await loadAbsenceRelatedData();
-
-      setClassFree(migrateClassFree(classFreeMap || {}));
-      setClassAbsence(migrateClassAbsence(absenceMap || {}));
-      setAbsentPeople(normalizeAbsentPeople(absents || [], absenceMap || {}));
-      handlePollingCommonLessons(commonLessonRows || []);
+      const snapshot = await loadInitialData();
+      applySupabaseSnapshot(snapshot);
 
       setAbsenceRefreshState({
         isRefreshing: false,
         lastRefreshedAt: new Date(),
         error: null,
       });
-      addNotification('Mazeret verileri Supabase ile yenilendi', 'success');
+      addNotification('Supabase verileri yeniden yüklendi', 'success');
     } catch (error) {
       logger.error('Manual absence refresh failed:', error);
       setAbsenceRefreshState((prev) => ({
@@ -1153,13 +1188,7 @@ export default function App() {
       }));
       addNotification(`Mazeret verileri yenilenemedi: ${error?.message || error}`, 'error');
     }
-  }, [
-    addNotification,
-    handlePollingCommonLessons,
-    setAbsentPeople,
-    setClassAbsence,
-    setClassFree,
-  ]);
+  }, [addNotification, applySupabaseSnapshot]);
 
   const handleManualRefreshClick = useCallback(() => {
     if (absenceRefreshState.isRefreshing) return;
