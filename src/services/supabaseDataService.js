@@ -388,10 +388,10 @@ export async function insertAbsent({ name, teacherId, reason, days }) {
       .from('absents')
       .insert(absentData)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) throw error
-    return data
+    return data || absentData
   } catch (error) {
     console.error('insertAbsent full error:', JSON.stringify(error, null, 2))
     throw error
@@ -795,13 +795,16 @@ export async function saveTeacherSchedules(teacherSchedules) {
       return
     }
 
+    await supabase
+      .from('teacher_schedules')
+      .delete()
+      .eq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY)
+
     const { error } = await supabase
       .from('teacher_schedules')
-      .upsert({
+      .insert({
         teacher_name: TEACHER_SCHEDULES_SNAPSHOT_KEY,
         schedule: teacherSchedules
-      }, {
-        onConflict: 'teacher_name'
       })
 
     if (error) throw error

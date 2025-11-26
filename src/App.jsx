@@ -1178,7 +1178,7 @@ export default function App() {
         lastRefreshedAt: new Date(),
         error: null,
       });
-      addNotification('Supabase verileri yeniden yüklendi', 'success');
+      addNotification('Veriler güncellendi', 'success');
     } catch (error) {
       logger.error('Manual absence refresh failed:', error);
       setAbsenceRefreshState((prev) => ({
@@ -1186,7 +1186,7 @@ export default function App() {
         isRefreshing: false,
         error: error?.message || 'Bilinmeyen hata',
       }));
-      addNotification(`Mazeret verileri yenilenemedi: ${error?.message || error}`, 'error');
+      addNotification(`Veriler yenilenemedi: ${error?.message || error}`, 'error');
     }
   }, [addNotification, applySupabaseSnapshot]);
 
@@ -3732,7 +3732,7 @@ export default function App() {
               >
                 <Icon name="refreshCw" size={16} />
                 <span className="btn-text">
-                  {absenceRefreshState.isRefreshing ? 'Yenileniyor...' : 'Mazeret Verilerini Yenile'}
+                  {absenceRefreshState.isRefreshing ? 'Yenileniyor...' : 'Verileri Güncelle'}
                 </span>
               </button>
               <small

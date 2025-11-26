@@ -870,20 +870,20 @@ a:hover {
 
 .toolbar-content {
   position: fixed;
-  top: 80px; /* Header menü butonunun altından başla */
-  left: 20px; /* Sol kenardan 20px boşluk */
+  top: 78px; /* Header menü butonunun altından başla */
+  left: 76px; /* Menü tuşu genişliği + boşluk */
   z-index: 1001;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  background: #111524;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
   transition: all 0.3s ease;
   overflow-y: auto;
   overflow-x: hidden;
   min-width: min(360px, calc(100vw - 40px));
   max-width: min(360px, calc(100vw - 40px));
   max-height: calc(100vh - 100px); /* Header yüksekliğini hesaba kat */
-  padding: 0;
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

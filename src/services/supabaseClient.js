@@ -17,7 +17,41 @@ if (typeof window !== 'undefined') {
   console.info('[Supabase] Using public key:', maskedKey)
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const noStoreFetch = async (input, init = {}) => {
+  const method = (init.method || 'GET').toUpperCase()
+  const shouldSendJson = method !== 'GET'
+  const headers = new Headers(init.headers || {})
+
+  headers.set('cache-control', 'no-store')
+  if (!headers.has('apikey')) {
+    headers.set('apikey', supabaseAnonKey)
+  }
+  if (!headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${supabaseAnonKey}`)
+  }
+  if (shouldSendJson && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  const nextInit = {
+    ...init,
+    method,
+    cache: 'no-store',
+    headers,
+  }
+  return fetch(input, nextInit)
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    fetch: noStoreFetch,
+    headers: {
+      apikey: supabaseAnonKey,
+      Authorization: `Bearer ${supabaseAnonKey}`,
+      'Content-Type': 'application/json',
+    },
+  },
+})
 
 export default supabase
 

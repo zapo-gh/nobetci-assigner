@@ -75,6 +75,10 @@ export class SmartPollingService {
             document.addEventListener('visibilitychange', () => {
                 this.isVisible = !document.hidden
 
+                if (!this.isActive) {
+                    return
+                }
+
                 if (this.isVisible) {
                     logger.info('[SmartPolling] Tab visible - resuming normal polling')
                     // Tab aktif olduğunda hemen bir poll yap
