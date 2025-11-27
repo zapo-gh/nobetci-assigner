@@ -795,19 +795,38 @@ export async function saveTeacherSchedules(teacherSchedules) {
       return
     }
 
-    await supabase
+    // Check if snapshot already exists
+    const { data: existing, error: fetchError } = await supabase
       .from('teacher_schedules')
-      .delete()
+      .select('teacher_name')
       .eq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY)
+      .maybeSingle()
 
-    const { error } = await supabase
-      .from('teacher_schedules')
-      .insert({
-        teacher_name: TEACHER_SCHEDULES_SNAPSHOT_KEY,
-        schedule: teacherSchedules
-      })
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError
+    }
 
-    if (error) throw error
+    if (existing) {
+      // Update existing record
+      const { error } = await supabase
+        .from('teacher_schedules')
+        .update({
+          schedule: teacherSchedules
+        })
+        .eq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY)
+
+      if (error) throw error
+    } else {
+      // Insert new record
+      const { error } = await supabase
+        .from('teacher_schedules')
+        .insert({
+          teacher_name: TEACHER_SCHEDULES_SNAPSHOT_KEY,
+          schedule: teacherSchedules
+        })
+
+      if (error) throw error
+    }
   } catch (error) {
     console.error('saveTeacherSchedules full error:', JSON.stringify(error, null, 2))
     throw error
