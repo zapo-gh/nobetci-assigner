@@ -17,8 +17,7 @@ const copyPdfWorker = () => {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ server: {
-    allowedHosts: ["2643e999-c2ce-4697-a0bc-33ab8ee19b2d-00-cas94j35ydb.sisko.replit.dev"] }) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const assetsBase = env.VITE_ASSETS_BASE_URL?.trim()
   const base = assetsBase ? (assetsBase.endsWith('/') ? assetsBase : `${assetsBase}/`) : '/'
