@@ -672,7 +672,14 @@ export default function App() {
         setCommonLessons(sanitizedCommonLessons);
         setLocked(supabaseData.locked || {});
         setPdfSchedule(supabaseData.pdfSchedule || {});
-        setTeacherSchedules(supabaseData.teacherSchedules || {});
+        
+        // Teacher schedules'i yükle - boş olsa bile Supabase'den geldiğini işaretle
+        const loadedTeacherSchedules = supabaseData.teacherSchedules || {}
+        console.log('[applySupabaseSnapshot] Setting teacher schedules:', {
+          count: Object.keys(loadedTeacherSchedules).length,
+          keys: Object.keys(loadedTeacherSchedules).slice(0, 5)
+        })
+        setTeacherSchedules(loadedTeacherSchedules);
         setTeacherSchedulesHydrated(true);
 
         if (!DISABLE_LOCAL_STORAGE && persistLocal && typeof localStorage !== 'undefined') {
@@ -858,6 +865,13 @@ export default function App() {
         try {
           const supabaseData = await loadInitialData()
           if (!isMounted) return
+
+          console.log('[App] Supabase data loaded:', {
+            teachers: supabaseData.teachers?.length || 0,
+            classes: supabaseData.classes?.length || 0,
+            teacherSchedules: Object.keys(supabaseData.teacherSchedules || {}).length,
+            hasTeacherSchedules: !!supabaseData.teacherSchedules && Object.keys(supabaseData.teacherSchedules).length > 0
+          })
 
           applySupabaseSnapshot(supabaseData)
 

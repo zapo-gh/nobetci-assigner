@@ -140,11 +140,17 @@ export async function loadInitialData() {
 
     if (snapshotRow && snapshotRow.schedule && typeof snapshotRow.schedule === 'object') {
       teacherSchedules = snapshotRow.schedule
+      console.log('[loadInitialData] Teacher schedules loaded from snapshot:', Object.keys(teacherSchedules).length, 'teachers')
     } else {
       teacherSchedulesRows.forEach(item => {
         if (!item?.teacher_name) return
         teacherSchedules[item.teacher_name] = item.schedule
       })
+      if (teacherSchedulesRows.length > 0) {
+        console.log('[loadInitialData] Teacher schedules loaded from individual rows:', Object.keys(teacherSchedules).length, 'teachers')
+      } else {
+        console.log('[loadInitialData] No teacher schedules found in database')
+      }
     }
 
     // Transform common lessons
