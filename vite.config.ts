@@ -36,6 +36,11 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['pdfjs-dist']
     },
+    preview: {
+      port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
+      host: true,
+      strictPort: false
+    },
     build: {
       rollupOptions: {
         external: [],

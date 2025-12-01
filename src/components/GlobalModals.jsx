@@ -27,6 +27,9 @@ export default function GlobalModals({
     excelReplaceModal,
     handleExcelReplaceCancel,
     handleExcelReplaceConfirm,
+    teacherScheduleReplaceModal,
+    handleTeacherScheduleReplaceCancel,
+    handleTeacherScheduleReplaceConfirm,
     pdfImportModal,
     setPdfImportModal,
     loadScheduleFromPDF,
@@ -115,6 +118,19 @@ export default function GlobalModals({
                 onConfirm={handleExcelReplaceConfirm}
                 title="Mevcut Nöbetçi Öğretmen Listesi"
                 message={`Mevcut ${excelReplaceModal.existingCount} nöbetçi öğretmen bulunuyor. Yeni Excel dosyası ile değiştirmek istediğinizden emin misiniz?\n\nMevcut öğretmenler silinecek ve yeni liste yüklenecek.`}
+                type="warning"
+                confirmText="Değiştir"
+                cancelText="İptal"
+                IconComponent={Icon}
+            />
+
+            {/* Teacher Schedule Replace Modal */}
+            <ConfirmationModal
+                isOpen={teacherScheduleReplaceModal.isOpen}
+                onClose={handleTeacherScheduleReplaceCancel}
+                onConfirm={handleTeacherScheduleReplaceConfirm}
+                title="Mevcut Ders Programı Değiştirilecek"
+                message={`Mevcut ${teacherScheduleReplaceModal.existingCount || 0} öğretmenin ders programı bulunuyor. Yeni Excel dosyası ile değiştirmek istediğinizden emin misiniz?\n\nMevcut ders programları silinecek ve yeni ders programları yüklenecek.`}
                 type="warning"
                 confirmText="Değiştir"
                 cancelText="İptal"

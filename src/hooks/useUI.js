@@ -31,6 +31,7 @@ export function useUI() {
 
     const [pdfImportModal, setPdfImportModal] = useState(false);
     const [excelReplaceModal, setExcelReplaceModal] = useState({ isOpen: false, data: null });
+    const [teacherScheduleReplaceModal, setTeacherScheduleReplaceModal] = useState({ isOpen: false, data: null });
     const [currentCommonLesson, setCurrentCommonLesson] = useState({ day: null, period: null, classId: null });
     const [selectedTeacher, setSelectedTeacher] = useState(null);
 
@@ -149,6 +150,8 @@ export function useUI() {
         setPdfImportModal,
         excelReplaceModal,
         setExcelReplaceModal,
+        teacherScheduleReplaceModal,
+        setTeacherScheduleReplaceModal,
         currentCommonLesson,
         setCurrentCommonLesson,
         selectedTeacher,

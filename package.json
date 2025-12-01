@@ -7,7 +7,8 @@
     "dev": "node scripts/with-version.mjs vite dev",
     "build": "node scripts/with-version.mjs vite build",
     "lint": "eslint .",
-    "preview": "node scripts/with-version.mjs vite preview"
+    "preview": "node scripts/with-version.mjs vite preview",
+    "start": "node server.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",

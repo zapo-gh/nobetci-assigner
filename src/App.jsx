@@ -38,6 +38,7 @@ import {
   upsertLock,
   replacePdfSchedule,
   saveTeacherSchedules,
+  clearTeacherSchedules,
   saveCommonLessons,
   bulkSaveClassFree,
   bulkSaveClassAbsence,
@@ -515,6 +516,7 @@ export default function App() {
     modals, setModals,
     pdfImportModal, setPdfImportModal,
     excelReplaceModal, setExcelReplaceModal,
+    teacherScheduleReplaceModal, setTeacherScheduleReplaceModal,
     currentCommonLesson, setCurrentCommonLesson,
     selectedTeacher, setSelectedTeacher,
     openTeacherSchedule,
@@ -1268,13 +1270,32 @@ export default function App() {
     async (event) => {
       const file = event?.target?.files?.[0];
       if (!file) return;
-      if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
-        addNotification("Önce mevcut ders programını silmelisiniz.", "warning");
-        if (event?.target) {
-          event.target.value = '';
+      
+      // Mevcut ders programı varsa onay modalı göster
+      const existingCount = teacherSchedules ? Object.keys(teacherSchedules).length : 0;
+      if (existingCount > 0) {
+        // Önce dosyayı parse et (hata kontrolü için)
+        try {
+          const schedules = await parseTeacherSchedulesFromExcel(file);
+          setTeacherScheduleReplaceModal({
+            isOpen: true,
+            data: { file, schedules },
+            existingCount
+          });
+          if (event?.target) {
+            event.target.value = '';
+          }
+        } catch (error) {
+          console.error('Excel parsing error:', error);
+          addNotification(`Dosya okuma hatası: ${error.message}`, 'error');
+          if (event?.target) {
+            event.target.value = '';
+          }
         }
         return;
       }
+      
+      // Mevcut veri yoksa direkt yükle
       try {
         console.log('Starting teacher schedule upload from Excel...');
         const schedules = await parseTeacherSchedulesFromExcel(file);
@@ -1294,7 +1315,7 @@ export default function App() {
         }
       }
     },
-    [teacherSchedules, setTeacherSchedules, setTeacherSchedulesHydrated, addNotification],
+    [teacherSchedules, setTeacherSchedules, setTeacherSchedulesHydrated, addNotification, setTeacherScheduleReplaceModal],
   );
 
   // Sekme açıldığında (sayfa görünür olduğunda) nöbetçi öğretmen işaretlemelerini güncelle
@@ -1684,6 +1705,41 @@ export default function App() {
     setExcelReplaceModal({ isOpen: false, data: null });
     addNotification("Excel yükleme iptal edildi", "info");
   }, [addNotification, setExcelReplaceModal]);
+
+  const handleTeacherScheduleReplaceConfirm = useCallback(async () => {
+    const { data, existingCount } = teacherScheduleReplaceModal;
+    setTeacherScheduleReplaceModal({ isOpen: false, data: null });
+    if (!data || !data.schedules) return;
+
+    try {
+      // Önce eski ders programlarını temizle
+      await clearTeacherSchedules();
+      
+      // Yeni ders programlarını kaydet
+      const schedules = data.schedules;
+      setTeacherSchedules(schedules);
+      setTeacherSchedulesHydrated(true);
+      await saveTeacherSchedules(schedules).catch((err) => {
+        logger.error('Teacher schedule Supabase save error:', err);
+        throw err;
+      });
+      
+      addNotification(
+        existingCount > 0
+          ? `Mevcut ders programları silindi, ${Object.keys(schedules).length} öğretmenin yeni ders programı yüklendi`
+          : `${Object.keys(schedules).length} öğretmenin ders programı yüklendi`,
+        'success'
+      );
+    } catch (error) {
+      logger.error('Ders programı değiştirme hatası:', error);
+      addNotification(`Ders programı yükleme hatası: ${error.message}`, 'error');
+    }
+  }, [teacherScheduleReplaceModal, setTeacherSchedules, setTeacherSchedulesHydrated, addNotification, logger, setTeacherScheduleReplaceModal]);
+
+  const handleTeacherScheduleReplaceCancel = useCallback(() => {
+    setTeacherScheduleReplaceModal({ isOpen: false, data: null });
+    addNotification("Ders programı yükleme iptal edildi", "info");
+  }, [addNotification, setTeacherScheduleReplaceModal]);
 
   const handleOptionChange = (name, value) => {
     setOptions(prev => ({ ...prev, [name]: value }));
@@ -3903,6 +3959,9 @@ export default function App() {
         excelReplaceModal={excelReplaceModal}
         handleExcelReplaceCancel={handleExcelReplaceCancel}
         handleExcelReplaceConfirm={handleExcelReplaceConfirm}
+        teacherScheduleReplaceModal={teacherScheduleReplaceModal}
+        handleTeacherScheduleReplaceCancel={handleTeacherScheduleReplaceCancel}
+        handleTeacherScheduleReplaceConfirm={handleTeacherScheduleReplaceConfirm}
         pdfImportModal={pdfImportModal}
         setPdfImportModal={setPdfImportModal}
         loadScheduleFromPDF={loadScheduleFromPDF}

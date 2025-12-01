@@ -3,7 +3,7 @@ services:
     name: nobetci-assigner
     runtime: node
     buildCommand: npm run build
-    startCommand: npm run preview
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
