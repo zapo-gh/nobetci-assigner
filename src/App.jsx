@@ -1734,7 +1734,7 @@ export default function App() {
       logger.error('Ders programı değiştirme hatası:', error);
       addNotification(`Ders programı yükleme hatası: ${error.message}`, 'error');
     }
-  }, [teacherScheduleReplaceModal, setTeacherSchedules, setTeacherSchedulesHydrated, addNotification, logger, setTeacherScheduleReplaceModal]);
+  }, [teacherScheduleReplaceModal, setTeacherSchedules, setTeacherSchedulesHydrated, addNotification, setTeacherScheduleReplaceModal]);
 
   const handleTeacherScheduleReplaceCancel = useCallback(() => {
     setTeacherScheduleReplaceModal({ isOpen: false, data: null });
