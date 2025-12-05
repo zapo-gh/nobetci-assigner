@@ -1,5 +1,6 @@
 /* global process */
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { PERIODS } from './constants/index.js';
 import html2canvas from "html2canvas";
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
