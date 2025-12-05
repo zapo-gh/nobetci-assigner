@@ -7,15 +7,18 @@ import { APP_ENV } from './config/index.js'
 import { TeachersProvider } from './contexts/TeachersContext.jsx'
 import { ClassesProvider } from './contexts/ClassesContext.jsx'
 import { AssignmentsProvider } from './contexts/AssignmentsContext.jsx'
+import ErrorBoundary from './components/ErrorBoundary.tsx'
 
 createRoot(document.getElementById('root')).render(
-  <TeachersProvider>
-    <ClassesProvider>
-      <AssignmentsProvider>
-        <App />
-      </AssignmentsProvider>
-    </ClassesProvider>
-  </TeachersProvider>
+  <ErrorBoundary>
+    <TeachersProvider>
+      <ClassesProvider>
+        <AssignmentsProvider>
+          <App />
+        </AssignmentsProvider>
+      </ClassesProvider>
+    </TeachersProvider>
+  </ErrorBoundary>
 )
 
 if ('serviceWorker' in navigator) {

@@ -69,22 +69,6 @@ import CommonLessonModal from "./components/CommonLessonModal.jsx";
 import AbsentsSection from "./components/AbsentsSection.jsx";
 import ConfirmationModal from "./components/ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./components/PdfScheduleImportModal.jsx";
-import TeacherScheduleModal from "./components/TeacherScheduleModal.jsx";
-import DutyTeacherExcelImportModal from "./components/DutyTeacherExcelImportModal.jsx";
-import GlobalModals from "./components/GlobalModals.jsx";
-import TeachersSection from "./components/TeachersSection.jsx";
-import ClassesSection from "./components/ClassesSection.jsx";
-import CourseScheduleSection from "./components/CourseScheduleSection.jsx";
-import ScheduleSection from "./components/ScheduleSection.jsx";
-import OutputsSection from "./components/OutputsSection.jsx";
-import Header from "./containers/Header.jsx";
-import Icon from "./components/Icon.jsx";
-import { DAYS, PERIODS, REAL_DAY_KEYS } from "./constants/index.js";
-
-// Sekme state'leri eksik, ekliyoruz
-//const [activeSection, setActiveSection] = useState("teachers");
-
-
 // Sekme state'leri eksik, ekliyoruz
 //const [activeSection, setActiveSection] = useState("teachers");
 

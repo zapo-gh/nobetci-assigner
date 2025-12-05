@@ -5,7 +5,7 @@ import styles from './Tabs.module.css';
 // App.jsx'te tanımlanan Icon bileşeni burada kullanılacak.
 // Bu nedenle, TabIcons nesnesi artık gerekli değil.
 
-export default function Tabs({ items, active, onChange, IconComponent }) {
+function Tabs({ items, active, onChange, IconComponent }) {
   // Aktif sekmenin genişliğini ve konumunu hesaplamak için ref
   const activeTabRef = React.useRef(null);
   const [indicatorStyle, setIndicatorStyle] = React.useState({});
@@ -102,3 +102,6 @@ export default function Tabs({ items, active, onChange, IconComponent }) {
     </nav>
   );
 }
+
+// 🚀 Performance: React.memo prevents re-renders when props haven't changed
+export default React.memo(Tabs);

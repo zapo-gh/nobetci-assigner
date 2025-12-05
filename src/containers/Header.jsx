@@ -3,7 +3,7 @@ import styles from '../components/Tabs.module.css';
 import Icon from '../components/Icon.jsx';
 import { DAYS } from '../constants/index.js';
 
-export default function Header({
+function Header({
   toolbarExpanded,
   toggleToolbar,
   theme,
@@ -155,3 +155,6 @@ export default function Header({
     </header>
   );
 }
+
+// 🚀 Performance: React.memo prevents re-renders when props haven't changed
+export default React.memo(Header);
