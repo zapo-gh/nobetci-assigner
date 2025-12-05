@@ -3662,22 +3662,9 @@ export default function App() {
             <h1 className="app-title" style={{ margin: '0' }}>Nöbetçi Öğretmen Görevlendirme</h1>
           </div>
 
-          {/* Sağ üst köşeye gün seçici ve tema butonu */}
+          {/* Sağ üst köşeye tema butonu ve gün seçici */}
           <div className="flex items-center gap-3">
-            {/* Gün Seçici */}
-            <div className="day-selector-header" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <div className="day-selector">
-                {DAYS.map(dayObj => (
-                  <button
-                    key={dayObj.key}
-                    className={`day-btn ${day === dayObj.key ? 'active' : ''}`}
-                    onClick={() => handleDayChange(dayObj.key)}
-                    title={dayObj.label}
-                  >
-                    {dayObj.short}
-                  </button>
-                ))}
-              </div>
+            <div className="day-selector-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
               {/* Tema Butonu */}
               <button
                 className={styles.themeToggleBtn}
@@ -3690,6 +3677,19 @@ export default function App() {
                   ? <Icon name="sun" size={18} />
                   : <Icon name="moon" size={18} />}
               </button>
+              {/* Gün Seçici */}
+              <div className="day-selector">
+                {DAYS.map(dayObj => (
+                  <button
+                    key={dayObj.key}
+                    className={`day-btn ${day === dayObj.key ? 'active' : ''}`}
+                    onClick={() => handleDayChange(dayObj.key)}
+                    title={dayObj.label}
+                  >
+                    {dayObj.short}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
