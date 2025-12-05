@@ -1,98 +1,68 @@
 import React from 'react';
 import styles from '../components/Tabs.module.css';
-
-const DAYS = [
-    { key: "Mon", label: "Pazartesi", short: "Pzt" },
-    { key: "Tue", label: "Salı", short: "Sal" },
-    { key: "Wed", label: "Çarşamba", short: "Çar" },
-    { key: "Thu", label: "Perşembe", short: "Per" },
-    { key: "Fri", label: "Cuma", short: "Cum" }
-];
-
-function Icon({ name, size = 20 }) {
-    const icons = {
-        sun: (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="5" />
-                <line x1="12" y1="1" x2="12" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" />
-                <line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-            </svg>
-        ),
-        moon: (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-        ),
-    };
-    return icons[name] || null;
-}
+import Icon from '../components/Icon.jsx';
+import { DAYS } from '../constants/index.js';
 
 export default function Header({
-    toolbarExpanded,
-    toggleToolbar,
-    theme,
-    toggleTheme,
-    day,
-    handleDayChange,
+  toolbarExpanded,
+  toggleToolbar,
+  theme,
+  toggleTheme,
+  day,
+  handleDayChange,
 }) {
-    return (
-        <header className="topbar">
-            <div className="flex justify-between items-center mb-4 w-full">
-                <div className="flex items-center gap-3">
-                    {/* Menü Toggle Butonu */}
-                    <button
-                        className="header-menu-toggle"
-                        onClick={toggleToolbar}
-                        title={toolbarExpanded ? "Menüyü Kapat" : "Menüyü Aç"}
-                    >
-                        <div className="menu-icon">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                    </button>
-                    <h1 className="app-title" style={{ margin: '0' }}>Nöbetçi Öğretmen Görevlendirme</h1>
-                </div>
-
-                {/* Sağ üst köşeye tema butonu ve gün seçici */}
-                <div className="flex items-center gap-3">
-                    <div className="day-selector-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
-                        {/* Tema Butonu */}
-                        <button
-                            className={styles.themeToggleBtn}
-                            style={{ flexShrink: 0 }}
-                            onClick={toggleTheme}
-                            title={theme === "dark" ? "Açık tema" : "Koyu tema"}
-                            aria-label={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
-                        >
-                            {theme === "dark"
-                                ? <Icon name="sun" size={18} />
-                                : <Icon name="moon" size={18} />}
-                        </button>
-                        {/* Gün Seçici */}
-                        <div className="day-selector">
-                            {DAYS.map(dayObj => (
-                                <button
-                                    key={dayObj.key}
-                                    className={`day-btn ${day === dayObj.key ? 'active' : ''}`}
-                                    onClick={() => handleDayChange(dayObj.key)}
-                                    title={dayObj.label}
-                                >
-                                    {dayObj.short}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+  return (
+    <header className="topbar">
+      <div className="flex justify-between items-center mb-4 w-full">
+        <div className="flex items-center gap-3">
+          {/* Menü Toggle Butonu */}
+          <button
+            className="header-menu-toggle"
+            onClick={toggleToolbar}
+            title={toolbarExpanded ? "Menüyü Kapat" : "Menüyü Aç"}
+          >
+            <div className="menu-icon">
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
+          </button>
+          <h1 className="app-title" style={{ margin: '0' }}>Nöbetçi Öğretmen Görevlendirme</h1>
+        </div>
 
-            <style>{`
+        {/* Sağ üst köşeye tema butonu ve gün seçici */}
+        <div className="flex items-center gap-3">
+          <div className="day-selector-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
+            {/* Tema Butonu */}
+            <button
+              className={styles.themeToggleBtn}
+              style={{ flexShrink: 0 }}
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Açık tema" : "Koyu tema"}
+              aria-label={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
+            >
+              {theme === "dark"
+                ? <Icon name="sun" size={18} />
+                : <Icon name="moon" size={18} />}
+            </button>
+            {/* Gün Seçici */}
+            <div className="day-selector">
+              {DAYS.map(dayObj => (
+                <button
+                  key={dayObj.key}
+                  className={`day-btn ${day === dayObj.key ? 'active' : ''}`}
+                  onClick={() => handleDayChange(dayObj.key)}
+                  title={dayObj.label}
+                >
+                  {dayObj.short}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
         .day-selector-header .day-selector {
           display: flex;
           gap: var(--space-1);
@@ -132,7 +102,7 @@ export default function Header({
           border: 1px solid var(--primary);
         }
       `}</style>
-            <style>{`
+      <style>{`
         @media (max-width: 768px) {
           .day-selector-header .day-selector {
             height: 36px;
@@ -153,7 +123,7 @@ export default function Header({
           }
         }
       `}</style>
-            <style>{`
+      <style>{`
         @media (max-width: 480px) {
           .day-selector-header {
             flex-direction: column;
@@ -182,6 +152,6 @@ export default function Header({
           }
         }
       `}</style>
-        </header>
-    );
+    </header>
+  );
 }
