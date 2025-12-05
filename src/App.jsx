@@ -3665,7 +3665,7 @@ export default function App() {
           {/* Sağ üst köşeye gün seçici ve tema butonu */}
           <div className="flex items-center gap-3">
             {/* Gün Seçici */}
-            <div className="day-selector-header">
+            <div className="day-selector-header" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <div className="day-selector">
                 {DAYS.map(dayObj => (
                   <button
@@ -3678,19 +3678,19 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              {/* Tema Butonu */}
+              <button
+                className={styles.themeToggleBtn}
+                style={{ flexShrink: 0 }}
+                onClick={toggleTheme}
+                title={theme === "dark" ? "Açık tema" : "Koyu tema"}
+                aria-label={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
+              >
+                {theme === "dark"
+                  ? <Icon name="sun" size={18} />
+                  : <Icon name="moon" size={18} />}
+              </button>
             </div>
-
-            {/* Tema Butonu */}
-            <button
-              className={styles.themeToggleBtn}
-              onClick={toggleTheme}
-              title={theme === "dark" ? "Açık tema" : "Koyu tema"}
-              aria-label={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
-            >
-              {theme === "dark"
-                ? <Icon name="sun" size={18} />
-                : <Icon name="moon" size={18} />}
-            </button>
           </div>
         </div>
 

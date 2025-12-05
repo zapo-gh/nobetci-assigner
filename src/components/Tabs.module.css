@@ -20,14 +20,17 @@
   min-width: 0;
   justify-content: stretch;
   position: relative;
-  gap: var(--space-1); /* Daha küçük gap başlangıçta */
+  gap: var(--space-1);
+  /* Daha küçük gap başlangıçta */
 }
 
 .tabItem {
   flex: 1 1 0;
-  min-width: 80px; /* Minimum tab genişliği */
+  min-width: 80px;
+  /* Minimum tab genişliği */
   max-width: 100%;
-  text-align: center; /* İçeriği ortala */
+  text-align: center;
+  /* İçeriği ortala */
   background: var(--tab-bg, var(--bg-elevated));
   border: 1px solid var(--border-default);
   padding: var(--space-3) var(--space-4);
@@ -86,13 +89,16 @@
 .tabIndicator {
   display: none;
 }
+
 .tabIcon {
   font-size: 1.1rem;
   line-height: 1;
 }
+
 .tabLabel {
   display: inline-block;
 }
+
 /* Responsive */
 @media (max-width: 1024px) {
   .tabsContainer {
@@ -208,14 +214,12 @@
     margin-top: var(--space-2);
   }
 
-  .tabsList {
-    gap: 4px;
-  }
-
   .tabItem {
-    min-width: 60px;
+    min-width: 50px;
     font-size: 0.8rem;
-    padding: 10px 8px;
+    padding: var(--space-1);
+    justify-content: center;
+    /* İkonları ortaya hizala */
   }
 
   .tabItem:hover {
@@ -229,7 +233,7 @@
   }
 
   .tabIcon {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
   }
 
   .tabLabel {
