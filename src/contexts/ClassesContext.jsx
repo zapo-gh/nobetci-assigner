@@ -1,8 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import {
-    insertClass,
-    deleteClass as deleteClassDB,
-} from '../services/supabaseDataService';
+import React, { createContext, useContext, useState } from 'react';
 
 const ClassesContext = createContext(null);
 
@@ -11,28 +7,6 @@ export function ClassesProvider({ children }) {
     const [classes, setClasses] = useState([]);
     const [classFree, setClassFree] = useState({});
     const [classAbsence, setClassAbsence] = useState({});
-
-    // Class Actions
-    const addClass = useCallback(async (data) => {
-        try {
-            const newClass = await insertClass(data);
-            setClasses((prev) => [...prev, newClass]);
-            return newClass;
-        } catch (error) {
-            console.error('Failed to add class:', error);
-            throw error;
-        }
-    }, []);
-
-    const deleteClass = useCallback(async (classId) => {
-        try {
-            await deleteClassDB(classId);
-            setClasses((prev) => prev.filter((c) => c.classId !== classId));
-        } catch (error) {
-            console.error('Failed to delete class:', error);
-            throw error;
-        }
-    }, []);
 
     const value = {
         // State
@@ -43,9 +17,6 @@ export function ClassesProvider({ children }) {
         setClasses,
         setClassFree,
         setClassAbsence,
-        // Actions
-        addClass,
-        deleteClass,
     };
 
     return <ClassesContext.Provider value={value}>{children}</ClassesContext.Provider>;

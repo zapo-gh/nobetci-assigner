@@ -4,9 +4,18 @@ import './index.css'
 import './styles.css'
 import App from './App.jsx'
 import { APP_ENV } from './config/index.js'
+import { TeachersProvider } from './contexts/TeachersContext.jsx'
+import { ClassesProvider } from './contexts/ClassesContext.jsx'
+import { AssignmentsProvider } from './contexts/AssignmentsContext.jsx'
 
 createRoot(document.getElementById('root')).render(
-  <App />
+  <TeachersProvider>
+    <ClassesProvider>
+      <AssignmentsProvider>
+        <App />
+      </AssignmentsProvider>
+    </ClassesProvider>
+  </TeachersProvider>
 )
 
 if ('serviceWorker' in navigator) {
@@ -15,10 +24,10 @@ if ('serviceWorker' in navigator) {
       .getRegistrations()
       .then((registrations) => {
         registrations.forEach((registration) => {
-          registration.unregister().catch(() => {})
+          registration.unregister().catch(() => { })
         })
       })
-      .catch(() => {})
+      .catch(() => { })
   } else if (APP_ENV.isProduction) {
     window.addEventListener('load', () => {
       const params = new URLSearchParams()
