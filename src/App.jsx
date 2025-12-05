@@ -3770,14 +3770,17 @@ export default function App() {
                 }
                 .day-selector-header .day-selector {
                   width: 100%;
-                  flex-wrap: wrap;
-                  gap: 4px;
+                  flex-wrap: nowrap;
+                  gap: 3px;
+                  height: auto;
+                  padding: 4px;
                 }
                 .day-selector-header .day-btn {
-                  flex: 1 0 calc(20% - 4px);
-                  min-width: auto;
-                  font-size: 0.68rem;
-                  height: 26px;
+                  flex: 1 1 0;
+                  min-width: 0;
+                  font-size: 0.7rem;
+                  height: 30px;
+                  padding: 4px 2px;
                 }
               }
             `}</style>

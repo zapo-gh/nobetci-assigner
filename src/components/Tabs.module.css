@@ -208,10 +208,14 @@
     margin-top: var(--space-2);
   }
 
+  .tabsList {
+    gap: 4px;
+  }
+
   .tabItem {
-    min-width: 50px;
+    min-width: 60px;
     font-size: 0.8rem;
-    padding: var(--space-1);
+    padding: 10px 8px;
   }
 
   .tabItem:hover {
@@ -225,7 +229,7 @@
   }
 
   .tabIcon {
-    font-size: 0.95rem;
+    font-size: 1.1rem;
   }
 
   .tabLabel {
