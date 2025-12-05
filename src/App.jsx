@@ -672,7 +672,7 @@ export default function App() {
         setCommonLessons(sanitizedCommonLessons);
         setLocked(supabaseData.locked || {});
         setPdfSchedule(supabaseData.pdfSchedule || {});
-        
+
         // Teacher schedules'i yükle - boş olsa bile Supabase'den geldiğini işaretle
         const loadedTeacherSchedules = supabaseData.teacherSchedules || {}
         console.log('[applySupabaseSnapshot] Setting teacher schedules:', {
@@ -981,49 +981,49 @@ export default function App() {
 
     // Debounce auto-save, especially for classAbsence
     autoSaveTimeoutRef.current = setTimeout(() => {
-    const shouldSkipSupabaseSync = skipNextSupabaseSaveRef.current
-    if (shouldSkipSupabaseSync) {
-      skipNextSupabaseSaveRef.current = false
-    }
+      const shouldSkipSupabaseSync = skipNextSupabaseSaveRef.current
+      if (shouldSkipSupabaseSync) {
+        skipNextSupabaseSaveRef.current = false
+      }
 
       // Skip Supabase sync if this is a polling update
       const shouldSkipDueToPolling = isPollingUpdateRef.current
 
-    const serializedTeacherFree = mapSetToArray(teacherFree)
-    const serializedClassFree = mapSetToArray(classFree)
+      const serializedTeacherFree = mapSetToArray(teacherFree)
+      const serializedClassFree = mapSetToArray(classFree)
 
-    if (!DISABLE_LOCAL_STORAGE) {
-      try {
-        const payload = {
-          day,
-          periods,
-          teachers,
-          classes,
-          teacherFree: serializedTeacherFree,
-          classFree: serializedClassFree,
-          absentPeople,
-          classAbsence,
-          commonLessons,
-          options,
-          lastSaved: Date.now(),
-          locked,
-          pdfSchedule,
-          teacherSchedules,
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      } catch (e) {
-        logger.warn("Otomatik kaydetme hatası:", e);
+      if (!DISABLE_LOCAL_STORAGE) {
+        try {
+          const payload = {
+            day,
+            periods,
+            teachers,
+            classes,
+            teacherFree: serializedTeacherFree,
+            classFree: serializedClassFree,
+            absentPeople,
+            classAbsence,
+            commonLessons,
+            options,
+            lastSaved: Date.now(),
+            locked,
+            pdfSchedule,
+            teacherSchedules,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (e) {
+          logger.warn("Otomatik kaydetme hatası:", e);
+        }
       }
-    }
 
       if (!shouldSkipSupabaseSync && !shouldSkipDueToPolling) {
-      if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
-        saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+        if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
+          saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
+        }
+        bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
+        bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
+        saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
       }
-      bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
-      bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
-      saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
-    }
     }, 1000); // 1 second debounce
 
     return () => {
@@ -1071,7 +1071,7 @@ export default function App() {
         const registrations = await navigator.serviceWorker.getRegistrations();
         await Promise.all(
           registrations.map((registration) =>
-            registration.unregister().catch(() => {})
+            registration.unregister().catch(() => { })
           )
         );
       }
@@ -1100,7 +1100,7 @@ export default function App() {
     }
     // Her zaman cache bypass için timestamp ekle
     url.searchParams.set('_t', Date.now().toString());
-    
+
     // location.replace ile cache bypass yaparak yenile
     window.location.replace(url.toString());
   }, []);
@@ -1121,22 +1121,22 @@ export default function App() {
 
       // Eğer ref zaten set edilmişse (aynı render cycle'da tekrar çağrılmışsa), atla
       if (versionMismatchHandledRef.current) return;
-      
+
       try {
         const response = await fetch(`${getAssetUrl('version.json')}?t=${Date.now()}`, {
           cache: 'no-store',
         });
         if (!response.ok) return;
-        
+
         const payload = await response.json();
         const remoteVersion = payload?.version;
-        
+
         // Sürümler eşleşiyorsa, lastReloaded'ı temizle (artık gerek yok)
         if (remoteVersion === CURRENT_BUILD_VERSION) {
           persistReloadedVersion(null);
           return;
         }
-        
+
         // Yeni sürüm varsa
         if (
           remoteVersion &&
@@ -1186,6 +1186,22 @@ export default function App() {
   const refreshAbsenceData = useCallback(async () => {
     setAbsenceRefreshState((prev) => ({ ...prev, isRefreshing: true, error: null }));
     try {
+      // 1. Service Worker cache'ini temizle
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames
+              .filter(name => name.startsWith('nobetci-assigner'))
+              .map(name => caches.delete(name))
+          );
+          logger.info('Service Worker cache temizlendi');
+        } catch (cacheError) {
+          logger.warn('Cache temizleme hatası:', cacheError);
+        }
+      }
+
+      // 2. Supabase'den en güncel verileri çek
       const snapshot = await loadInitialData();
       applySupabaseSnapshot(snapshot);
 
@@ -1275,7 +1291,7 @@ export default function App() {
 
     // requestAnimationFrame kullanarak hemen çalıştır (gecikme yok)
     const rafId = requestAnimationFrame(() => {
-        autoMarkDutyTeachersFree();
+      autoMarkDutyTeachersFree();
     });
     return () => cancelAnimationFrame(rafId);
   }, [day, teacherSchedules, pdfSchedule, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
@@ -1284,7 +1300,7 @@ export default function App() {
     async (event) => {
       const file = event?.target?.files?.[0];
       if (!file) return;
-      
+
       // Mevcut ders programı varsa onay modalı göster
       const existingCount = teacherSchedules ? Object.keys(teacherSchedules).length : 0;
       if (existingCount > 0) {
@@ -1308,7 +1324,7 @@ export default function App() {
         }
         return;
       }
-      
+
       // Mevcut veri yoksa direkt yükle
       try {
         console.log('Starting teacher schedule upload from Excel...');
@@ -1728,7 +1744,7 @@ export default function App() {
     try {
       // Önce eski ders programlarını temizle
       await clearTeacherSchedules();
-      
+
       // Yeni ders programlarını kaydet
       const schedules = data.schedules;
       setTeacherSchedules(schedules);
@@ -1737,7 +1753,7 @@ export default function App() {
         logger.error('Teacher schedule Supabase save error:', err);
         throw err;
       });
-      
+
       addNotification(
         existingCount > 0
           ? `Mevcut ders programları silindi, ${Object.keys(schedules).length} öğretmenin yeni ders programı yüklendi`
@@ -3718,7 +3734,7 @@ export default function App() {
                 border: 1px solid var(--primary);
               }
             `}</style>
-            <style>{`
+        <style>{`
               @media (max-width: 768px) {
                 .day-selector-header .day-selector {
                   height: 36px;
@@ -3739,7 +3755,7 @@ export default function App() {
                 }
               }
             `}</style>
-            <style>{`
+        <style>{`
               @media (max-width: 480px) {
                 .day-selector-header {
                   flex-direction: column;
@@ -3850,7 +3866,7 @@ export default function App() {
           <TeachersSection
             teachers={teachers}
             teachersForCurrentDay={teachersForCurrentDay}
-              periods={periods}
+            periods={periods}
             teacherFree={teacherFree}
             onToggleTeacherFree={toggleTeacherFree}
             onToggleAllTeachersFree={setAllTeachersFree}
@@ -3860,8 +3876,8 @@ export default function App() {
             onOpenAddTeacherModal={() => setModals((m) => ({ ...m, teacher: true }))}
             onDeletePdfTeachers={deleteAllPdfTeachers}
             onDeleteAllTeachers={deleteAllTeachers}
-              IconComponent={Icon}
-            />
+            IconComponent={Icon}
+          />
         )}
 
         {activeSection === "courseSchedule" && (
@@ -3871,7 +3887,7 @@ export default function App() {
             teacherSchedulesList={teacherSchedulesList}
             onDeleteAllSchedules={deleteAllTeacherSchedules}
             onOpenTeacherSchedule={openTeacherSchedule}
-                  IconComponent={Icon}
+            IconComponent={Icon}
           />
         )}
 
@@ -3879,24 +3895,24 @@ export default function App() {
           <ClassesSection
             classes={classes}
             classesForCurrentDay={classesForCurrentDay}
-              periods={periods}
+            periods={periods}
             classFreeForCurrentDay={classFreeForCurrentDay}
             absentPeopleForCurrentDay={absentPeopleForCurrentDay}
             filteredClassAbsence={filteredClassAbsence}
             commonLessons={commonLessons}
             day={day}
-              onToggleClassFree={toggleClassFree}
-              onSetAllClassesFree={setAllClassesFree}
-              onSelectAbsence={handleSelectAbsence}
+            onToggleClassFree={toggleClassFree}
+            onSetAllClassesFree={setAllClassesFree}
+            onSelectAbsence={handleSelectAbsence}
             onOpenCommonLessonModal={(slotDay, period, classId) =>
               handleOpenCommonLessonModal(slotDay, period, classId)
             }
             onDeleteClass={deleteClass}
-              teachers={teachers}
+            teachers={teachers}
             onAddClass={() => setModals((m) => ({ ...m, class: true }))}
             onDeleteAllClasses={deleteAllClasses}
             IconComponent={Icon}
-            />
+          />
         )}
 
         {activeSection === "absents" && (
@@ -3906,20 +3922,20 @@ export default function App() {
             onAddAbsent={() => setModals((m) => ({ ...m, absent: true }))}
             onDeleteAbsent={deleteAbsent}
             onDeleteAllAbsents={deleteAllAbsents}
-              IconComponent={Icon}
-            />
+            IconComponent={Icon}
+          />
         )}
 
         {activeSection === "schedule" && (
           <ScheduleSection
-              day={day}
-              periods={periods}
+            day={day}
+            periods={periods}
             classesForCurrentDay={classesForCurrentDay}
             teachersForCurrentDay={teachersForCurrentDay}
             freeTeachersByDay={freeTeachersByDay}
             freeClassesByDay={freeClassesByDay}
-              assignment={assignment}
-              locked={locked}
+            assignment={assignment}
+            locked={locked}
             options={options}
             assignmentInsights={assignmentInsights}
             unassignedForSelectedDay={unassignedForSelectedDay}
@@ -3928,29 +3944,29 @@ export default function App() {
             IconComponent={Icon}
             onOptionChange={handleOptionChange}
             onSetAllTeachersMaxDuty={setAllTeachersMaxDuty}
-              onDropAssign={dropAssign}
-              onManualAssign={handleManualAssign}
-              onManualClear={handleManualClear}
-              onManualRelease={handleManualRelease}
+            onDropAssign={dropAssign}
+            onManualAssign={handleManualAssign}
+            onManualClear={handleManualClear}
+            onManualRelease={handleManualRelease}
           />
         )}
 
         {activeSection === "outputs" && (
           <OutputsSection
-              day={day}
-              displayDate={displayDate}
-              periods={periods}
-              assignment={assignment}
+            day={day}
+            displayDate={displayDate}
+            periods={periods}
+            assignment={assignment}
             teachersForCurrentDay={teachersForCurrentDay}
-              classes={classes}
-              classAbsence={classAbsence}
+            classes={classes}
+            classAbsence={classAbsence}
             filteredClassAbsence={filteredClassAbsence}
             absentPeopleForCurrentDay={absentPeopleForCurrentDay}
-              commonLessons={commonLessons}
+            commonLessons={commonLessons}
             onExportJPG={exportJPG}
             onPrint={() => window.print()}
             IconComponent={Icon}
-            />
+          />
         )}
       </main>
 
@@ -3987,7 +4003,7 @@ export default function App() {
         loadDutyTeachersFromExcel={loadDutyTeachersFromExcel}
         selectedTeacher={selectedTeacher}
         setSelectedTeacher={setSelectedTeacher}
-      blockedAbsentTeacherNames={blockedAbsentTeacherNames}
+        blockedAbsentTeacherNames={blockedAbsentTeacherNames}
       />
 
       {/* Footer removed as per request */}

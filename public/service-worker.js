@@ -55,6 +55,17 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(request.url);
+  
+  // Supabase API isteklerini bypass et - her zaman network'ten çek
+  const isSupabaseRequest = url.hostname.includes('supabase.co') || 
+                            url.hostname.includes('supabase.io');
+  
+  if (isSupabaseRequest) {
+    // Supabase istekleri için cache kullanma, direkt network'e git
+    event.respondWith(fetch(request));
+    return;
+  }
+  
   const isAsset = url.pathname.startsWith('/assets/');
   const isStatic = APP_SHELL.some(entry => {
     const entryUrl = resolveAssetUrl(entry);
