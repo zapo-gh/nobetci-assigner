@@ -1,0 +1,2119 @@
+/* ==================== MODERN TASARIM SİSTEMİ ==================== */
+/* Değişkenler, açık ve koyu tema desteği ile birlikte burada tanımlanmıştır. */
+
+:root {
+  /* Font Ailesi */
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  
+  /* Font Ağırlıkları */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Köşe Yuvarlaklığı (Border Radius) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Boşluk (Spacing) Birimleri */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Geçişler (Transitions) */
+  --transition-fast: 150ms;
+  --transition-default: 200ms;
+  --transition-slow: 300ms;
+
+  /* Z-Index */
+  --z-header: 10;
+  --z-modal: 100;
+  --z-notification: 110;
+}
+
+/* ==================== AÇIK TEMA (LIGHT THEME) ==================== */
+:root[data-theme='light'] {
+  --bg-default: #e1ecf5;         /* Ana arka plan - belirgin mavi pastel */
+  --bg-secondary: #c8ddec;       /* İkincil arka plan - pastel mavi */
+  --bg-elevated: #ecf3f8;       /* Kartlar, modallar - açık mavi pastel */
+  --bg-hover: #d4e4f0;          /* Üzerine gelinen öğeler - mavi pastel */
+  --bg-subtle: #d0e1ed;          /* Hafif vurgulu arka planlar - pastel mavi */
+
+  --text-primary: #212529;       /* Ana metin rengi */
+  --text-secondary: #495057;     /* İkincil, daha az önemli metinler */
+  --text-muted: #616970;         /* En az önemli, ipucu metinleri */
+  --text-on-primary: #ffffff;    /* Ana renk üzerindeki metinler */
+
+  --border-default: #a8b8c8;     /* Varsayılan kenarlıklar - daha koyu */
+  --border-subtle: #b0c0d0;      /* Daha az belirgin kenarlıklar - daha koyu */
+  --border-focus: #80bdff;      /* Odaklanılan öğe kenarlığı */
+  
+  --tab-bg: #fff5e8;            /* Sekme arka plan - açık pastel sarı/turuncu */
+  --tab-bg-hover: #ffe8d1;      /* Sekme hover - pastel turuncu */
+  --tab-bg-active: #ffd4a3;     /* Aktif sekme - belirgin pastel turuncu */
+  --tab-text-active: #8b4513;   /* Aktif sekme metin rengi - koyu kahverengi */
+
+  --primary: #5a6c7d;            /* Ana marka rengi */
+  --primary-rgb: 90, 108, 125;
+  --primary-hover: #4a5a6a;
+  --primary-active: #3a4a5a;
+
+  --secondary: #6c757d;
+  --secondary-rgb: 108, 117, 125;
+
+  --success: #28a745;
+  --success-rgb: 40, 167, 69;
+  --warning: #ffc107;
+  --warning-rgb: 255, 193, 7;
+  --error: #dc3545;
+  --error-rgb: 220, 53, 69;
+  --error-bg: #f8d7da;
+  --info: #6c757d;
+  --info-rgb: 108, 117, 125;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== KOYU TEMA (DARK THEME) ==================== */
+:root[data-theme='dark'] {
+  --bg-default: #121212;
+  --bg-secondary: #1e1e1e;      /* İkincil arka plan (dropdown'lar için) */
+  --bg-elevated: #1e1e1e;
+  --bg-hover: #2a2a2a;
+  --bg-subtle: #242424;
+
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --text-muted: #a9b2c1;
+  --text-on-primary: #ffffff;
+
+  --border-default: #3a3a3a;
+  --border-subtle: #2a2a2a;
+  --border-focus: #589dff;
+
+  --primary: #5a6c7d;
+  --primary-rgb: 90, 108, 125;
+  --primary-hover: #4a5a6a;
+  --primary-active: #3a4a5a;
+
+  --secondary: #868e96;
+  --secondary-rgb: 134, 142, 150;
+
+  --success: #40c057;
+  --success-rgb: 64, 192, 87;
+  --warning: #fcc419;
+  --warning-rgb: 252, 196, 25;
+  --error: #ff6b6b;
+  --error-rgb: 255, 107, 107;
+  --error-bg: #2d1b1e;
+  --info: #6c757d;
+  --info-rgb: 108, 117, 125;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== GLOBAL STİLLER ==================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  font-size: 16px;
+  overflow-x: hidden; /* Yatay kaydırmayı tamamen engelle */
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  background-color: var(--bg-default) !important;
+  color: var(--text-primary);
+  transition: background-color var(--transition-default), color var(--transition-default);
+  display: flex; /* Flexbox kullanarak dikey hizalamayı kontrol et */
+  flex-direction: column; /* İçeriği dikeyde sırala */
+  min-height: 100vh; /* Body'nin tüm viewport yüksekliğini kaplamasını sağla */
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ==================== GENEL AMAÇLI YARDIMCI SINIFLAR ==================== */
+/* Bu sınıflar, App.jsx ve diğer bileşenlerdeki inline stilleri azaltmak için kullanılabilir. */
+
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.flex-col { flex-direction: column; }
+.w-full { width: 100%; }
+.min-w-24 { min-width: 6rem; } /* 96px */
+.rounded { border-radius: var(--radius-md); }
+.rounded-full { border-radius: var(--radius-full); }
+.bg-tertiary { background-color: var(--bg-subtle); } /* Örnek, temanıza göre ayarlayın */
+.h-1_5 { height: 0.375rem; } /* 6px */
+.transition-all { transition: all var(--transition-default) ease; }
+.duration-300 { transition-duration: 300ms; }
+.hover\:scale-110:hover { transform: scale(1.1); }
+.hover\:bg-secondary:hover { background-color: var(--bg-hover); }
+
+.draggable-teacher {
+  cursor: grab;
+}
+
+.draggable-teacher:active {
+  cursor: grabbing;
+}
+
+.empty-state {
+  margin-top: var(--space-4);
+  padding: var(--space-6);
+  width: 100%;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-subtle);
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-state h3 {
+  color: var(--text-primary);
+}
+
+.empty-state p {
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+.import-history-card {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.import-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.import-history-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.import-history-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.import-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.import-history-item {
+  border: 1px solid var(--border-subtle);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background-color: var(--bg-default);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.import-history-item.status-success {
+  border-left-color: var(--success);
+}
+
+.import-history-item.status-warning {
+  border-left-color: var(--warning);
+}
+
+.import-history-item.status-error {
+  border-left-color: var(--error);
+}
+
+.import-history-item.status-info {
+  border-left-color: var(--primary);
+}
+
+.import-history-item-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.import-history-type {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.import-history-status {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.import-history-item.status-success .import-history-status {
+  color: var(--success);
+}
+
+.import-history-item.status-warning .import-history-status {
+  color: var(--warning);
+}
+
+.import-history-item.status-error .import-history-status {
+  color: var(--error);
+}
+
+.import-history-item.status-info .import-history-status {
+  color: var(--primary);
+}
+
+.import-history-file {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.import-history-file .file-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.import-history-file .file-size {
+  opacity: 0.8;
+}
+
+.import-history-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.import-history-stat {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: var(--bg-subtle);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.import-history-stat .label {
+  opacity: 0.7;
+}
+
+.import-history-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--warning);
+}
+
+.snapshot-manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.snapshot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.snapshot-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.snapshot-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.snapshot-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background-color: var(--bg-default);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.snapshot-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.snapshot-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.snapshot-item-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-item-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.snapshot-item-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.snapshot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.snapshot-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.assignment-insights {
+  margin-top: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.assignment-insights-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.assignment-insights-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-2);
+}
+
+.coverage-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  background-color: var(--bg-default);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coverage-period {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.coverage-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.coverage-locked {
+  color: var(--warning);
+}
+
+.coverage-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.coverage-bar-fill {
+  height: 100%;
+  background-color: var(--primary);
+  transition: width var(--transition-default);
+}
+
+.coverage-percent {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.coverage-remaining {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.coverage-remaining ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
+
+.coverage-remaining li {
+  margin: 1px 0;
+}
+
+.teacher-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-2);
+}
+
+.teacher-insight-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-default);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.teacher-insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.teacher-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.teacher-assignment-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.teacher-assignment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.assignment-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.teacher-reasons {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.teacher-reasons ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.teacher-reasons li {
+  margin: 2px 0;
+}
+
+.empty-icon-modern {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+
+/* ==================== BUTON STİLLERİ ==================== */
+
+.btn, .btn-secondary, .btn-tertiary, .btn-danger, .btn-success, .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-family-sans);
+  font-weight: var(--font-weight-medium);
+  font-size: 0.9rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn:disabled, .btn-secondary:disabled, .btn-tertiary:disabled, .btn-danger:disabled, .btn-success:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn {
+  background-color: var(--primary);
+  color: var(--text-on-primary);
+  border-color: var(--primary);
+}
+.btn:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+.btn:active:not(:disabled) {
+  background-color: var(--primary-active);
+  border-color: var(--primary-active);
+}
+
+.btn-secondary {
+  background-color: var(--secondary);
+  color: var(--text-on-primary);
+  border-color: var(--secondary);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--secondary) 90%, black);
+}
+
+/* Tertiary Butonlar - CSV yükleme gibi az kullanılan işlemler */
+.btn-tertiary {
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+.btn-tertiary:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.btn-danger {
+  background-color: var(--error);
+  color: var(--text-on-primary);
+  border-color: var(--error);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--error) 90%, black);
+}
+
+.btn-success {
+  background-color: var(--success);
+  color: var(--text-on-primary);
+  border-color: var(--success);
+}
+.btn-success:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--success) 90%, black);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  font-size: 0.75rem;
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+}
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+/* Ghost Butonlar - Minimal işlemler (kapatma, iptal) */
+.btn-ghost {
+  background-color: transparent;
+  color: var(--text-muted);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toolbar-spacer {
+  flex-grow: 1;
+}
+
+.btn-sm {
+  font-size: 0.8rem;
+  padding: var(--space-1) var(--space-2);
+  min-height: 32px;
+  min-width: 32px;
+}
+
+/* ==================== TABLO STİLLERİ ==================== */
+
+.table-container {
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-elevated);
+}
+
+.scrollX {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tbl th, .tbl td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+  white-space: normal; /* İçeriğin yeni satıra geçmesine izin ver */
+}
+
+.tbl thead th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  background-color: var(--bg-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tbl tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.tbl .sticky-col {
+  position: sticky;
+  left: 0;
+  background-color: var(--bg-elevated);
+  z-index: 2;
+}
+.tbl thead .sticky-col {
+  z-index: 3;
+  background-color: var(--bg-subtle);
+}
+
+/* ==================== DİĞER BİLEŞENLER ==================== */
+
+.badge {
+  display: inline-block;
+  padding: 0.25em 0.6em;
+  font-size: 75%;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: var(--radius-full);
+}
+
+.badge-info {
+  color: #fff;
+  background-color: var(--info);
+}
+
+.badge-error {
+  color: #fff;
+  background-color: var(--error);
+}
+
+.badge-success {
+  color: #fff;
+  background-color: var(--success);
+}
+
+.badge-warning {
+  color: #fff;
+  background-color: var(--warning);
+}
+
+.badge-muted {
+  color: #fff;
+  background-color: var(--secondary);
+}
+
+.wrap {
+  width: 100vw;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-6);
+  flex-grow: 1;
+  overflow-x: hidden; /* İçeriğin taşmasını engelle */
+}
+
+.topbar {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: var(--space-4);
+}
+
+.app-title {
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.toolbar {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: var(--space-4);
+  max-width: 60px; /* Collapsed durumda sadece toggle butonu */
+}
+
+.toolbar-content {
+  position: fixed;
+  top: 78px; /* Header menü butonunun altından başla */
+  left: 76px; /* Menü tuşu genişliği + boşluk */
+  z-index: 1001;
+  background: #111524;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+  transition: all 0.3s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: min(360px, calc(100vw - 40px));
+  max-width: min(360px, calc(100vw - 40px));
+  max-height: calc(100vh - 100px); /* Header yüksekliğini hesaba kat */
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.toolbar-content.collapsed {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-20px);
+  pointer-events: none;
+}
+
+.toolbar-content.expanded {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Modern Hamburger Menu Icon */
+.header-menu-toggle {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+}
+
+.header-menu-toggle:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.4);
+}
+
+.menu-icon {
+  width: 20px;
+  height: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.menu-icon span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: white;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+/* Hamburger to X animation when menu is open */
+.toolbarExpanded .menu-icon span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.toolbarExpanded .menu-icon span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.toolbarExpanded .menu-icon span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.toolbar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  margin-right: 0;
+  margin-bottom: var(--space-3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  transition: all 0.3s ease;
+  overflow: visible;
+  cursor: default;
+  padding: var(--space-2);
+  width: 100%;
+}
+
+.toolbar-group:last-child {
+  margin-bottom: 0;
+}
+
+
+
+.toolbar-group-header {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+.toolbar-group-header h3 {
+  margin: 0 0 var(--space-1) 0;
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.toolbar-group-header p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.toolbar-group-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.toolbar-group-content .btn-tertiary,
+.toolbar-group-content .btn-danger,
+.toolbar-group-content .btn-ghost {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.85rem;
+  padding: var(--space-2) var(--space-3);
+}
+
+.toolbar-group-content .snapshot-select {
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.toolbar-group-danger {
+  border-bottom-color: var(--error);
+}
+
+
+.toolbar-group-danger .toolbar-group-header {
+  border-bottom-color: rgba(var(--error-rgb), 0.2);
+}
+
+/* Outputs section - Tam genişlik */
+#panel-outputs {
+  width: 100%;
+  max-width: none;
+}
+
+.print-wrap {
+  width: 100%;
+  max-width: none;
+}
+
+.assign-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* No-print toolbar - JPG indir ve yazdır butonları */
+.toolbar.no-print {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+}
+
+.toolbar.no-print .btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9rem;
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.toolbar.no-print .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Section Toolbar - Tabloların üstündeki butonlar */
+.section-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Footer */
+.app-footer {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-4) 0;
+  margin-top: var(--space-6);
+  text-align: center;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.footer-content p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.snapshot-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.snapshot-select {
+  font-family: var(--font-family-sans);
+  font-size: 0.9rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* Mobil uyumlu toolbar */
+@media (max-width: 1024px) {
+  .toolbar {
+    gap: var(--space-2);
+  }
+
+  .toolbar-group {
+    gap: var(--space-1);
+    flex-wrap: nowrap;
+  }
+
+  /* Menü kartları mobilde alt alta */
+  .toolbar-content {
+    flex-direction: column !important;
+    min-width: 300px !important;
+    max-width: 350px !important;
+    gap: var(--space-2) !important;
+  }
+
+  .toolbar-group {
+    flex: none !important;
+    min-width: auto !important;
+    padding: var(--space-2) !important;
+  }
+
+  .btn {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.85rem;
+  }
+
+  .btn-text {
+    display: none;
+  }
+
+  /* Yeni ekleme butonları için ikonları göster */
+  .btn-secondary .btn-text {
+    display: none;
+  }
+  
+  .btn-secondary {
+    min-width: 40px;
+    justify-content: center;
+  }
+
+  /* + işareti için özel stil - daha güçlü selector */
+  .btn-secondary > span:first-child,
+  .btn-secondary span[style*="marginRight"],
+  .btn-secondary span[style*="fontWeight"] {
+    display: inline !important;
+    margin-right: 4px !important;
+    font-weight: bold !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+
+  /* İkonlar için de güçlü selector */
+  .btn-secondary svg,
+  .btn-secondary [data-icon] {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* + işareti için en güçlü selector - mobilde kesin görünsün */
+  button.btn-secondary span:first-of-type,
+  button.btn-secondary > span[style*="marginRight"],
+  button.btn-secondary > span[style*="fontWeight"] {
+    display: inline !important;
+    margin-right: 4px !important;
+    font-weight: bold !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .snapshot-select {
+    font-size: 0.75rem !important;
+    padding: var(--space-1) !important;
+    min-width: 40px !important;
+    max-width: 120px !important;
+    height: 36px !important;
+  }
+
+  .snapshot-select option {
+    font-size: 0.75rem !important;
+    padding: var(--space-1) !important;
+  }
+
+  .btn, .btn-secondary, .btn-tertiary, .btn-danger, .btn-success, .btn-ghost {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.85rem;
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* Ana header toolbar'ı için özel ayar - yatay tut */
+  header .toolbar {
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: var(--space-3) !important;
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    gap: var(--space-1);
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .toolbar-group {
+    justify-content: center;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+  }
+
+  /* Daha küçük ekranlarda menü kartları */
+  .toolbar-content {
+    min-width: 280px !important;
+    max-width: 320px !important;
+    gap: var(--space-1) !important;
+  }
+
+  .toolbar-group {
+    padding: var(--space-1) !important;
+  }
+
+  .toolbar-group-header h3 {
+    font-size: 1rem !important;
+  }
+
+  .toolbar-group-header p {
+    font-size: 0.8rem !important;
+  }
+
+  .btn, .btn-secondary, .btn-tertiary, .btn-danger, .btn-success, .btn-ghost {
+    padding: var(--space-1) var(--space-2);
+    min-height: 36px;
+    font-size: 0.8rem;
+    min-width: 36px;
+  }
+
+  /* Yeni ekleme butonları için ikonları göster */
+  .btn-secondary {
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  /* + işareti için özel stil - daha güçlü selector */
+  .btn-secondary > span:first-child,
+  .btn-secondary span[style*="marginRight"],
+  .btn-secondary span[style*="fontWeight"] {
+    display: inline !important;
+    margin-right: 4px !important;
+    font-weight: bold !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+
+  /* İkonlar için de güçlü selector */
+  .btn-secondary svg,
+  .btn-secondary [data-icon] {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* + işareti için en güçlü selector - mobilde kesin görünsün */
+  button.btn-secondary span:first-of-type,
+  button.btn-secondary > span[style*="marginRight"],
+  button.btn-secondary > span[style*="fontWeight"] {
+    display: inline !important;
+    margin-right: 4px !important;
+    font-weight: bold !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .snapshot-select {
+    font-size: 0.7rem !important;
+    padding: 6px 4px 6px 28px !important; /* Sol padding artırıldı */
+    min-height: 32px !important;
+    min-width: 32px !important; /* Minimum genişlik artırıldı */
+    max-width: 32px !important; /* Mobil cihazlarda sadece ikon görünsün */
+    height: 32px !important;
+    text-indent: -24px !important; /* Metni sola kaydırarak gizle */
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%234dabf7" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><polyline points="8,5 8,3 16,3 16,5"/><line x1="1" y1="10" x2="23" y2="10"/></svg>') !important; /* Folder ikonu - primary renkte */
+    background-repeat: no-repeat !important;
+    background-position: 6px center !important; /* İkon pozisyonu */
+    background-size: 16px !important;
+    -webkit-appearance: none !important; /* Tarayıcı varsayılan görünümünü kaldır */
+    -moz-appearance: none !important;
+    appearance: none !important;
+  }
+
+  .snapshot-select option {
+    font-size: 0.7rem !important;
+    padding: 4px 8px !important;
+    min-height: 20px !important;
+  }
+
+  /* Tema butonu için mobil ayarlar zaten Tabs.module.css'te var */
+
+  /* App title mobil ayarları */
+  .app-title {
+    font-size: 1.5rem;
+  }
+
+  /* İçerik alanlarındaki toolbar'lar için özel ayarlar */
+  main .toolbar {
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: var(--space-2) !important;
+    flex-wrap: wrap !important;
+    padding: var(--space-2) !important;
+  }
+
+  main .toolbar .btn, main .toolbar .btn-secondary, main .toolbar .btn-tertiary, main .toolbar .btn-danger, main .toolbar .btn-success, main .toolbar .btn-ghost {
+    padding: var(--space-2) var(--space-1) !important;
+    min-height: 40px !important;
+    font-size: 0rem !important; /* Metin gizlendi */
+    min-width: 40px !important;
+  }
+
+  main .toolbar .btn span:not(.btn-text) {
+    display: none !important;
+  }
+
+  main .toolbar .btn-text {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .toolbar {
+    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: var(--space-1);
+  }
+
+  .toolbar-group {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn, .btn-secondary, .btn-tertiary, .btn-danger, .btn-success, .btn-ghost {
+    padding: var(--space-1);
+    min-height: 32px;
+    font-size: 0.75rem;
+    min-width: 32px;
+  }
+
+  /* Yeni ekleme butonları için ikonları göster */
+  .btn-secondary {
+    min-width: 32px;
+    justify-content: center;
+  }
+
+  /* + işareti için özel stil - daha güçlü selector */
+  .btn-secondary > span:first-child,
+  .btn-secondary span[style*="marginRight"],
+  .btn-secondary span[style*="fontWeight"] {
+    display: inline !important;
+    margin-right: 4px !important;
+    font-weight: bold !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+
+  /* İkonlar için de güçlü selector */
+  .btn-secondary svg,
+  .btn-secondary [data-icon] {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* + işareti için en güçlü selector - mobilde kesin görünsün */
+  button.btn-secondary span:first-of-type,
+  button.btn-secondary > span[style*="marginRight"],
+  button.btn-secondary > span[style*="fontWeight"] {
+    display: inline !important;
+    margin-right: 4px !important;
+    font-weight: bold !important;
+    color: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .btn-text {
+    display: none;
+  }
+}
+
+/* Yazdırma Stilleri */
+@media print {
+  body {
+    background-color: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Ana wrapper dışındaki tüm elementleri gizle */
+  .wrap > header,
+  .wrap > nav {
+    display: none !important;
+  }
+
+  /* Sadece içeriği göster */
+  .content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Toolbar ve butonları gizle */
+  .toolbar,
+  .btn,
+  .snapshot-controls,
+  .theme-toggle,
+  .iconBtn {
+    display: none !important;
+  }
+
+  /* İçerik alanını temizle */
+  #panel-outputs {
+    display: block !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    color: black !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* İçerik kartlarını temizle */
+  .table-container,
+  .assignment-text-container,
+  .printable-daily-list {
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 10px !important;
+  }
+
+  /* Görevlendirme metni için özel ayarlar */
+  .assignment-text-container .printOnly {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .assignment-text-container .printLine {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Sayfa sonu ayarları */
+  .printable-daily-list,
+  .assignment-text-container {
+    page-break-inside: avoid;
+    margin-bottom: 20px !important;
+  }
+
+  /* Yazı tipi ayarları */
+  * {
+    font-family: 'Times New Roman', serif !important;
+    color: black !important;
+    background: white !important;
+  }
+}
+
+/* Course Schedule Section Styles */
+.course-schedule-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.schedule-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card .icon {
+  color: var(--primary);
+}
+
+.stat-number {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+.schedule-preview {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-preview-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.schedule-preview h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.schedule-preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  width: fit-content;
+  margin-left: auto;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  gap: var(--space-1);
+  transition: all 0.2s ease;
+  min-width: 200px;
+  min-height: 32px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.search-input-wrapper:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb, 59, 130, 246), 0.1);
+}
+
+.search-input-wrapper svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.search-clear-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.no-results svg {
+  color: var(--text-muted);
+}
+
+.schedule-preview-header .btn-sm {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.teacher-schedule-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 210px));
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.teacher-schedule-item {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  transition: all 0.2s ease;
+}
+
+.teacher-schedule-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-primary);
+}
+
+.teacher-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.teacher-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.teacher-card-meta {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.teacher-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teacher-day-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb, 59, 130, 246), 0.08);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.day-label {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.day-count {
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.75rem;
+}
+
+.teacher-card-empty {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 2px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  transition: all 0.2s ease;
+}
+
+.upload-area:hover {
+  border-color: var(--primary);
+  background: var(--bg-hover);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* Teacher Schedule Modal Styles */
+.teacher-schedule-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.schedule-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.schedule-table th,
+.schedule-table td {
+  padding: var(--space-2);
+  text-align: center;
+  border: 1px solid var(--border-subtle);
+}
+
+.day-header {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.period-header {
+  background: var(--bg-subtle);
+  font-weight: 600;
+  min-width: 60px;
+}
+
+.day-cell {
+  background: var(--bg-subtle);
+  font-weight: 500;
+  text-align: left;
+  padding-left: var(--space-3);
+}
+
+.schedule-cell {
+  min-width: 80px;
+  height: 40px;
+  vertical-align: middle;
+}
+
+.schedule-cell.empty-period {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
+.empty-indicator {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.class-badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedule-legend {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
+
+.schedule-legend h4 {
+  margin: 0 0 var(--space-2) 0;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.schedule-summary {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
+
+.summary-stats {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.stat-item .icon {
+  color: var(--primary);
+}
+
+/* Clickable Teacher Cards */
+.teacher-schedule-item.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.teacher-schedule-item.clickable:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.unassigned-card {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-warning, var(--border-default));
+  background-color: rgba(var(--warning-rgb, 255, 159, 67), 0.12);
+  color: var(--text-primary);
+}
+
+.unassigned-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.unassigned-description {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.unassigned-list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.unassigned-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background-color: rgba(var(--warning-rgb, 255, 159, 67), 0.16);
+}
+
+.unassigned-list .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  background-color: var(--warning, #ff9f43);
+  color: #000;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Responsive styles for teacher schedule cards & search input */
+@media (max-width: 768px) {
+  .teacher-schedule-list {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .schedule-preview-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .schedule-preview-header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-preview-header h3 {
+    font-size: 1rem;
+  }
+
+  .search-input-wrapper {
+    padding: var(--space-1);
+  }
+
+  .search-input {
+    font-size: 0.8125rem;
+  }
+}
+
+/* Responsive styles for search input */
+@media (max-width: 768px) {
+  .schedule-preview-header {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .schedule-preview-header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-preview-header h3 {
+    font-size: 1rem;
+  }
+
+  .search-input-wrapper {
+    padding: var(--space-1);
+  }
+
+  .search-input {
+    font-size: 0.8125rem;
+  }
+}

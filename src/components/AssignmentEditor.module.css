@@ -1,0 +1,152 @@
+.dndTarget { 
+  transition: background-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease; 
+}
+.dragOver { 
+  background-color: rgba(var(--primary-rgb), 0.1); 
+  box-shadow: inset 0 0 0 2px var(--primary); 
+}
+.dropFlash { 
+  animation: dropFlash var(--transition-slow) ease; 
+}
+@keyframes dropFlash { 
+  from { background-color: rgba(var(--success-rgb), 0.2); } 
+  to { background-color: transparent; } 
+}
+
+.common-lesson-teacher-row {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--primary);
+}
+
+.common-lesson-teacher-row .sticky-col {
+  background: var(--bg-secondary);
+}
+
+.cellContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.teacherRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.teacherNameText {
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+}
+
+.teacherDraggable {
+  cursor: grab;
+}
+
+.manualEmptyLabel {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.manualEditor {
+  position: fixed;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+}
+
+.manualEditorControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.manualSelect {
+  min-width: 160px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+}
+
+.manualHint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.assignmentTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.assignmentTable thead th {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.assignmentTable tbody tr:nth-child(odd) td {
+  background: var(--bg-default);
+}
+
+.assignmentTable tbody tr:nth-child(even) td {
+  background: rgba(var(--primary-rgb), 0.04);
+}
+
+.assignmentTable tbody td {
+  border-left: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-3) var(--space-2);
+  min-width: 120px;
+  min-height: 68px;
+  position: relative;
+  vertical-align: top;
+}
+
+.assignmentTable tbody td:first-child {
+  border-left: none;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.assignmentTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.assignmentTable :global(.sticky-col) {
+  background: var(--bg-elevated);
+  box-shadow: inset -1px 0 0 0 var(--border-subtle);
+}
+
+.assignmentTable tbody tr:hover td {
+  background: rgba(var(--primary-rgb), 0.08);
+}
+
+.assignmentTable tbody tr:hover td:first-child {
+  background: rgba(var(--primary-rgb), 0.12);
+}
