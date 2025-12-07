@@ -1,4 +1,4 @@
-import { DAYS, PERIODS } from '../constants';
+import { DAYS, PERIODS } from '../constants/index.js';
 
 export function migrateClassFree(oldClassFree: any): any {
     // Case A: Already has day level (newer structure) → normalize inner values to Set

@@ -11,7 +11,7 @@ import {
   clearLocksData,
   replacePdfSchedule,
 } from '../services/supabaseDataService.js';
-import { PERIODS } from '../constants.ts';
+import { PERIODS } from '../constants/index.js';
 
 export function useBulkDeleteActions({
   showConfirmation,
