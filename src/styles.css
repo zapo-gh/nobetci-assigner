@@ -40,47 +40,65 @@
 
 /* ==================== AÇIK TEMA (LIGHT THEME) ==================== */
 :root[data-theme='light'] {
-  --bg-default: #e1ecf5;         /* Ana arka plan - belirgin mavi pastel */
-  --bg-secondary: #c8ddec;       /* İkincil arka plan - pastel mavi */
-  --bg-elevated: #ecf3f8;       /* Kartlar, modallar - açık mavi pastel */
-  --bg-hover: #d4e4f0;          /* Üzerine gelinen öğeler - mavi pastel */
-  --bg-subtle: #d0e1ed;          /* Hafif vurgulu arka planlar - pastel mavi */
+  --bg-default: #fefefe;         /* Ana arka plan - çok hafif krem */
+  --bg-secondary: #f8f9fa;       /* İkincil arka plan - yumuşak gri */
+  --bg-elevated: #ffffff;       /* Kartlar, modallar - saf beyaz */
+  --bg-hover: #f0f4f8;          /* Üzerine gelinen öğeler - mavi-gri ton */
+  --bg-subtle: #f7f9fc;         /* Hafif vurgulu arka planlar - mavi-gri */
+  --bg-accent: #f0f9ff;         /* Aksan arka plan - açık mavi */
+  --bg-card: #ffffff;           /* Kart arka planı - saf beyaz */
+  --bg-warm: #fefcfb;           /* Sıcak arka plan - çok hafif sarımsı */
 
-  --text-primary: #212529;       /* Ana metin rengi */
-  --text-secondary: #495057;     /* İkincil, daha az önemli metinler */
-  --text-muted: #616970;         /* En az önemli, ipucu metinleri */
+  --text-primary: #1a202c;       /* Ana metin rengi - koyu, okunabilir */
+  --text-secondary: #4a5568;     /* İkincil, daha az önemli metinler */
+  --text-muted: #718096;         /* En az önemli, ipucu metinleri */
+  --text-accent: #2b6cb0;        /* Vurgulu metin - mavi */
   --text-on-primary: #ffffff;    /* Ana renk üzerindeki metinler */
 
-  --border-default: #a8b8c8;     /* Varsayılan kenarlıklar - daha koyu */
-  --border-subtle: #b0c0d0;      /* Daha az belirgin kenarlıklar - daha koyu */
-  --border-focus: #80bdff;      /* Odaklanılan öğe kenarlığı */
-  
-  --tab-bg: #fff5e8;            /* Sekme arka plan - açık pastel sarı/turuncu */
-  --tab-bg-hover: #ffe8d1;      /* Sekme hover - pastel turuncu */
-  --tab-bg-active: #ffd4a3;     /* Aktif sekme - belirgin pastel turuncu */
-  --tab-text-active: #8b4513;   /* Aktif sekme metin rengi - koyu kahverengi */
+  --border-default: #d1d5db;     /* Varsayılan kenarlıklar - orta gri */
+  --border-subtle: #e5e7eb;      /* Daha az belirgin kenarlıklar */
+  --border-focus: #3b82f6;      /* Odaklanılan öğe kenarlığı - mavi */
+  --border-accent: #60a5fa;      /* Aksan kenarlıkları - açık mavi */
 
-  --primary: #5a6c7d;            /* Ana marka rengi */
-  --primary-rgb: 90, 108, 125;
-  --primary-hover: #4a5a6a;
-  --primary-active: #3a4a5a;
+  --tab-bg: #f8f9fa;            /* Sekme arka plan - yumuşak gri */
+  --tab-bg-hover: #e5e7eb;      /* Sekme hover - orta gri */
+  --tab-bg-active: #dbeafe;     /* Aktif sekme - mavi ton */
+  --tab-text-active: #1e40af;   /* Aktif sekme metin rengi - koyu mavi */
 
-  --secondary: #6c757d;
-  --secondary-rgb: 108, 117, 125;
+  --primary: #2563eb;            /* Ana marka rengi - canlı mavi */
+  --primary-rgb: 37, 99, 235;
+  --primary-hover: #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-light: #dbeafe;      /* Açık mavi ton */
 
-  --success: #28a745;
-  --success-rgb: 40, 167, 69;
-  --warning: #ffc107;
-  --warning-rgb: 255, 193, 7;
-  --error: #dc3545;
-  --error-rgb: 220, 53, 69;
-  --error-bg: #f8d7da;
-  --info: #6c757d;
-  --info-rgb: 108, 117, 125;
+  --secondary: #64748b;
+  --secondary-rgb: 100, 116, 139;
+  --secondary-light: #f1f5f9;    /* Açık gri ton */
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --success: #059669;
+  --success-rgb: 5, 150, 105;
+  --success-light: #d1fae5;      /* Açık yeşil ton */
+  --warning: #d97706;
+  --warning-rgb: 217, 119, 6;
+  --warning-light: #fef3c7;      /* Açık sarı ton */
+  --error: #dc2626;
+  --error-rgb: 220, 38, 38;
+  --error-bg: #fef2f2;
+  --error-light: #fee2e2;        /* Açık kırmızı ton */
+  --info: #2563eb;
+  --info-rgb: 37, 99, 235;
+  --info-light: #dbeafe;        /* Açık mavi ton */
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Gradient tanımları */
+  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --gradient-secondary: linear-gradient(135deg, #f8f9fa 0%, #e5e7eb 100%);
+  --gradient-accent: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%);
+  --gradient-warm: linear-gradient(135deg, #fefcfb 0%, #fefefe 100%);
 }
 
 /* ==================== KOYU TEMA (DARK THEME) ==================== */
@@ -134,6 +152,7 @@
 html {
   font-size: 16px;
   overflow-x: hidden; /* Yatay kaydırmayı tamamen engelle */
+  scroll-behavior: smooth;
 }
 
 body {
@@ -145,6 +164,23 @@ body {
   display: flex; /* Flexbox kullanarak dikey hizalamayı kontrol et */
   flex-direction: column; /* İçeriği dikeyde sırala */
   min-height: 100vh; /* Body'nin tüm viewport yüksekliğini kaplamasını sağla */
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Enhanced transitions for all interactive elements */
+* {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -194,6 +230,49 @@ a:hover {
 .duration-300 { transition-duration: 300ms; }
 .hover\:scale-110:hover { transform: scale(1.1); }
 .hover\:bg-secondary:hover { background-color: var(--bg-hover); }
+
+/* Enhanced Card Styles */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-default) ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition-default);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  border-color: var(--border-accent);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card-accent {
+  background: var(--gradient-accent);
+  color: var(--text-primary);
+}
+
+.card-warm {
+  background: var(--gradient-warm);
+  border-color: var(--border-accent);
+}
 
 .draggable-teacher {
   cursor: grab;
@@ -658,17 +737,37 @@ a:hover {
 }
 
 .btn {
-  background-color: var(--primary);
+  background: var(--gradient-primary);
   color: var(--text-on-primary);
   border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
 }
 .btn:hover:not(:disabled) {
-  background-color: var(--primary-hover);
+  background: var(--gradient-primary);
   border-color: var(--primary-hover);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+.btn:hover:not(:disabled)::before {
+  left: 100%;
 }
 .btn:active:not(:disabled) {
-  background-color: var(--primary-active);
+  background: var(--primary-active);
   border-color: var(--primary-active);
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-secondary {
@@ -801,6 +900,39 @@ a:hover {
   background-color: var(--bg-subtle);
 }
 
+/* ==================== FORM ELEMENTS ==================== */
+
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all var(--transition-fast) ease;
+  outline: none;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+  background-color: var(--bg-default);
+}
+
+.form-input:hover, .form-select:hover, .form-textarea:hover {
+  border-color: var(--border-accent);
+}
+
+.form-select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 1rem;
+  padding-right: var(--space-8);
+}
+
 /* ==================== DİĞER BİLEŞENLER ==================== */
 
 .badge {
@@ -813,31 +945,85 @@ a:hover {
   white-space: nowrap;
   vertical-align: baseline;
   border-radius: var(--radius-full);
+  background: var(--gradient-secondary);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast) ease;
+}
+
+.badge:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .badge-info {
-  color: #fff;
-  background-color: var(--info);
+  color: var(--text-primary);
+  background: var(--info-light);
+  border: 1px solid var(--info);
 }
 
 .badge-error {
-  color: #fff;
-  background-color: var(--error);
+  color: var(--text-primary);
+  background: var(--error-light);
+  border: 1px solid var(--error);
 }
 
 .badge-success {
-  color: #fff;
-  background-color: var(--success);
+  color: var(--text-primary);
+  background: var(--success-light);
+  border: 1px solid var(--success);
 }
 
 .badge-warning {
-  color: #fff;
-  background-color: var(--warning);
+  color: var(--text-primary);
+  background: var(--warning-light);
+  border: 1px solid var(--warning);
 }
 
 .badge-muted {
-  color: #fff;
-  background-color: var(--secondary);
+  color: var(--text-secondary);
+  background: var(--secondary-light);
+  border: 1px solid var(--secondary);
+}
+
+/* Status indicators with light backgrounds */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast) ease;
+}
+
+.status-indicator:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.status-success {
+  background: var(--success-light);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.status-warning {
+  background: var(--warning-light);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}
+
+.status-error {
+  background: var(--error-light);
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+
+.status-info {
+  background: var(--info-light);
+  color: var(--info);
+  border: 1px solid var(--info);
 }
 
 .wrap {
