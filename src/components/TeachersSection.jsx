@@ -72,7 +72,7 @@ export default function TeachersSection({
       <RuleEngineCard
         options={options}
         onOptionChange={onOptionChange}
-        teachers={teachers}
+        teachers={teachersForCurrentDay}
         periods={periods}
         dayOptions={dayOptions}
         IconComponent={IconComponent}

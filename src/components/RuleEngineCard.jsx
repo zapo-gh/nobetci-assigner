@@ -22,7 +22,15 @@ export default function RuleEngineCard({
   const [rulePeriod, setRulePeriod] = useState('');
 
   useEffect(() => {
-    if (!ruleTeacherId && teachers.length > 0) {
+    if (teachers.length === 0) {
+      if (ruleTeacherId !== '') {
+        setRuleTeacherId('');
+      }
+      return;
+    }
+
+    const hasSelectedTeacher = teachers.some((teacher) => teacher.teacherId === ruleTeacherId);
+    if (!ruleTeacherId || !hasSelectedTeacher) {
       setRuleTeacherId(teachers[0].teacherId || '');
     }
   }, [ruleTeacherId, teachers]);
