@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 export default function RuleEngineCard({
   options,
@@ -20,6 +20,17 @@ export default function RuleEngineCard({
   const [ruleTeacherId, setRuleTeacherId] = useState('');
   const [ruleDay, setRuleDay] = useState('');
   const [rulePeriod, setRulePeriod] = useState('');
+  const lastSelectedTeacherNameRef = useRef('');
+
+  const normalizeTeacherName = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
+
+  useEffect(() => {
+    if (!ruleTeacherId) return;
+    const selectedTeacher = teachers.find((teacher) => teacher.teacherId === ruleTeacherId);
+    if (selectedTeacher?.teacherName) {
+      lastSelectedTeacherNameRef.current = selectedTeacher.teacherName;
+    }
+  }, [ruleTeacherId, teachers]);
 
   useEffect(() => {
     if (teachers.length === 0) {
@@ -31,7 +42,11 @@ export default function RuleEngineCard({
 
     const hasSelectedTeacher = teachers.some((teacher) => teacher.teacherId === ruleTeacherId);
     if (!ruleTeacherId || !hasSelectedTeacher) {
-      setRuleTeacherId(teachers[0].teacherId || '');
+      const targetName = normalizeTeacherName(lastSelectedTeacherNameRef.current);
+      const matchedByName = targetName
+        ? teachers.find((teacher) => normalizeTeacherName(teacher.teacherName) === targetName)
+        : null;
+      setRuleTeacherId(matchedByName?.teacherId || teachers[0].teacherId || '');
     }
   }, [ruleTeacherId, teachers]);
 
