@@ -91,8 +91,8 @@ export default function ScheduleSection({
         freeClassesByDay={freeClassesByDay}
         maxClassesPerSlot={options.maxClassesPerSlot}
       />
-      <AutoBalanceReport report={balanceReport} IconComponent={IconComponent} />
       <AssignmentInsights insights={assignmentInsights} IconComponent={IconComponent} />
+      <AutoBalanceReport report={balanceReport} IconComponent={IconComponent} />
     </div>
   );
 }
