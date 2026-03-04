@@ -20,6 +20,33 @@ function cloneSetMap(setMap = {}) {
   return out
 }
 
+function normalizeRuleEngine(ruleEngine = {}) {
+  const blockedSlots = Array.isArray(ruleEngine?.blockedSlots) ? ruleEngine.blockedSlots : []
+  const blockedSlotSet = new Set()
+
+  blockedSlots.forEach((rule) => {
+    if (!rule || typeof rule !== 'object') return
+    const teacherId = String(rule.teacherId || '').trim()
+    const day = String(rule.day || '').trim()
+    const periodNum = Number.parseInt(rule.period, 10)
+    if (!teacherId || !day || !Number.isFinite(periodNum)) return
+    blockedSlotSet.add(`${teacherId}|${day}|${periodNum}`)
+  })
+
+  return {
+    blockedSlotSet,
+    singleDutyPerDay: !!ruleEngine?.singleDutyPerDay,
+  }
+}
+
+function violatesRuleEngine({ day, period, teacherId, dutyCount, ruleEngine }) {
+  if (!teacherId || !ruleEngine) return false
+  const slotKey = `${teacherId}|${day}|${Number(period)}`
+  if (ruleEngine.blockedSlotSet?.has(slotKey)) return true
+  if (ruleEngine.singleDutyPerDay && (dutyCount?.[day]?.[teacherId] || 0) >= 1) return true
+  return false
+}
+
 function simulateAssignment({
   day,
   startPeriod,
@@ -36,6 +63,7 @@ function simulateAssignment({
   slotUsage,
   commonLessons,
   validTeacherIds,
+  ruleEngine,
 }) {
   const simByDay = JSON.parse(JSON.stringify(byDay))
   const simDutyCount = JSON.parse(JSON.stringify(dutyCount))
@@ -98,6 +126,7 @@ function simulateAssignment({
           slotUsage: simSlotUsage,
           maxPerSlot,
           ignoreConsecutiveLimit,
+          ruleEngine,
         }))
         .sort((a, b) => {
           const dutyA = simDutyCount[day]?.[a] || 0
@@ -149,6 +178,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
   const maxPerSlot = Number.isFinite(parsed) && parsed > 0 ? parsed : 1
   // ignoreConsecutiveLimit: true ise ardışık saat kontrolü yapılmaz
   const ignoreConsecutiveLimit = !!options?.ignoreConsecutiveLimit
+  const ruleEngine = normalizeRuleEngine(options?.ruleEngine)
 
   // Geçerli teacherId'leri bir Set'te tut (O(1) lookup için)
   const validTeacherIds = new Set()
@@ -261,6 +291,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
               slotUsage,
               commonLessons,
               validTeacherIds,
+              ruleEngine,
             })
             const scoreValue = (remainingClasses * 200) + (dutyDifference * 50) + consecutivePenalty + (currentDuty * 5) + (availabilityCount * 3)
             return { tid, scoreValue, remainingClasses, dutyDifference, currentDuty, consecutivePenalty, availabilityCount }
@@ -345,6 +376,9 @@ function pushAssign(day, p, classId, teacherId, byDay, dutyCount, slotUsage, las
 }
 
 function canAssign({ day, period, teacherId, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit }) {
+  const ruleEngine = normalizeRuleEngine(options?.ruleEngine)
+  if (violatesRuleEngine({ day, period, teacherId, dutyCount, ruleEngine })) return false
+
   // 1. Günlük görev limiti kontrolü
   if ((dutyCount[day]?.[teacherId] || 0) >= (maxPerDay[teacherId] || 6)) return false
 
@@ -423,6 +457,7 @@ export function applyFairnessAdjustments({
 
   const parsedMaxPerSlot = Number.parseInt(options?.maxClassesPerSlot, 10);
   const maxPerSlot = Number.isFinite(parsedMaxPerSlot) && parsedMaxPerSlot > 0 ? parsedMaxPerSlot : 1;
+  const ruleEngine = normalizeRuleEngine(options?.ruleEngine)
 
   const isTeacherFree = (period, teacherId) => {
     const source = freeMap[period];
@@ -461,6 +496,7 @@ export function applyFairnessAdjustments({
   };
 
   const canTakePeriod = (teacherId, period) => {
+    if (violatesRuleEngine({ day, period, teacherId, dutyCount: assignmentCountsByDay, ruleEngine })) return false;
     if (!isTeacherFree(period, teacherId)) return false;
     if ((assignmentCounts[teacherId] || 0) >= getMaxDuty(teacherId)) return false;
     if ((slotUsage[period]?.[teacherId] || 0) >= maxPerSlot) return false;
@@ -469,11 +505,16 @@ export function applyFairnessAdjustments({
   };
 
   const canTakePeriodForBalance = (teacherId, period) => {
+    if (violatesRuleEngine({ day, period, teacherId, dutyCount: assignmentCountsByDay, ruleEngine })) return false;
     if (!isTeacherFree(period, teacherId)) return false;
     if ((assignmentCounts[teacherId] || 0) >= getMaxDuty(teacherId)) return false;
     if ((slotUsage[period]?.[teacherId] || 0) >= maxPerSlot) return false;
     return true;
   };
+
+  const assignmentCountsByDay = {
+    [day]: assignmentCounts,
+  }
 
   const tryFillFromNeeds = (teacherId, availablePeriods) => {
     for (const period of availablePeriods) {

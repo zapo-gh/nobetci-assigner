@@ -3,6 +3,7 @@ import AssignmentOptions from './AssignmentOptions.jsx';
 import AssignmentEditor from './AssignmentEditor.jsx';
 import ConflictSuggestions from './ConflictSuggestions.jsx';
 import AssignmentInsights from './AssignmentInsights.jsx';
+import AutoBalanceReport from './AutoBalanceReport.jsx';
 
 export default function ScheduleSection({
   day,
@@ -15,9 +16,11 @@ export default function ScheduleSection({
   locked,
   options,
   assignmentInsights,
+  balanceReport,
   unassignedForSelectedDay,
   commonLessons,
   classes,
+  dayOptions,
   IconComponent,
   onOptionChange,
   onSetAllTeachersMaxDuty,
@@ -37,6 +40,9 @@ export default function ScheduleSection({
         options={options}
         handleOptionChange={onOptionChange}
         setAllTeachersMaxDuty={onSetAllTeachersMaxDuty}
+        teachers={teachersForCurrentDay}
+        periods={periods}
+        dayOptions={dayOptions}
         IconComponent={IconComponent}
       />
       <AssignmentEditor
@@ -85,6 +91,7 @@ export default function ScheduleSection({
         freeClassesByDay={freeClassesByDay}
         maxClassesPerSlot={options.maxClassesPerSlot}
       />
+      <AutoBalanceReport report={balanceReport} IconComponent={IconComponent} />
       <AssignmentInsights insights={assignmentInsights} IconComponent={IconComponent} />
     </div>
   );

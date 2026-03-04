@@ -486,7 +486,11 @@ export default function App() {
   const [options, setOptions] = useState({
     preventConsecutive: true,
     maxClassesPerSlot: 1,
-    ignoreConsecutiveLimit: false // Ardışık saat sınırını yok sayar (acil durumlar için)
+    ignoreConsecutiveLimit: false, // Ardışık saat sınırını yok sayar (acil durumlar için)
+    ruleEngine: {
+      singleDutyPerDay: false,
+      blockedSlots: [],
+    },
   });
   const [locked, setLocked] = useState({})
 
@@ -2958,6 +2962,70 @@ export default function App() {
     return summary
   }, [assignment, day, teachers, classes, classFree, teacherFree, locked, options, periods])
 
+  const balanceReport = useMemo(() => {
+    const teacherList = Array.isArray(teachers) ? teachers : [];
+    if (teacherList.length === 0) {
+      return { overall: { fairnessScore: 100 }, perTeacher: [] };
+    }
+
+    const dayKeyToLabel = new Map((DAYS || []).map((item) => [item.key, item.label]));
+    const dayKeys = Array.from(dayKeyToLabel.keys());
+    const totalByTeacher = {};
+    const byTeacherByDay = {};
+
+    Object.entries(assignment || {}).forEach(([dayKey, periodsMap]) => {
+      Object.values(periodsMap || {}).forEach((rows) => {
+        (rows || []).forEach(({ teacherId }) => {
+          if (!teacherId) return;
+          totalByTeacher[teacherId] = (totalByTeacher[teacherId] || 0) + 1;
+          if (!byTeacherByDay[teacherId]) byTeacherByDay[teacherId] = {};
+          byTeacherByDay[teacherId][dayKey] = (byTeacherByDay[teacherId][dayKey] || 0) + 1;
+        });
+      });
+    });
+
+    const loads = teacherList.map((teacher) => totalByTeacher[teacher.teacherId] || 0);
+    const avg = loads.length > 0 ? loads.reduce((sum, value) => sum + value, 0) / loads.length : 0;
+    const variance = loads.length > 0
+      ? loads.reduce((sum, value) => sum + ((value - avg) ** 2), 0) / loads.length
+      : 0;
+    const stdDev = Math.sqrt(variance);
+    const overallFairnessScore = avg > 0 ? Math.max(0, Math.min(100, 100 - ((stdDev / avg) * 100))) : 100;
+
+    const perTeacher = teacherList
+      .map((teacher) => {
+        const weeklyLoad = totalByTeacher[teacher.teacherId] || 0;
+        const monthlyLoad = weeklyLoad * 4;
+        const personalFairness = avg > 0
+          ? Math.max(0, Math.min(100, 100 - ((Math.abs(weeklyLoad - avg) / avg) * 100)))
+          : 100;
+
+        const dayBreakdown = dayKeys.map((dayKey) => ({
+          dayKey,
+          dayLabel: dayKeyToLabel.get(dayKey) || dayKey,
+          count: byTeacherByDay?.[teacher.teacherId]?.[dayKey] || 0,
+        }));
+
+        return {
+          teacherId: teacher.teacherId,
+          teacherName: teacher.teacherName,
+          weeklyLoad,
+          monthlyLoad,
+          fairnessScore: personalFairness,
+          dayBreakdown,
+        };
+      })
+      .sort((a, b) => b.weeklyLoad - a.weeklyLoad || a.teacherName.localeCompare(b.teacherName, 'tr'));
+
+    return {
+      overall: {
+        fairnessScore: overallFairnessScore,
+        averageWeeklyLoad: avg,
+      },
+      perTeacher,
+    };
+  }, [assignment, teachers])
+
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
 
@@ -3852,6 +3920,7 @@ export default function App() {
           <ScheduleSection
             day={day}
             periods={periods}
+            dayOptions={DAYS}
             classesForCurrentDay={classesForCurrentDay}
             teachersForCurrentDay={teachersForCurrentDay}
             freeTeachersByDay={freeTeachersByDay}
@@ -3860,6 +3929,7 @@ export default function App() {
             locked={locked}
             options={options}
             assignmentInsights={assignmentInsights}
+            balanceReport={balanceReport}
             unassignedForSelectedDay={unassignedForSelectedDay}
             commonLessons={commonLessons}
             classes={classes}
