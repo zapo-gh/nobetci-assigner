@@ -94,14 +94,16 @@ export default function RuleEngineCard({
   };
 
   return (
-    <div className="option-card" style={{ marginTop: '12px' }}>
-      <label className="control-label">
-        <IconComponent name="calendar" size={16} />
-        <span>Kural Motoru</span>
-      </label>
+    <div className="rule-engine-card" role="region" aria-label="Kural Motoru">
+      <div className="rule-engine-header">
+        <label className="rule-engine-title">
+          <IconComponent name="calendar" size={16} />
+          <span>Kural Motoru</span>
+        </label>
+      </div>
 
       <div className="rule-engine-toggle">
-        <label htmlFor="singleDutyPerDay" className="option-label">
+        <label htmlFor="singleDutyPerDay" className="rule-engine-check">
           <input
             type="checkbox"
             id="singleDutyPerDay"
@@ -112,9 +114,9 @@ export default function RuleEngineCard({
         </label>
       </div>
 
-      <div className="rule-form-grid">
+      <div className="rule-engine-form">
         <select
-          className="option-input-inline rule-select"
+          className="rule-engine-select"
           value={ruleTeacherId}
           onChange={(e) => setRuleTeacherId(e.target.value)}
         >
@@ -126,7 +128,7 @@ export default function RuleEngineCard({
         </select>
 
         <select
-          className="option-input-inline rule-select"
+          className="rule-engine-select"
           value={ruleDay}
           onChange={(e) => setRuleDay(e.target.value)}
         >
@@ -138,7 +140,7 @@ export default function RuleEngineCard({
         </select>
 
         <select
-          className="option-input-inline rule-select"
+          className="rule-engine-select"
           value={rulePeriod}
           onChange={(e) => setRulePeriod(e.target.value)}
         >
@@ -149,14 +151,14 @@ export default function RuleEngineCard({
           ))}
         </select>
 
-        <button type="button" className="btn" onClick={handleAddBlockedSlot}>
+        <button type="button" className="btn rule-engine-add" onClick={handleAddBlockedSlot}>
           Yasak Ekle
         </button>
       </div>
 
-      <div className="rule-list">
+      <div className="rule-engine-list">
         {blockedSlots.length === 0 && (
-          <small className="option-description">Tanımlı slot kuralı yok.</small>
+          <small className="rule-engine-empty">Tanımlı slot kuralı yok.</small>
         )}
 
         {blockedSlots
@@ -172,13 +174,13 @@ export default function RuleEngineCard({
             const periodValue = Number.parseInt(rule.period, 10);
             const key = `${rule.teacherId}|${rule.day}|${periodValue}`;
             return (
-              <div key={key} className="rule-item">
-                <span>
+              <div key={key} className="rule-engine-item">
+                <span className="rule-engine-item-text">
                   {getTeacherName(rule.teacherId)} · {dayLabelMap.get(rule.day) || rule.day} · {periodValue}. saat
                 </span>
                 <button
                   type="button"
-                  className="iconBtn"
+                  className="iconBtn rule-engine-remove"
                   aria-label="Kuralı sil"
                   onClick={() => handleRemoveBlockedSlot(rule)}
                 >
@@ -188,6 +190,111 @@ export default function RuleEngineCard({
             );
           })}
       </div>
+
+      <style>{`
+        .rule-engine-card {
+          margin-top: 12px;
+          padding: var(--space-3);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          background: var(--bg-elevated);
+        }
+        .rule-engine-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: var(--space-2);
+        }
+        .rule-engine-title {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-weight: var(--font-weight-semibold, 600);
+          color: var(--text-primary);
+          font-size: 0.92rem;
+        }
+        .rule-engine-toggle {
+          margin-bottom: var(--space-2);
+          padding: var(--space-2);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          background: color-mix(in srgb, var(--bg-default) 92%, transparent);
+        }
+        .rule-engine-check {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          color: var(--text-secondary);
+          font-weight: var(--font-weight-medium);
+          cursor: pointer;
+        }
+        .rule-engine-form {
+          display: grid;
+          grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) minmax(110px, 1fr) auto;
+          gap: var(--space-2);
+          align-items: center;
+          margin-bottom: var(--space-2);
+        }
+        .rule-engine-select {
+          width: 100%;
+          min-height: 34px;
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          background: var(--bg-default);
+          color: var(--text-primary);
+          padding: 0 var(--space-2);
+        }
+        .rule-engine-add {
+          min-height: 34px;
+          white-space: nowrap;
+        }
+        .rule-engine-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+        .rule-engine-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--space-2);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          background: color-mix(in srgb, var(--bg-default) 90%, transparent);
+          padding: 6px 10px;
+        }
+        .rule-engine-item-text {
+          font-size: 0.82rem;
+          color: var(--text-secondary);
+        }
+        .rule-engine-remove {
+          width: 26px;
+          height: 26px;
+          min-width: 26px;
+        }
+        .rule-engine-empty {
+          color: var(--text-muted);
+          font-size: 0.78rem;
+          margin-top: 2px;
+        }
+        @media (max-width: 900px) {
+          .rule-engine-form {
+            grid-template-columns: 1fr 1fr;
+          }
+          .rule-engine-add {
+            grid-column: span 2;
+          }
+        }
+        @media (max-width: 520px) {
+          .rule-engine-form {
+            grid-template-columns: 1fr;
+          }
+          .rule-engine-add {
+            grid-column: auto;
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }
