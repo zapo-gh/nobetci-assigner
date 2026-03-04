@@ -11,6 +11,7 @@ import ScheduleSection from './components/ScheduleSection.jsx';
 import OutputsSection from './components/OutputsSection.jsx';
 import GlobalModals from './components/GlobalModals.jsx';
 import html2canvas from "html2canvas";
+import * as XLSX from 'xlsx';
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
 import { normalizeForComparison } from "./utils/pdfParser.js";
@@ -109,6 +110,7 @@ function ThemeToggle({ theme, onToggle }) {
 
 const DISABLE_LOCAL_STORAGE = true;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
+const TERM_ARCHIVE_STORAGE_KEY = `${APP_ENV.mode || 'development'}_term_archives_v1`;
 const LAST_ABSENT_CLEANUP_KEY = `${APP_ENV.mode || 'development'}_last_absent_cleanup`;
 const STORAGE_VERSION_KEY = `${APP_ENV.mode || 'development'}_storage_version`;
 const LOCAL_STORAGE_STATIC_KEYS = [
@@ -495,6 +497,8 @@ export default function App() {
   const [locked, setLocked] = useState({})
 
   const [notifications, setNotifications] = useState([]);
+  const [termArchives, setTermArchives] = useState([]);
+  const [selectedArchiveId, setSelectedArchiveId] = useState('');
   const [absenceRefreshState, setAbsenceRefreshState] = useState({
     isRefreshing: false,
     lastRefreshedAt: null,
@@ -512,6 +516,7 @@ export default function App() {
   const autoSaveTimeoutRef = useRef(null)
   const isPollingUpdateRef = useRef(false)
   const versionMismatchHandledRef = useRef(false)
+  const alertedAbsentIdsRef = useRef(new Set())
 
 
 
@@ -1027,6 +1032,45 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
     }
   }, [])
+
+  useEffect(() => {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(TERM_ARCHIVE_STORAGE_KEY) : null;
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setTermArchives(parsed);
+      }
+    } catch (error) {
+      logger.warn('Dönem arşivi okunamadı:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(TERM_ARCHIVE_STORAGE_KEY, JSON.stringify(termArchives));
+    } catch (error) {
+      logger.warn('Dönem arşivi kaydedilemedi:', error);
+    }
+  }, [termArchives]);
+
+  const summarizeAssignment = useCallback((assignmentMap) => {
+    const perDay = {};
+    let totalAssignments = 0;
+
+    Object.entries(assignmentMap || {}).forEach(([dayKey, periodsMap]) => {
+      let dayTotal = 0;
+      Object.values(periodsMap || {}).forEach((rows) => {
+        const rowCount = Array.isArray(rows) ? rows.length : 0;
+        dayTotal += rowCount;
+        totalAssignments += rowCount;
+      });
+      perDay[dayKey] = dayTotal;
+    });
+
+    return { totalAssignments, perDay };
+  }, []);
 
   const forceReloadWithVersion = useCallback(async (targetVersion) => {
     if (typeof window === 'undefined') return;
@@ -2826,6 +2870,97 @@ export default function App() {
     );
   }, [assignment, freeClassesByDay, day, classes, periods, locked]);
 
+  useEffect(() => {
+    const todaysAbsents = Array.isArray(absentPeopleForCurrentDay) ? absentPeopleForCurrentDay : [];
+    if (todaysAbsents.length === 0) return;
+
+    const dayAssignments = assignment?.[day] || {};
+    const maxPerSlot = Number.parseInt(options?.maxClassesPerSlot, 10) || 1;
+
+    const teacherDailyLoad = {};
+    const slotUsage = {};
+    Object.entries(dayAssignments).forEach(([periodKey, rows]) => {
+      const periodNum = Number(periodKey);
+      (rows || []).forEach(({ teacherId }) => {
+        if (!teacherId) return;
+        teacherDailyLoad[teacherId] = (teacherDailyLoad[teacherId] || 0) + 1;
+        if (!slotUsage[periodNum]) slotUsage[periodNum] = {};
+        slotUsage[periodNum][teacherId] = (slotUsage[periodNum][teacherId] || 0) + 1;
+      });
+    });
+
+    const absentNameSet = new Set(
+      todaysAbsents
+        .map((person) => normalizeForComparison(person?.name || ''))
+        .filter(Boolean),
+    );
+
+    const availableByPeriod = freeTeachersByDay?.[day] || {};
+    const teacherNameById = new Map((teachersForCurrentDay || []).map((item) => [item.teacherId, item.teacherName]));
+
+    todaysAbsents.forEach((person) => {
+      const absentId = person?.absentId;
+      if (!absentId || alertedAbsentIdsRef.current.has(absentId)) return;
+
+      alertedAbsentIdsRef.current.add(absentId);
+      const absentNameKey = normalizeForComparison(person?.name || '');
+      const impacted = [];
+
+      Object.entries(dayAssignments).forEach(([periodKey, rows]) => {
+        const periodNum = Number(periodKey);
+        (rows || []).forEach(({ classId, teacherId }) => {
+          const teacherName = teacherNameById.get(teacherId) || '';
+          if (!teacherName) return;
+          if (normalizeForComparison(teacherName) !== absentNameKey) return;
+
+          const className = classes.find((item) => item.classId === classId)?.className || classId;
+          const freeSet = availableByPeriod?.[periodNum] instanceof Set
+            ? availableByPeriod[periodNum]
+            : new Set(Array.isArray(availableByPeriod?.[periodNum]) ? availableByPeriod[periodNum] : []);
+
+          const alternatives = Array.from(freeSet)
+            .filter((candidateId) => {
+              if (!candidateId || candidateId === teacherId) return false;
+              if ((slotUsage?.[periodNum]?.[candidateId] || 0) >= maxPerSlot) return false;
+              const candidateName = teacherNameById.get(candidateId);
+              if (!candidateName) return false;
+              return !absentNameSet.has(normalizeForComparison(candidateName));
+            })
+            .sort((a, b) => (teacherDailyLoad[a] || 0) - (teacherDailyLoad[b] || 0))
+            .slice(0, 3)
+            .map((candidateId) => teacherNameById.get(candidateId) || candidateId);
+
+          impacted.push({ period: periodNum, className, alternatives });
+        });
+      });
+
+      if (impacted.length === 0) return;
+
+      const preview = impacted
+        .slice(0, 2)
+        .map((item) => `${item.period}. saat ${item.className}: ${item.alternatives.length ? item.alternatives.join(', ') : 'öneri bulunamadı'}`)
+        .join(' | ');
+
+      addNotification({
+        message: `${person.name || 'Öğretmen'} devamsızlığı eklendi. Hızlı yeniden atama önerisi: ${preview}`,
+        type: 'warning',
+        duration: 9000,
+        actionLabel: 'Planlamayı Aç',
+        onAction: () => setActiveSection('schedule'),
+      });
+    });
+  }, [
+    absentPeopleForCurrentDay,
+    assignment,
+    day,
+    options,
+    freeTeachersByDay,
+    teachersForCurrentDay,
+    classes,
+    addNotification,
+    setActiveSection,
+  ]);
+
   const assignmentInsights = useMemo(() => {
     const summary = {
       coverageByPeriod: [],
@@ -3025,6 +3160,70 @@ export default function App() {
       perTeacher,
     };
   }, [assignment, teachers])
+
+  const currentTermSummary = useMemo(() => {
+    const base = summarizeAssignment(assignment);
+    return {
+      ...base,
+      fairnessScore: Number(balanceReport?.overall?.fairnessScore || 0),
+    };
+  }, [assignment, balanceReport, summarizeAssignment]);
+
+  const selectedArchive = useMemo(
+    () => termArchives.find((item) => item.id === selectedArchiveId) || null,
+    [termArchives, selectedArchiveId],
+  );
+
+  const archiveComparison = useMemo(() => {
+    if (!selectedArchive) return null;
+
+    const archivedSummary = selectedArchive.summary || { totalAssignments: 0, perDay: {}, fairnessScore: 0 };
+    const currentSummary = currentTermSummary;
+    const allDayKeys = Array.from(new Set([
+      ...Object.keys(archivedSummary.perDay || {}),
+      ...Object.keys(currentSummary.perDay || {}),
+    ]));
+
+    const dayDiff = allDayKeys.map((dayKey) => ({
+      dayKey,
+      oldValue: archivedSummary.perDay?.[dayKey] || 0,
+      newValue: currentSummary.perDay?.[dayKey] || 0,
+      diff: (currentSummary.perDay?.[dayKey] || 0) - (archivedSummary.perDay?.[dayKey] || 0),
+    }));
+
+    return {
+      archiveName: selectedArchive.name,
+      totalDiff: (currentSummary.totalAssignments || 0) - (archivedSummary.totalAssignments || 0),
+      fairnessDiff: Number((currentSummary.fairnessScore || 0) - (archivedSummary.fairnessScore || 0)),
+      dayDiff,
+    };
+  }, [selectedArchive, currentTermSummary]);
+
+  const handleSaveTermArchive = useCallback(() => {
+    const now = new Date();
+    const name = `Dönem ${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+    const payload = {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      name,
+      createdAt: now.toISOString(),
+      summary: currentTermSummary,
+      snapshot: {
+        assignment,
+        options,
+        locked,
+      },
+    };
+
+    setTermArchives((prev) => [payload, ...prev].slice(0, 30));
+    setSelectedArchiveId(payload.id);
+    addNotification('Dönem arşivi kaydedildi', 'success');
+  }, [currentTermSummary, assignment, options, locked, addNotification]);
+
+  const handleDeleteTermArchive = useCallback((archiveId) => {
+    setTermArchives((prev) => prev.filter((item) => item.id !== archiveId));
+    setSelectedArchiveId((prev) => (prev === archiveId ? '' : prev));
+    addNotification('Arşiv kaydı silindi', 'info');
+  }, [addNotification]);
 
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
@@ -3745,6 +3944,133 @@ export default function App() {
     }
   }
 
+  const openPrintWindowForPdf = useCallback(({ title, sections, filename }) => {
+    const popup = window.open('', '_blank', 'noopener,noreferrer,width=1200,height=900');
+    if (!popup) {
+      addNotification('PDF önizleme penceresi açılamadı (popup engeli olabilir).', 'error');
+      return;
+    }
+
+    const sectionHtml = (sections || [])
+      .map((section) => {
+        const rowsHtml = (section.rows || [])
+          .map((row) => `<li>${row}</li>`)
+          .join('');
+        return `<section><h3>${section.header}</h3><ul>${rowsHtml || '<li>Kayıt yok</li>'}</ul></section>`;
+      })
+      .join('');
+
+    popup.document.write(`
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: 'Times New Roman', serif; padding: 24px; color: #111; }
+            h1 { margin-bottom: 16px; }
+            h3 { margin: 16px 0 8px; }
+            ul { margin: 0 0 12px 18px; }
+            li { margin-bottom: 4px; }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          <p>Dosya: ${filename}</p>
+          ${sectionHtml}
+          <script>
+            window.onload = () => { window.print(); };
+          </script>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+  }, [addNotification]);
+
+  const exportTeacherBasedPdf = useCallback(() => {
+    const teacherMapLocal = new Map((teachers || []).map((item) => [item.teacherId, item.teacherName]));
+    const classMapLocal = new Map((classes || []).map((item) => [item.classId, item.className]));
+    const dayLabelMap = new Map(DAYS.map((item) => [item.key, item.label]));
+    const grouped = {};
+
+    Object.entries(assignment || {}).forEach(([dayKey, periodMap]) => {
+      Object.entries(periodMap || {}).forEach(([periodKey, rows]) => {
+        (rows || []).forEach(({ teacherId, classId }) => {
+          if (!teacherId) return;
+          if (!grouped[teacherId]) grouped[teacherId] = [];
+          grouped[teacherId].push(`${dayLabelMap.get(dayKey) || dayKey} ${periodKey}. saat - ${classMapLocal.get(classId) || classId}`);
+        });
+      });
+    });
+
+    const sections = Object.entries(grouped)
+      .map(([teacherId, rows]) => ({
+        header: teacherMapLocal.get(teacherId) || teacherId,
+        rows: rows.sort((a, b) => a.localeCompare(b, 'tr')),
+      }))
+      .sort((a, b) => a.header.localeCompare(b.header, 'tr'));
+
+    openPrintWindowForPdf({
+      title: 'Öğretmen Bazlı Haftalık Nöbet Özeti',
+      sections,
+      filename: 'ogretmen_bazli_haftalik.pdf',
+    });
+  }, [assignment, teachers, classes, openPrintWindowForPdf]);
+
+  const exportClassBasedPdf = useCallback(() => {
+    const teacherMapLocal = new Map((teachers || []).map((item) => [item.teacherId, item.teacherName]));
+    const classMapLocal = new Map((classes || []).map((item) => [item.classId, item.className]));
+    const dayLabelMap = new Map(DAYS.map((item) => [item.key, item.label]));
+    const grouped = {};
+
+    Object.entries(assignment || {}).forEach(([dayKey, periodMap]) => {
+      Object.entries(periodMap || {}).forEach(([periodKey, rows]) => {
+        (rows || []).forEach(({ teacherId, classId }) => {
+          if (!classId) return;
+          if (!grouped[classId]) grouped[classId] = [];
+          grouped[classId].push(`${dayLabelMap.get(dayKey) || dayKey} ${periodKey}. saat - ${teacherMapLocal.get(teacherId) || teacherId}`);
+        });
+      });
+    });
+
+    const sections = Object.entries(grouped)
+      .map(([classId, rows]) => ({
+        header: classMapLocal.get(classId) || classId,
+        rows: rows.sort((a, b) => a.localeCompare(b, 'tr')),
+      }))
+      .sort((a, b) => a.header.localeCompare(b.header, 'tr'));
+
+    openPrintWindowForPdf({
+      title: 'Sınıf Bazlı Haftalık Nöbet Özeti',
+      sections,
+      filename: 'sinif_bazli_haftalik.pdf',
+    });
+  }, [assignment, teachers, classes, openPrintWindowForPdf]);
+
+  const exportWeeklySummaryExcel = useCallback(() => {
+    const teacherMapLocal = new Map((teachers || []).map((item) => [item.teacherId, item.teacherName]));
+    const classMapLocal = new Map((classes || []).map((item) => [item.classId, item.className]));
+    const dayLabelMap = new Map(DAYS.map((item) => [item.key, item.label]));
+
+    const rows = [];
+    Object.entries(assignment || {}).forEach(([dayKey, periodMap]) => {
+      Object.entries(periodMap || {}).forEach(([periodKey, assignmentsInSlot]) => {
+        (assignmentsInSlot || []).forEach(({ classId, teacherId }) => {
+          rows.push({
+            Gun: dayLabelMap.get(dayKey) || dayKey,
+            Saat: Number(periodKey),
+            Sinif: classMapLocal.get(classId) || classId,
+            Ogretmen: teacherMapLocal.get(teacherId) || teacherId,
+          });
+        });
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'HaftalikOzet');
+    XLSX.writeFile(workbook, `haftalik_ozet_${day}.xlsx`);
+    addNotification('Haftalık özet Excel dosyası indirildi', 'success');
+  }, [assignment, teachers, classes, day, addNotification]);
+
   /* ================================ Render ================================ */
 
   useEffect(() => {
@@ -3919,6 +4245,16 @@ export default function App() {
         {activeSection === "schedule" && (
           <ScheduleSection
             day={day}
+            onExportTeacherPDF={exportTeacherBasedPdf}
+            onExportClassPDF={exportClassBasedPdf}
+            onExportWeeklyExcel={exportWeeklySummaryExcel}
+            termArchives={termArchives}
+            selectedArchiveId={selectedArchiveId}
+            onSelectArchive={setSelectedArchiveId}
+            onSaveTermArchive={handleSaveTermArchive}
+            onDeleteTermArchive={handleDeleteTermArchive}
+            currentTermSummary={currentTermSummary}
+            archiveComparison={archiveComparison}
             periods={periods}
             dayOptions={DAYS}
             classesForCurrentDay={classesForCurrentDay}
