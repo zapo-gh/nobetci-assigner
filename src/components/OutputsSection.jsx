@@ -13,7 +13,6 @@ export default function OutputsSection({
   classAbsence,
   absentPeopleForCurrentDay,
   commonLessons,
-  onExportJPG,
   onPrint,
   IconComponent,
 }) {
@@ -24,9 +23,6 @@ export default function OutputsSection({
   return (
     <div id="panel-outputs" role="tabpanel" aria-labelledby="tab-outputs">
       <div className="toolbar no-print">
-        <button className="btn" onClick={onExportJPG}>
-          <IconComponent name="download" size={16} /> JPG indir
-        </button>
         <button className="btn" onClick={onPrint}>
           <IconComponent name="printer" size={16} /> Yazdır
         </button>
