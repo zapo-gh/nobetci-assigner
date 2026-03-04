@@ -20,7 +20,6 @@ export default function ScheduleSection({
   unassignedForSelectedDay,
   commonLessons,
   classes,
-  dayOptions,
   IconComponent,
   onOptionChange,
   onSetAllTeachersMaxDuty,
@@ -40,9 +39,6 @@ export default function ScheduleSection({
         options={options}
         handleOptionChange={onOptionChange}
         setAllTeachersMaxDuty={onSetAllTeachersMaxDuty}
-        teachers={teachersForCurrentDay}
-        periods={periods}
-        dayOptions={dayOptions}
         IconComponent={IconComponent}
       />
       <AssignmentEditor

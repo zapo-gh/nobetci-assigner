@@ -1,5 +1,6 @@
 import React from 'react';
 import ModernAvailabilityGrid from './ModernAvailabilityGrid.jsx';
+import RuleEngineCard from './RuleEngineCard.jsx';
 
 export default function TeachersSection({
   teachers,
@@ -14,6 +15,9 @@ export default function TeachersSection({
   onOpenAddTeacherModal,
   onDeletePdfTeachers,
   onDeleteAllTeachers,
+  options,
+  onOptionChange,
+  dayOptions,
   IconComponent,
 }) {
   if (!IconComponent) {
@@ -63,6 +67,14 @@ export default function TeachersSection({
         onToggle={onToggleTeacherFree}
         onToggleAll={onToggleAllTeachersFree}
         onDelete={onDeleteTeacher}
+        IconComponent={IconComponent}
+      />
+      <RuleEngineCard
+        options={options}
+        onOptionChange={onOptionChange}
+        teachers={teachers}
+        periods={periods}
+        dayOptions={dayOptions}
         IconComponent={IconComponent}
       />
     </div>

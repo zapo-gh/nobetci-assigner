@@ -3950,6 +3950,9 @@ export default function App() {
             teachersForCurrentDay={teachersForCurrentDay}
             periods={periods}
             teacherFree={teacherFree}
+            options={options}
+            onOptionChange={handleOptionChange}
+            dayOptions={DAYS}
             onToggleTeacherFree={toggleTeacherFree}
             onToggleAllTeachersFree={setAllTeachersFree}
             onDeleteTeacher={deleteTeacher}
@@ -4012,7 +4015,6 @@ export default function App() {
           <ScheduleSection
             day={day}
             periods={periods}
-            dayOptions={DAYS}
             classesForCurrentDay={classesForCurrentDay}
             teachersForCurrentDay={teachersForCurrentDay}
             freeTeachersByDay={freeTeachersByDay}
