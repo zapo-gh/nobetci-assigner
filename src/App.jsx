@@ -3055,7 +3055,7 @@ export default function App() {
   }, [assignment, day, teachers, classes, classFree, teacherFree, locked, options, periods])
 
   const balanceReport = useMemo(() => {
-    const teacherList = Array.isArray(teachers) ? teachers : [];
+    const teacherList = Array.isArray(teachersForCurrentDay) ? teachersForCurrentDay : [];
     if (teacherList.length === 0) {
       return { overall: { fairnessScore: 100 }, perTeacher: [] };
     }
@@ -3116,7 +3116,7 @@ export default function App() {
       },
       perTeacher,
     };
-  }, [assignment, teachers])
+  }, [assignment, teachersForCurrentDay])
 
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
