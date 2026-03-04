@@ -11,7 +11,6 @@ export default function OutputsSection({
   teachersForCurrentDay,
   classes,
   classAbsence,
-  filteredClassAbsence,
   absentPeopleForCurrentDay,
   commonLessons,
   onExportJPG,
