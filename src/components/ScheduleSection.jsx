@@ -24,6 +24,7 @@ export default function ScheduleSection({
   onDropAssign,
   onManualAssign,
   onManualClear,
+  onManualSetAdmin,
   onManualRelease,
 }) {
   if (!IconComponent) {
@@ -49,7 +50,9 @@ export default function ScheduleSection({
         onDropAssign={onDropAssign}
         onManualAssign={onManualAssign}
         onManualClear={onManualClear}
+        onManualSetAdmin={onManualSetAdmin}
         onManualRelease={onManualRelease}
+        unassignedForSelectedDay={unassignedForSelectedDay}
         commonLessons={commonLessons}
         IconComponent={IconComponent}
       />

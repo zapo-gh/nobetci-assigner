@@ -1,4 +1,6 @@
 import React, { useMemo } from "react";
+import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js'
+import { decodeClassAbsenceValue } from '../utils/classAbsence.js'
 
 const TR_DAYS = { Mon: "Pazartesi", Tue: "Salı", Wed: "Çarşamba", Thu: "Perşembe", Fri: "Cuma" };
 const REASON_LABELS = {
@@ -15,6 +17,7 @@ export default function PrintableDailyList({
   classes = [],
   teachers = [],
   assignment = {},
+  locked = {},
   displayDate = "", // Prop adı 'displayDateStr'den 'displayDate'e düzeltildi
   absentPeople = [],
   classAbsence = {},
@@ -34,6 +37,56 @@ export default function PrintableDailyList({
     });
     return map;
   }, [absentPeople, day]);
+
+  const normalizeTeacherKey = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
+
+  const commonLessonTeacherData = useMemo(() => {
+    const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
+    const dutyTeacherNameKeys = new Set((teachers || []).map(t => normalizeTeacherKey(t.teacherName)));
+    const dataByTeacher = {};
+
+    (periods || []).forEach((p) => {
+      const commonLessonsForPeriod = commonLessons?.[day]?.[p] || {};
+      Object.entries(commonLessonsForPeriod).forEach(([classId, teacherVal]) => {
+        const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
+        const teacherKey = normalizeTeacherKey(teacherName);
+        if (!teacherName || !teacherKey) return;
+
+        if (!dataByTeacher[teacherKey]) {
+          dataByTeacher[teacherKey] = {
+            teacherName,
+            byPeriod: {},
+            isDutyTeacher: dutyTeacherNameKeys.has(teacherKey),
+          };
+        }
+
+        if (!dataByTeacher[teacherKey].byPeriod[p]) {
+          dataByTeacher[teacherKey].byPeriod[p] = [];
+        }
+        dataByTeacher[teacherKey].byPeriod[p].push(classId);
+      });
+    });
+
+    return dataByTeacher;
+  }, [teachers, periods, commonLessons, day]);
+
+  const adminLessonsByPeriod = useMemo(() => {
+    const map = {};
+    Object.entries(locked || {}).forEach(([key, teacherId]) => {
+      if (teacherId !== MANUAL_ADMIN_TEACHER_ID) return;
+      const [lockDay, lockPeriod, classId] = key.split('|');
+      if (lockDay !== day) return;
+      const period = Number(lockPeriod);
+      if (!map[period]) map[period] = [];
+      map[period].push(classId);
+    });
+    return map;
+  }, [locked, day]);
+
+  const hasAdminLessons = useMemo(
+    () => Object.values(adminLessonsByPeriod).some((list) => Array.isArray(list) && list.length > 0),
+    [adminLessonsByPeriod]
+  );
 
   // Çıktılar sekmesinde özet gösterilmiyor (planlama sekmesinde var)
 
@@ -69,6 +122,7 @@ export default function PrintableDailyList({
 
                   {(periods || []).map(p => {
                     const arr = assignment?.[day]?.[p] || [];
+                    const teacherKey = normalizeTeacherKey(t.teacherName);
                     const mine = arr
                       .filter(a => a.teacherId === t.teacherId)
                       .map(a => {
@@ -78,14 +132,38 @@ export default function PrintableDailyList({
                         return { cls, info };
                       });
 
+                    const commonLessonClassIds = commonLessonTeacherData?.[teacherKey]?.byPeriod?.[p] || [];
+                    const commonLessonItems = commonLessonClassIds.map((classId) => ({
+                      cls: classNameById[classId] || classId,
+                      isCommonLesson: true,
+                      ownerInfo: (() => {
+                        const rawValue = classAbsence?.[day]?.[p]?.[classId]
+                        const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
+                        return commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
+                      })(),
+                    }));
+
+                    const mergedItems = [...mine, ...commonLessonItems];
+
                     return (
                       <td key={p} className="cell text-center">
-                        {mine.length ? (
+                        {mergedItems.length ? (
                           <ul className="cell-list">
-                            {mine.map((item, idx) => (
+                            {mergedItems.map((item, idx) => (
                               <li key={idx} className="cell-item">
                                 <div className="class nowrap">{item.cls}</div>
-                                {item.info && (
+                                {item.isCommonLesson ? (
+                                  <div className="abs">
+                                    <small className="absline common-lesson">
+                                      Ders Birleştirilecek
+                                    </small>
+                                    {item.ownerInfo && (
+                                      <small className="absline">
+                                        {item.ownerInfo.name} — {REASON_LABELS[item.ownerInfo.reason] || item.ownerInfo.reason}
+                                      </small>
+                                    )}
+                                  </div>
+                                ) : item.info && (
                                   <div className="abs">
                                     <small className="absline">
                                       {item.info.name} — {REASON_LABELS[item.info.reason] || item.info.reason}
@@ -103,51 +181,44 @@ export default function PrintableDailyList({
               ))
             )}
 
-            {/* Common Lesson Teachers */}
+            {/* Common Lesson Teachers (nöbetçi listesinde olmayanlar) */}
             {(() => {
-              // Get all unique common lesson teachers for this day
-              const commonLessonTeachers = new Set();
-              const teacherClassMap = {};
-              const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
+              const extraCommonLessonTeachers = Object.values(commonLessonTeacherData).filter(
+                (item) => !item.isDutyTeacher
+              );
 
-              periods.forEach(p => {
-                const commonLessonsForPeriod = commonLessons?.[day]?.[p] || {};
-                Object.entries(commonLessonsForPeriod).forEach(([classId, teacherVal]) => {
-                  const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
-                  commonLessonTeachers.add(teacherName);
-                  if (!teacherClassMap[teacherName]) {
-                    teacherClassMap[teacherName] = {};
-                  }
-                  if (!teacherClassMap[teacherName][p]) {
-                    teacherClassMap[teacherName][p] = [];
-                  }
-                  teacherClassMap[teacherName][p].push(classId);
-                });
-              });
-
-              // Render a row for each common lesson teacher
-              return Array.from(commonLessonTeachers).map(teacherName => (
-                <tr key={teacherName} className="common-lesson-teacher-row">
+              return extraCommonLessonTeachers.map((item) => (
+                <tr key={item.teacherName} className="common-lesson-teacher-row">
                   <td className="teacher-name">
-                    <strong className="nowrap">{teacherName}</strong>
+                    <strong className="nowrap">{item.teacherName}</strong>
                   </td>
                   {periods.map(p => {
-                    const classesForTeacher = teacherClassMap[teacherName]?.[p] || [];
+                    const classesForTeacher = item.byPeriod?.[p] || [];
 
                     return (
                       <td key={p} className="cell text-center">
                         {classesForTeacher.length > 0 ? (
                           <ul className="cell-list">
-                            {classesForTeacher.map((classId, idx) => (
-                              <li key={idx} className="cell-item">
-                                <div className="class nowrap">{classNameById[classId] || classId}</div>
-                                <div className="abs">
-                                  <small className="absline common-lesson">
-                                    Ders Birleştirilecek
-                                  </small>
-                                </div>
-                              </li>
-                            ))}
+                            {classesForTeacher.map((classId, idx) => {
+                              const rawValue = classAbsence?.[day]?.[p]?.[classId]
+                              const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
+                              const ownerInfo = commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
+                              return (
+                                <li key={idx} className="cell-item">
+                                  <div className="class nowrap">{classNameById[classId] || classId}</div>
+                                  <div className="abs">
+                                    <small className="absline common-lesson">
+                                      Ders Birleştirilecek
+                                    </small>
+                                    {ownerInfo && (
+                                      <small className="absline">
+                                        {ownerInfo.name} — {REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}
+                                      </small>
+                                    )}
+                                  </div>
+                                </li>
+                              )
+                            })}
                           </ul>
                         ) : <span className="muted">—</span>}
                       </td>
@@ -156,6 +227,45 @@ export default function PrintableDailyList({
                 </tr>
               ));
             })()}
+
+            {hasAdminLessons && (
+              <tr className="admin-control-row">
+                <td className="teacher-name">
+                  <strong className="nowrap">İdare</strong>
+                </td>
+                {periods.map((p) => {
+                  const classesForAdmin = adminLessonsByPeriod[p] || [];
+                  return (
+                    <td key={`admin-${p}`} className="cell text-center">
+                      {classesForAdmin.length > 0 ? (
+                        <ul className="cell-list">
+                          {classesForAdmin.map((classId, idx) => {
+                            const rawValue = classAbsence?.[day]?.[p]?.[classId]
+                            const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
+                            const ownerInfo = commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
+                            return (
+                              <li key={`${classId}-${idx}`} className="cell-item">
+                                <div className="class nowrap">{classNameById[classId] || classId}</div>
+                                <div className="abs">
+                                  <small className="absline admin-control">
+                                    İdare kontrolünde
+                                  </small>
+                                  {ownerInfo && (
+                                    <small className="absline">
+                                      {ownerInfo.name} — {REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}
+                                    </small>
+                                  )}
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      ) : <span className="muted">—</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -270,9 +380,23 @@ export default function PrintableDailyList({
           background: var(--bg-secondary);
         }
 
+        .admin-control-row {
+          background: var(--bg-secondary);
+          border-top: 1px solid var(--border-default);
+        }
+
+        .admin-control-row .teacher-name {
+          background: var(--bg-secondary);
+        }
+
         .common-lesson {
           color: var(--primary);
           font-weight: 500;
+        }
+
+        .admin-control {
+          color: var(--warning, #d97706);
+          font-weight: 600;
         }
 
         @media (max-width: 900px) {
@@ -313,6 +437,16 @@ export default function PrintableDailyList({
           .teacher-col { width: 170px !important; }
           .teacher-name { 
             vertical-align: middle !important;
+          }
+          .teacher-name .nowrap {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            display: inline-block !important;
+            max-width: 100% !important;
+            line-height: 1.15 !important;
           }
           .teacher-name .teacher-id { display: none !important; }
 

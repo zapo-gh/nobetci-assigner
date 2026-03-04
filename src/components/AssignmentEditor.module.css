@@ -32,6 +32,18 @@
   position: relative;
 }
 
+.lockBadge {
+  align-self: flex-end;
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+
 .teacherRow {
   display: flex;
   align-items: center;
@@ -51,6 +63,28 @@
   font-size: 0.85rem;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.manualAdminLabel {
+  font-size: 0.85rem;
+  color: var(--primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.adminCheckboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.adminCheckboxLabel input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
 }
 
 .manualEditor {

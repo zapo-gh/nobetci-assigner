@@ -214,10 +214,15 @@ export function useAbsentManager({
         };
 
         const classNameToId = new Map();
+        const teacherByNormalizedName = new Map(
+          (teachers || [])
+            .filter((teacher) => teacher?.teacherName)
+            .map((teacher) => [normalizeForComparison(teacher.teacherName), teacher]),
+        );
         const peerTeacherSchedules = Object.entries(teacherSchedules || {}).map(([key, schedule]) => {
           const normalizedName = normalizeForComparison(key);
           const teacherById = teacherMap.get(key);
-          const teacherByName = teacherNameLookup.get(normalizedName);
+          const teacherByName = teacherByNormalizedName.get(normalizedName);
           const displayName = teacherById?.teacherName || teacherByName?.teacherName || key;
           const teacherId = teacherById?.teacherId || teacherByName?.teacherId || key;
           return {
@@ -253,7 +258,7 @@ export function useAbsentManager({
           const { displayName, teacherId } = overlapEntry;
           if (displayName && displayName.trim().length > 0) {
             const normalizedDisplay = normalizeForComparison(displayName);
-            const teacherByDisplay = teacherNameLookup.get(normalizedDisplay);
+            const teacherByDisplay = teacherByNormalizedName.get(normalizedDisplay);
             if (teacherByDisplay?.teacherName) {
               return teacherByDisplay.teacherName;
             }
@@ -265,7 +270,7 @@ export function useAbsentManager({
             if (nameById) return nameById;
 
             const normalizedId = normalizeForComparison(teacherId);
-            const teacherByNormalizedId = teacherNameLookup.get(normalizedId);
+            const teacherByNormalizedId = teacherByNormalizedName.get(normalizedId);
             if (teacherByNormalizedId?.teacherName) {
               return teacherByNormalizedId.teacherName;
             }

@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useEffect, useLayoutEffect } from 'react'
 import styles from './AssignmentEditor.module.css';
-import { MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js'
+import { MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js'
 
 const AUTO_OPTION = '__AUTO__'
 const DEFAULT_EDITOR_HEIGHT = 150
@@ -16,10 +16,12 @@ function AssignmentEditor({
   onDropAssign,
   onManualAssign,
   onManualClear,
+  onManualSetAdmin,
   onManualRelease,
   commonLessons,
   IconComponent,
   onManualEditorStateChange,
+  unassignedForSelectedDay = [],
 }) {
   const teacherById = useMemo(() => Object.fromEntries(teachers.map(t => [t.teacherId, t])), [teachers])
   const [dragOverClassId, setDragOverClassId] = useState(null);
@@ -120,6 +122,28 @@ function AssignmentEditor({
 
   const getKey = useCallback((period, classId) => `${day}|${period}|${classId}`, [day])
 
+  const normalizeCommonLessonDisplayName = useCallback((value) => {
+    const trimmed = String(value || '').trim()
+    if (!trimmed) return ''
+    const compact = trimmed.replace(/\s+/g, '')
+    const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(compact)
+    const looksLikeGeneratedId = /^id_\d+_[0-9a-f]+$/i.test(compact)
+    const looksLikeHexBlob = /^[0-9a-f-]{24,}$/i.test(compact)
+    if (looksLikeUuid || looksLikeGeneratedId || looksLikeHexBlob) {
+      return 'Diğer Öğretmen'
+    }
+    return trimmed
+  }, [])
+
+  const unassignedKeySet = useMemo(() => {
+    const set = new Set()
+    ;(unassignedForSelectedDay || []).forEach(({ period, classId }) => {
+      if (!classId) return
+      set.add(`${period}|${classId}`)
+    })
+    return set
+  }, [unassignedForSelectedDay])
+
   const closeEditor = useCallback(() => {
     setEditingContext(null)
     setEditSelection(AUTO_OPTION)
@@ -159,11 +183,13 @@ function AssignmentEditor({
       onManualRelease && onManualRelease({ day, period, classId })
     } else if (editSelection === MANUAL_EMPTY_TEACHER_ID) {
       onManualClear && onManualClear({ day, period, classId })
+    } else if (editSelection === MANUAL_ADMIN_TEACHER_ID) {
+      onManualSetAdmin && onManualSetAdmin({ day, period, classId })
     } else if (editSelection) {
       onManualAssign && onManualAssign({ day, period, classId, teacherId: editSelection })
     }
     closeEditor()
-  }, [editingContext, editSelection, onManualAssign, onManualClear, onManualRelease, closeEditor, day])
+  }, [editingContext, editSelection, onManualAssign, onManualClear, onManualSetAdmin, onManualRelease, closeEditor, day])
 
   useEffect(() => {
     return () => {
@@ -295,10 +321,15 @@ function AssignmentEditor({
 
                   const t = teacherId ? teacherById[teacherId] : null
                   const isManualEmpty = lockValue === MANUAL_EMPTY_TEACHER_ID
+                  const isManualAdmin = lockValue === MANUAL_ADMIN_TEACHER_ID
                   const isEditing = editingContext?.key === k
                   const manualInitialValue = lockValue || teacherId || AUTO_OPTION
                   const commonLessonTeacherVal = commonLessons?.[day]?.[p]?.[cls.classId]
-                  const commonLessonTeacherName = teacherById[commonLessonTeacherVal]?.teacherName || commonLessonTeacherVal
+                  const commonLessonTeacherName = normalizeCommonLessonDisplayName(
+                    teacherById[commonLessonTeacherVal]?.teacherName || commonLessonTeacherVal
+                  )
+                  const isUnassignedCell = unassignedKeySet.has(`${p}|${cls.classId}`)
+                  const hasLock = Boolean(lockValue)
 
                   const tdClasses = [
                     styles.dndTarget,
@@ -315,6 +346,11 @@ function AssignmentEditor({
                       onDrop={(e) => handleDrop(e, p, cls.classId)}
                     >
                       <div className={styles.cellContent}>
+                        {hasLock && (
+                          <span className={styles.lockBadge} title="Bu hücre manuel olarak kilitli">
+                            🔒 Kilitli
+                          </span>
+                        )}
                         {commonLessonTeacherName ? (
                           <div className="text-center">
                             <div className="text-xs text-primary font-medium">📚 Ders Birleştirilecek</div>
@@ -333,6 +369,20 @@ function AssignmentEditor({
                           </div>
                         ) : isManualEmpty ? (
                           <span className={styles.manualEmptyLabel}>Manuel olarak boş bırakıldı</span>
+                        ) : isManualAdmin ? (
+                          <label className={styles.adminCheckboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked
+                              onChange={(e) => {
+                                e.stopPropagation()
+                                if (!e.target.checked) {
+                                  onManualRelease && onManualRelease({ day, period: p, classId: cls.classId })
+                                }
+                              }}
+                            />
+                            <span className={styles.manualAdminLabel}>İdare kontrolünde</span>
+                          </label>
                         ) : teacherId ? (
                           <div className="flex items-center gap-2">
                             <span className="text-error" title={`Geçersiz öğretmen ID: ${teacherId}. Bu kaydı temizlemek için tıklayın.`}>
@@ -353,7 +403,24 @@ function AssignmentEditor({
                             </button>
                           </div>
                         ) : (
-                          <span className="text-muted">—</span>
+                          <>
+                            <span className="text-muted">—</span>
+                            {isUnassignedCell && (
+                              <label className={styles.adminCheckboxLabel}>
+                                <input
+                                  type="checkbox"
+                                  checked={false}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    if (e.target.checked) {
+                                      onManualSetAdmin && onManualSetAdmin({ day, period: p, classId: cls.classId })
+                                    }
+                                  }}
+                                />
+                                İdare
+                              </label>
+                            )}
+                          </>
                         )}
 
                         {!commonLessonTeacherName && (t || isManualEmpty) && (
@@ -393,6 +460,7 @@ function AssignmentEditor({
                             >
                               <option value={AUTO_OPTION}>Otomatik ata</option>
                               <option value={MANUAL_EMPTY_TEACHER_ID}>Boş bırak</option>
+                              <option value={MANUAL_ADMIN_TEACHER_ID}>İdare kontrolü</option>
                               <option value="" disabled>──────────</option>
                               {(() => {
                                 const available = availableTeacherOptions[p] || []

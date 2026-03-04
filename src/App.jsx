@@ -11,7 +11,7 @@ import ScheduleSection from './components/ScheduleSection.jsx';
 import OutputsSection from './components/OutputsSection.jsx';
 import GlobalModals from './components/GlobalModals.jsx';
 import html2canvas from "html2canvas";
-import { assignDuties, MANUAL_EMPTY_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
+import { assignDuties, MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
 import { normalizeForComparison } from "./utils/pdfParser.js";
 import { parseTeacherSchedulesFromExcel } from "./utils/teacherScheduleExcelParser.js";
@@ -547,6 +547,10 @@ export default function App() {
     return map;
   }, [absentPeople]);
 
+  const validClassIdSet = useMemo(() => {
+    return new Set((classes || []).map((cls) => cls.classId).filter(Boolean));
+  }, [classes]);
+
   const normalizeCommonLessonTeacherName = useCallback((rawValue) => {
     if (!rawValue) return '';
     const trimmed = String(rawValue).trim();
@@ -562,6 +566,17 @@ export default function App() {
     const absentName = absentIdToNameMap.get(trimmed);
     if (absentName) return absentName;
 
+    const compact = trimmed.replace(/\s+/g, '');
+    const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(compact);
+    const looksLikeGeneratedId = /^id_\d+_[0-9a-f]+$/i.test(compact);
+    const looksLikeHexBlob = /^[0-9a-f-]{24,}$/i.test(compact);
+    const hasNoReadableSeparators = !/[\s._]/.test(compact);
+    const tooLongOpaqueToken = compact.length >= 24 && hasNoReadableSeparators;
+
+    if (looksLikeUuid || looksLikeGeneratedId || looksLikeHexBlob || tooLongOpaqueToken) {
+      return 'Diğer Öğretmen';
+    }
+
     return trimmed;
   }, [teacherMap, teacherNameLookup, absentIdToNameMap]);
 
@@ -574,6 +589,10 @@ export default function App() {
       Object.entries(perMap).forEach(([periodKey, byClass]) => {
         if (!byClass) return;
         Object.entries(byClass).forEach(([classId, rawValue]) => {
+          if (!validClassIdSet.has(classId)) {
+            changed = true;
+            return;
+          }
           const normalizedName = normalizeCommonLessonTeacherName(rawValue);
           if (!next[dayKey]) next[dayKey] = {};
           if (!next[dayKey][periodKey]) next[dayKey][periodKey] = {};
@@ -586,7 +605,7 @@ export default function App() {
     });
 
     return { map: next, changed };
-  }, [normalizeCommonLessonTeacherName]);
+  }, [normalizeCommonLessonTeacherName, validClassIdSet]);
 
   const applySupabaseSnapshot = useCallback(
     (supabaseData, { persistLocal = true } = {}) => {
@@ -2537,7 +2556,7 @@ export default function App() {
     day,
     periods,
     teacherMap,
-    absentPeople,
+    absentPeople: absentPeopleForCurrentDay,
   });
 
   const classFreeForCurrentDay = useClassFreeForDay({ classFree, day, periods });
@@ -2609,7 +2628,9 @@ export default function App() {
 
     const validTeacherIds = new Set(teachers.map(t => t.teacherId));
     const invalidEntries = Object.entries(locked).filter(([, teacherId]) => {
-      return teacherId && !validTeacherIds.has(teacherId);
+      if (!teacherId) return false;
+      if (teacherId === MANUAL_EMPTY_TEACHER_ID || teacherId === MANUAL_ADMIN_TEACHER_ID) return false;
+      return !validTeacherIds.has(teacherId);
     });
 
     if (invalidEntries.length > 0) {
@@ -2649,7 +2670,9 @@ export default function App() {
 
     // Geçersiz teacherId'ye sahip olanları bul
     const invalidDayEntries = dayEntries.filter(([, teacherId]) => {
-      return teacherId && !validTeacherIds.has(teacherId);
+      if (!teacherId) return false;
+      if (teacherId === MANUAL_EMPTY_TEACHER_ID || teacherId === MANUAL_ADMIN_TEACHER_ID) return false;
+      return !validTeacherIds.has(teacherId);
     });
 
     if (invalidDayEntries.length > 0) {
@@ -2687,7 +2710,7 @@ export default function App() {
 
       Object.entries(prev).forEach(([key, teacherId]) => {
         if (!teacherId) return;
-        if (teacherId === MANUAL_EMPTY_TEACHER_ID) return;
+        if (teacherId === MANUAL_EMPTY_TEACHER_ID || teacherId === MANUAL_ADMIN_TEACHER_ID) return;
         if (!key.startsWith(`${day}|`)) return;
         if (activeTeacherIds.has(teacherId)) return;
 
@@ -2777,6 +2800,12 @@ export default function App() {
       (dayAssignment?.[period] || []).forEach(({ classId }) => needed.delete(classId));
 
       needed.forEach((classId) => {
+        const lockKey = `${day}|${period}|${classId}`;
+        const lockValue = locked?.[lockKey];
+        if (lockValue === MANUAL_ADMIN_TEACHER_ID) {
+          return;
+        }
+
         const cls = classes.find((c) => c.classId === classId);
         items.push({
           period,
@@ -2791,7 +2820,7 @@ export default function App() {
         a.period - b.period ||
         (a.className || '').localeCompare(b.className || '', 'tr', { sensitivity: 'base' })
     );
-  }, [assignment, freeClassesByDay, day, classes, periods]);
+  }, [assignment, freeClassesByDay, day, classes, periods, locked]);
 
   const assignmentInsights = useMemo(() => {
     const summary = {
@@ -3015,6 +3044,35 @@ export default function App() {
     )
     addNotification({
       message: `${dayLabel} ${period}. saat için ${classLabel} manuel olarak boş bırakıldı`,
+      type: 'info',
+      duration: 2200,
+    })
+  }, [classes, addNotification])
+
+  const handleManualSetAdmin = useCallback(({ day, period, classId }) => {
+    const key = `${day}|${period}|${classId}`
+    const cls = classes.find((c) => c.classId === classId)
+    const classLabel = cls?.className || 'Sınıf'
+    const dayLabel = DAYS.find((d) => d.key === day)?.label || day
+
+    let changed = false
+    setLocked((prev) => {
+      if (prev?.[key] === MANUAL_ADMIN_TEACHER_ID) {
+        return prev
+      }
+      const next = { ...(prev || {}) }
+      next[key] = MANUAL_ADMIN_TEACHER_ID
+      changed = true
+      return next
+    })
+
+    if (!changed) return
+
+    upsertLock({ day, period, classId, teacherId: MANUAL_ADMIN_TEACHER_ID }).catch((err) =>
+      logger.error('Manual admin upsert error:', err)
+    )
+    addNotification({
+      message: `${dayLabel} ${period}. saat için ${classLabel} idare kontrolüne alındı`,
       type: 'info',
       duration: 2200,
     })
@@ -3443,12 +3501,14 @@ export default function App() {
 
       // Metin verilerini hazırla
       const assignmentLines = [];
+      const normalizeTeacherKey = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
       const absentMap = {};
       (absentPeople || []).forEach(a => {
         if (a && a.absentId) absentMap[a.absentId] = { name: a.name, reason: a.reason };
       });
 
       for (const p of periods) {
+        const periodTeacherLineIndex = new Map();
         const arr = assignment?.[day]?.[p] || [];
         arr.forEach(a => {
           const c = classes.find(x => x.classId === a.classId);
@@ -3460,17 +3520,57 @@ export default function App() {
           const suffix = abs ? ` (${abs.name} - ${reason})` : "";
           const teacherDisplayName = t?.teacherName || (a.teacherId.startsWith('auto_') ? 'Bilinmeyen Öğretmen' : a.teacherId);
           assignmentLines.push(`${p}. saat — ${c?.className || a.classId}: ${teacherDisplayName}${suffix}`);
+          const teacherKey = normalizeTeacherKey(teacherDisplayName);
+          const mapKey = `${p}|${teacherKey}`;
+          if (!periodTeacherLineIndex.has(mapKey)) {
+            periodTeacherLineIndex.set(mapKey, assignmentLines.length - 1);
+          }
         });
 
         if (commonLessons?.[day]?.[p]) {
+          const mergedCommonLessonsByTeacher = {};
           Object.entries(commonLessons[day][p]).forEach(([classId, teacherName]) => {
             const c = classes.find(x => x.classId === classId);
             const teacherLabel = teacherName && teacherName !== COMMON_LESSON_LABEL
               ? teacherName
               : 'Diğer öğretmen';
-            assignmentLines.push(`${p}. saat — ${c?.className || classId}: ${teacherLabel}`);
+            const rawValue = classAbsence?.[day]?.[p]?.[classId];
+            const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue);
+            const ownerInfo = commonLessonOwnerId ? absentMap[commonLessonOwnerId] : null;
+            const ownerReason = ownerInfo ? (REASON_LABELS[ownerInfo.reason] || ownerInfo.reason) : '';
+            const ownerSuffix = ownerInfo ? ` (${ownerInfo.name} - ${ownerReason})` : '';
+            const classLabel = `${c?.className || classId}${ownerSuffix}`;
+            const teacherKey = normalizeTeacherKey(teacherLabel);
+            const mapKey = `${p}|${teacherKey}`;
+            const existingLineIndex = periodTeacherLineIndex.get(mapKey);
+
+            if (Number.isInteger(existingLineIndex)) {
+              if (!mergedCommonLessonsByTeacher[mapKey]) {
+                mergedCommonLessonsByTeacher[mapKey] = [];
+              }
+              mergedCommonLessonsByTeacher[mapKey].push(classLabel);
+              return;
+            }
+
+            assignmentLines.push(`${p}. saat — ${classLabel}: Ders Birleştirilecek - ${teacherLabel}`);
+          });
+
+          Object.entries(mergedCommonLessonsByTeacher).forEach(([mapKey, classLabels]) => {
+            const lineIndex = periodTeacherLineIndex.get(mapKey);
+            if (!Number.isInteger(lineIndex) || !assignmentLines[lineIndex]) return;
+            const uniqLabels = Array.from(new Set(classLabels)).filter(Boolean);
+            if (uniqLabels.length === 0) return;
+            assignmentLines[lineIndex] = `${assignmentLines[lineIndex]} [Ders Birleştirilecek: ${uniqLabels.join(', ')}]`;
           });
         }
+
+        Object.entries(locked || {}).forEach(([key, teacherId]) => {
+          if (teacherId !== MANUAL_ADMIN_TEACHER_ID) return;
+          const [lockDay, lockPeriod, classId] = key.split('|');
+          if (lockDay !== day || Number(lockPeriod) !== Number(p)) return;
+          const c = classes.find(x => x.classId === classId);
+          assignmentLines.push(`${p}. saat — ${c?.className || classId}: İdare kontrolünde`);
+        });
       }
 
       const headerLine = `Tarih: ${displayDate}`;
@@ -3769,6 +3869,7 @@ export default function App() {
             onDropAssign={dropAssign}
             onManualAssign={handleManualAssign}
             onManualClear={handleManualClear}
+            onManualSetAdmin={handleManualSetAdmin}
             onManualRelease={handleManualRelease}
           />
         )}
@@ -3779,6 +3880,7 @@ export default function App() {
             displayDate={displayDate}
             periods={periods}
             assignment={assignment}
+            locked={locked}
             teachersForCurrentDay={teachersForCurrentDay}
             classes={classes}
             classAbsence={classAbsence}

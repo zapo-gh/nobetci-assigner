@@ -1,6 +1,7 @@
 import { toInt } from './helpers.js';
 
 export const MANUAL_EMPTY_TEACHER_ID = '__MANUAL_EMPTY__'
+export const MANUAL_ADMIN_TEACHER_ID = '__MANUAL_ADMIN__'
 
 function cloneSetMap(setMap = {}) {
   const out = {}
@@ -172,6 +173,16 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
     dutyCount[day] = {}
     lastAssignedPeriod[day] = {}
     const slotUsage = {} // slotUsage[period][teacherId] = count (aynı saatte kaç sınıf)
+    const teacherAvailabilityCount = {}
+
+    Object.values(freeTeachers[day] || {}).forEach((teacherIds) => {
+      const periodSet = teacherIds instanceof Set
+        ? teacherIds
+        : new Set(Array.isArray(teacherIds) ? teacherIds : [])
+      periodSet.forEach((teacherId) => {
+        teacherAvailabilityCount[teacherId] = (teacherAvailabilityCount[teacherId] || 0) + 1
+      })
+    })
 
     for (const p of Object.keys(freeTeachers[day] || {})) {
       const period = +p
@@ -192,7 +203,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
       const locksForSlot = Object.entries(locked || {}).filter(([k]) => k.startsWith(`${day}|${period}|`))
       for (const [key, tId] of locksForSlot) {
         const classId = key.split('|')[2]
-        if (tId === MANUAL_EMPTY_TEACHER_ID) {
+        if (tId === MANUAL_EMPTY_TEACHER_ID || tId === MANUAL_ADMIN_TEACHER_ID) {
           freeC.delete(classId)
           continue
         }
@@ -208,7 +219,10 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
 
       // Adalet: o gün daha az ataması olan önce
       const baseSorted = Array.from(freeT).sort(
-        (a, b) => (dutyCount[day][a] || 0) - (dutyCount[day][b] || 0)
+        (a, b) =>
+          (dutyCount[day][a] || 0) - (dutyCount[day][b] || 0) ||
+          (teacherAvailabilityCount[a] || 999) - (teacherAvailabilityCount[b] || 999) ||
+          a.localeCompare(b)
       )
 
       // 2) İlk tur: her öğretmene en fazla 1 sınıf (slotUsage==0)
@@ -225,6 +239,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
         } else if (candidates.length > 1) {
           const scores = candidates.map((tid) => {
             const currentDuty = dutyCount[day]?.[tid] || 0
+            const availabilityCount = teacherAvailabilityCount[tid] || 999
             const lastPeriod = lastAssignedPeriod[day]?.[tid]
             const consecutivePenalty =
               Number.isFinite(lastPeriod) && Number.isFinite(period) && period - lastPeriod === 1
@@ -247,8 +262,8 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
               commonLessons,
               validTeacherIds,
             })
-            const scoreValue = (remainingClasses * 200) + (dutyDifference * 50) + consecutivePenalty + (currentDuty * 5)
-            return { tid, scoreValue, remainingClasses, dutyDifference, currentDuty, consecutivePenalty }
+            const scoreValue = (remainingClasses * 200) + (dutyDifference * 50) + consecutivePenalty + (currentDuty * 5) + (availabilityCount * 3)
+            return { tid, scoreValue, remainingClasses, dutyDifference, currentDuty, consecutivePenalty, availabilityCount }
           })
           pick = scores
             .sort((a, b) =>
@@ -256,6 +271,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
               a.remainingClasses - b.remainingClasses ||
               a.dutyDifference - b.dutyDifference ||
               a.currentDuty - b.currentDuty ||
+              a.availabilityCount - b.availabilityCount ||
               a.consecutivePenalty - b.consecutivePenalty ||
               a.tid.localeCompare(b.tid)
             )[0]
@@ -278,7 +294,10 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
 
         // Her turda güncel dutyCount'a göre yeniden sırala (daha adil dağılım)
         const freshSorted = Array.from(freeT).sort(
-          (a, b) => (dutyCount[day][a] || 0) - (dutyCount[day][b] || 0)
+          (a, b) =>
+            (dutyCount[day][a] || 0) - (dutyCount[day][b] || 0) ||
+            (teacherAvailabilityCount[a] || 999) - (teacherAvailabilityCount[b] || 999) ||
+            a.localeCompare(b)
         )
 
         for (const classId of remaining) {
@@ -449,6 +468,13 @@ export function applyFairnessAdjustments({
     return true;
   };
 
+  const canTakePeriodForBalance = (teacherId, period) => {
+    if (!isTeacherFree(period, teacherId)) return false;
+    if ((assignmentCounts[teacherId] || 0) >= getMaxDuty(teacherId)) return false;
+    if ((slotUsage[period]?.[teacherId] || 0) >= maxPerSlot) return false;
+    return true;
+  };
+
   const tryFillFromNeeds = (teacherId, availablePeriods) => {
     for (const period of availablePeriods) {
       const needSet = dayNeedsByPeriod.get(period);
@@ -537,6 +563,90 @@ export function applyFairnessAdjustments({
 
     trySwapAssignments(teacherId, availablePeriods);
   });
+
+  const dutyTeacherIds = teachersForCurrentDay
+    .map((teacher) => teacher?.teacherId)
+    .filter(Boolean)
+
+  const tryBalanceBetweenTeachers = (receiverId, donorId) => {
+    if (!receiverId || !donorId || receiverId === donorId) return false
+    const donorCount = assignmentCounts[donorId] || 0
+    const receiverCount = assignmentCounts[receiverId] || 0
+    if (donorCount <= receiverCount) return false
+
+    const donorAssignments = []
+    periods.forEach((period) => {
+      const rows = adjustedDay[period] || []
+      rows.forEach((row, idx) => {
+        if (row?.teacherId === donorId) {
+          donorAssignments.push({ period, classId: row.classId, idx })
+        }
+      })
+    })
+
+    donorAssignments.sort((a, b) => a.period - b.period)
+
+    for (const assignment of donorAssignments) {
+      const { period, classId, idx } = assignment
+      const lockKey = `${day}|${period}|${classId}`
+      const lockOwner = locked?.[lockKey]
+      if (lockOwner && lockOwner !== MANUAL_EMPTY_TEACHER_ID) continue
+      if (dayCommonLessons?.[period]?.[classId]) continue
+      const canTakeStrict = canTakePeriod(receiverId, period)
+      const canTakeRelaxed = canTakePeriodForBalance(receiverId, period)
+      if (!canTakeStrict && !canTakeRelaxed) continue
+
+      ensureClone()
+      const rows = adjustedDay[period] || []
+      rows[idx] = { classId, teacherId: receiverId }
+
+      assignmentCounts[donorId] = Math.max((assignmentCounts[donorId] || 0) - 1, 0)
+      assignmentCounts[receiverId] = (assignmentCounts[receiverId] || 0) + 1
+
+      slotUsage[period] = slotUsage[period] || {}
+      slotUsage[period][receiverId] = (slotUsage[period][receiverId] || 0) + 1
+      if (slotUsage[period][donorId]) {
+        slotUsage[period][donorId] = Math.max(slotUsage[period][donorId] - 1, 0)
+      }
+
+      const donorPeriods = [...(teacherPeriods[donorId] || [])]
+      const donorIndex = donorPeriods.indexOf(period)
+      if (donorIndex >= 0) donorPeriods.splice(donorIndex, 1)
+      teacherPeriods[donorId] = donorPeriods
+      teacherPeriods[receiverId] = [...(teacherPeriods[receiverId] || []), period].sort((x, y) => x - y)
+      return true
+    }
+
+    return false
+  }
+
+  let balanceProgress = true
+  let balanceGuard = 0
+  while (balanceProgress && balanceGuard < 50) {
+    balanceProgress = false
+    balanceGuard += 1
+
+    const sortedByDuty = [...dutyTeacherIds].sort((a, b) =>
+      (assignmentCounts[a] || 0) - (assignmentCounts[b] || 0) || a.localeCompare(b)
+    )
+
+    const receivers = sortedByDuty
+    const donors = [...sortedByDuty].reverse()
+
+    for (const receiverId of receivers) {
+      for (const donorId of donors) {
+        const donorCount = assignmentCounts[donorId] || 0
+        const receiverCount = assignmentCounts[receiverId] || 0
+        if (donorCount - receiverCount <= 1) continue
+
+        if (tryBalanceBetweenTeachers(receiverId, donorId)) {
+          balanceProgress = true
+          break
+        }
+      }
+      if (balanceProgress) break
+    }
+  }
 
   return changed ? adjustedSchedule : baseSchedule;
 }

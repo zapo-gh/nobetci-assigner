@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import styles from './AssignmentText.module.css';
+import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js'
+import { decodeClassAbsenceValue } from '../utils/classAbsence.js'
 
 const REASON_LABELS = {
   "raporlu": "Raporlu",
@@ -15,6 +17,7 @@ export default function AssignmentText({
   classes = [],
   teachers = [],
   assignment = {},
+  locked = {},
   displayDate = "", // Prop adı 'displayDateStr'den 'displayDate'e düzeltildi
   absentPeople = [],
   classAbsence = {},
@@ -41,9 +44,12 @@ export default function AssignmentText({
     }
 
     const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
+    const normalizeTeacherKey = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
 
     for (const p of periods) {
       const arr = assignment[day]?.[p] || [];
+
+      const periodTeacherLineIndex = new Map();
 
       // Her görevlendirmeyi ayrı satıra yaz
       arr.forEach(a => {
@@ -54,24 +60,65 @@ export default function AssignmentText({
         const reason = abs ? (REASON_LABELS[abs.reason] || abs.reason) : "";
         const suffix = abs ? ` (${abs.name} - ${reason})` : "";
         const teacherDisplayName = t?.teacherName || (a.teacherId.startsWith('auto_') ? 'Bilinmeyen Öğretmen' : a.teacherId);
-        lines.push(`${p}. saat — ${c?.className || a.classId}: ${teacherDisplayName}${suffix}`);
+        const lineText = `${p}. saat — ${c?.className || a.classId}: ${teacherDisplayName}${suffix}`;
+        lines.push(lineText);
+        const teacherKey = normalizeTeacherKey(teacherDisplayName);
+        const mapKey = `${p}|${teacherKey}`;
+        if (!periodTeacherLineIndex.has(mapKey)) {
+          periodTeacherLineIndex.set(mapKey, lines.length - 1);
+        }
       });
 
       // Common lessons for this period
       if (commonLessons?.[day]?.[p]) {
+        const mergedCommonLessonsByTeacher = {};
         Object.entries(commonLessons[day][p]).forEach(([classId, teacherVal]) => {
           const c = classes.find(x => x.classId === classId);
           const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
-          lines.push(`${p}. saat — ${c?.className || classId}: Ders Birleştirilecek - ${teacherName}`);
+          const rawValue = classAbsence?.[day]?.[p]?.[classId]
+          const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
+          const ownerInfo = commonLessonOwnerId ? absentMap[commonLessonOwnerId] : null
+          const ownerReason = ownerInfo ? (REASON_LABELS[ownerInfo.reason] || ownerInfo.reason) : ''
+          const ownerSuffix = ownerInfo ? ` (${ownerInfo.name} - ${ownerReason})` : ''
+          const classLabel = `${c?.className || classId}${ownerSuffix}`;
+          const teacherKey = normalizeTeacherKey(teacherName);
+          const mapKey = `${p}|${teacherKey}`;
+          const existingLineIndex = periodTeacherLineIndex.get(mapKey);
+
+          if (Number.isInteger(existingLineIndex)) {
+            if (!mergedCommonLessonsByTeacher[mapKey]) {
+              mergedCommonLessonsByTeacher[mapKey] = [];
+            }
+            mergedCommonLessonsByTeacher[mapKey].push(classLabel);
+            return;
+          }
+
+          lines.push(`${p}. saat — ${classLabel}: Ders Birleştirilecek - ${teacherName}`);
+        });
+
+        Object.entries(mergedCommonLessonsByTeacher).forEach(([mapKey, classLabels]) => {
+          const lineIndex = periodTeacherLineIndex.get(mapKey);
+          if (!Number.isInteger(lineIndex) || !lines[lineIndex]) return;
+          const uniqLabels = Array.from(new Set(classLabels)).filter(Boolean);
+          if (uniqLabels.length === 0) return;
+          lines[lineIndex] = `${lines[lineIndex]} [Ders Birleştirilecek: ${uniqLabels.join(', ')}]`;
         });
       }
+
+      Object.entries(locked || {}).forEach(([key, teacherId]) => {
+        if (teacherId !== MANUAL_ADMIN_TEACHER_ID) return;
+        const [lockDay, lockPeriod, classId] = key.split('|');
+        if (lockDay !== day || Number(lockPeriod) !== Number(p)) return;
+        const c = classes.find(x => x.classId === classId);
+        lines.push(`${p}. saat — ${c?.className || classId}: İdare kontrolünde`);
+      });
     }
     const header = `Tarih: ${displayDate}`;
     if (lines.length === 0) {
       return [`${header}`, `(Bu tarih için atanmış görev bulunmuyor)`]; // Dizi olarak döndür
     }
     return [header, ...lines]; // Dizi olarak döndür
-  }, [day, periods, classes, teachers, assignment, displayDate, classAbsence, commonLessons, absentMap]);
+  }, [day, periods, classes, teachers, assignment, locked, displayDate, classAbsence, commonLessons, absentMap]);
 
   const copy = () => {
     try {

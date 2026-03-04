@@ -7,6 +7,7 @@ export default function OutputsSection({
   displayDate,
   periods,
   assignment,
+  locked,
   teachersForCurrentDay,
   classes,
   classAbsence,
@@ -36,9 +37,10 @@ export default function OutputsSection({
         displayDate={displayDate}
         periods={periods}
         assignment={assignment}
+        locked={locked}
         teachers={teachersForCurrentDay}
         classes={classes}
-        classAbsence={filteredClassAbsence}
+        classAbsence={classAbsence}
         absentPeople={absentPeopleForCurrentDay}
         commonLessons={commonLessons}
       />
@@ -47,6 +49,7 @@ export default function OutputsSection({
         displayDate={displayDate}
         periods={periods}
         assignment={assignment}
+        locked={locked}
         teachers={teachersForCurrentDay}
         classes={classes}
         classAbsence={classAbsence}
