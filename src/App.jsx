@@ -11,7 +11,6 @@ import ScheduleSection from './components/ScheduleSection.jsx';
 import OutputsSection from './components/OutputsSection.jsx';
 import GlobalModals from './components/GlobalModals.jsx';
 import html2canvas from "html2canvas";
-import * as XLSX from 'xlsx';
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
 import { normalizeForComparison } from "./utils/pdfParser.js";
@@ -3838,133 +3837,6 @@ export default function App() {
     }
   }
 
-  const openPrintWindowForPdf = useCallback(({ title, sections, filename }) => {
-    const popup = window.open('', '_blank', 'noopener,noreferrer,width=1200,height=900');
-    if (!popup) {
-      addNotification('PDF önizleme penceresi açılamadı (popup engeli olabilir).', 'error');
-      return;
-    }
-
-    const sectionHtml = (sections || [])
-      .map((section) => {
-        const rowsHtml = (section.rows || [])
-          .map((row) => `<li>${row}</li>`)
-          .join('');
-        return `<section><h3>${section.header}</h3><ul>${rowsHtml || '<li>Kayıt yok</li>'}</ul></section>`;
-      })
-      .join('');
-
-    popup.document.write(`
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            body { font-family: 'Times New Roman', serif; padding: 24px; color: #111; }
-            h1 { margin-bottom: 16px; }
-            h3 { margin: 16px 0 8px; }
-            ul { margin: 0 0 12px 18px; }
-            li { margin-bottom: 4px; }
-          </style>
-        </head>
-        <body>
-          <h1>${title}</h1>
-          <p>Dosya: ${filename}</p>
-          ${sectionHtml}
-          <script>
-            window.onload = () => { window.print(); };
-          </script>
-        </body>
-      </html>
-    `);
-    popup.document.close();
-  }, [addNotification]);
-
-  const exportTeacherBasedPdf = useCallback(() => {
-    const teacherMapLocal = new Map((teachers || []).map((item) => [item.teacherId, item.teacherName]));
-    const classMapLocal = new Map((classes || []).map((item) => [item.classId, item.className]));
-    const dayLabelMap = new Map(DAYS.map((item) => [item.key, item.label]));
-    const grouped = {};
-
-    Object.entries(assignment || {}).forEach(([dayKey, periodMap]) => {
-      Object.entries(periodMap || {}).forEach(([periodKey, rows]) => {
-        (rows || []).forEach(({ teacherId, classId }) => {
-          if (!teacherId) return;
-          if (!grouped[teacherId]) grouped[teacherId] = [];
-          grouped[teacherId].push(`${dayLabelMap.get(dayKey) || dayKey} ${periodKey}. saat - ${classMapLocal.get(classId) || classId}`);
-        });
-      });
-    });
-
-    const sections = Object.entries(grouped)
-      .map(([teacherId, rows]) => ({
-        header: teacherMapLocal.get(teacherId) || teacherId,
-        rows: rows.sort((a, b) => a.localeCompare(b, 'tr')),
-      }))
-      .sort((a, b) => a.header.localeCompare(b.header, 'tr'));
-
-    openPrintWindowForPdf({
-      title: 'Öğretmen Bazlı Haftalık Nöbet Özeti',
-      sections,
-      filename: 'ogretmen_bazli_haftalik.pdf',
-    });
-  }, [assignment, teachers, classes, openPrintWindowForPdf]);
-
-  const exportClassBasedPdf = useCallback(() => {
-    const teacherMapLocal = new Map((teachers || []).map((item) => [item.teacherId, item.teacherName]));
-    const classMapLocal = new Map((classes || []).map((item) => [item.classId, item.className]));
-    const dayLabelMap = new Map(DAYS.map((item) => [item.key, item.label]));
-    const grouped = {};
-
-    Object.entries(assignment || {}).forEach(([dayKey, periodMap]) => {
-      Object.entries(periodMap || {}).forEach(([periodKey, rows]) => {
-        (rows || []).forEach(({ teacherId, classId }) => {
-          if (!classId) return;
-          if (!grouped[classId]) grouped[classId] = [];
-          grouped[classId].push(`${dayLabelMap.get(dayKey) || dayKey} ${periodKey}. saat - ${teacherMapLocal.get(teacherId) || teacherId}`);
-        });
-      });
-    });
-
-    const sections = Object.entries(grouped)
-      .map(([classId, rows]) => ({
-        header: classMapLocal.get(classId) || classId,
-        rows: rows.sort((a, b) => a.localeCompare(b, 'tr')),
-      }))
-      .sort((a, b) => a.header.localeCompare(b.header, 'tr'));
-
-    openPrintWindowForPdf({
-      title: 'Sınıf Bazlı Haftalık Nöbet Özeti',
-      sections,
-      filename: 'sinif_bazli_haftalik.pdf',
-    });
-  }, [assignment, teachers, classes, openPrintWindowForPdf]);
-
-  const exportWeeklySummaryExcel = useCallback(() => {
-    const teacherMapLocal = new Map((teachers || []).map((item) => [item.teacherId, item.teacherName]));
-    const classMapLocal = new Map((classes || []).map((item) => [item.classId, item.className]));
-    const dayLabelMap = new Map(DAYS.map((item) => [item.key, item.label]));
-
-    const rows = [];
-    Object.entries(assignment || {}).forEach(([dayKey, periodMap]) => {
-      Object.entries(periodMap || {}).forEach(([periodKey, assignmentsInSlot]) => {
-        (assignmentsInSlot || []).forEach(({ classId, teacherId }) => {
-          rows.push({
-            Gun: dayLabelMap.get(dayKey) || dayKey,
-            Saat: Number(periodKey),
-            Sinif: classMapLocal.get(classId) || classId,
-            Ogretmen: teacherMapLocal.get(teacherId) || teacherId,
-          });
-        });
-      });
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'HaftalikOzet');
-    XLSX.writeFile(workbook, `haftalik_ozet_${day}.xlsx`);
-    addNotification('Haftalık özet Excel dosyası indirildi', 'success');
-  }, [assignment, teachers, classes, day, addNotification]);
-
   /* ================================ Render ================================ */
 
   useEffect(() => {
@@ -4179,9 +4051,6 @@ export default function App() {
             commonLessons={commonLessons}
             onExportJPG={exportJPG}
             onPrint={() => window.print()}
-            onExportTeacherPDF={exportTeacherBasedPdf}
-            onExportClassPDF={exportClassBasedPdf}
-            onExportWeeklyExcel={exportWeeklySummaryExcel}
             IconComponent={Icon}
           />
         )}
