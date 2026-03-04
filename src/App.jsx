@@ -110,7 +110,6 @@ function ThemeToggle({ theme, onToggle }) {
 
 const DISABLE_LOCAL_STORAGE = true;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
-const TERM_ARCHIVE_STORAGE_KEY = `${APP_ENV.mode || 'development'}_term_archives_v1`;
 const LAST_ABSENT_CLEANUP_KEY = `${APP_ENV.mode || 'development'}_last_absent_cleanup`;
 const STORAGE_VERSION_KEY = `${APP_ENV.mode || 'development'}_storage_version`;
 const LOCAL_STORAGE_STATIC_KEYS = [
@@ -497,8 +496,6 @@ export default function App() {
   const [locked, setLocked] = useState({})
 
   const [notifications, setNotifications] = useState([]);
-  const [termArchives, setTermArchives] = useState([]);
-  const [selectedArchiveId, setSelectedArchiveId] = useState('');
   const [absenceRefreshState, setAbsenceRefreshState] = useState({
     isRefreshing: false,
     lastRefreshedAt: null,
@@ -1032,45 +1029,6 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
     }
   }, [])
-
-  useEffect(() => {
-    try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(TERM_ARCHIVE_STORAGE_KEY) : null;
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        setTermArchives(parsed);
-      }
-    } catch (error) {
-      logger.warn('Dönem arşivi okunamadı:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      if (typeof localStorage === 'undefined') return;
-      localStorage.setItem(TERM_ARCHIVE_STORAGE_KEY, JSON.stringify(termArchives));
-    } catch (error) {
-      logger.warn('Dönem arşivi kaydedilemedi:', error);
-    }
-  }, [termArchives]);
-
-  const summarizeAssignment = useCallback((assignmentMap) => {
-    const perDay = {};
-    let totalAssignments = 0;
-
-    Object.entries(assignmentMap || {}).forEach(([dayKey, periodsMap]) => {
-      let dayTotal = 0;
-      Object.values(periodsMap || {}).forEach((rows) => {
-        const rowCount = Array.isArray(rows) ? rows.length : 0;
-        dayTotal += rowCount;
-        totalAssignments += rowCount;
-      });
-      perDay[dayKey] = dayTotal;
-    });
-
-    return { totalAssignments, perDay };
-  }, []);
 
   const forceReloadWithVersion = useCallback(async (targetVersion) => {
     if (typeof window === 'undefined') return;
@@ -3161,70 +3119,6 @@ export default function App() {
     };
   }, [assignment, teachers])
 
-  const currentTermSummary = useMemo(() => {
-    const base = summarizeAssignment(assignment);
-    return {
-      ...base,
-      fairnessScore: Number(balanceReport?.overall?.fairnessScore || 0),
-    };
-  }, [assignment, balanceReport, summarizeAssignment]);
-
-  const selectedArchive = useMemo(
-    () => termArchives.find((item) => item.id === selectedArchiveId) || null,
-    [termArchives, selectedArchiveId],
-  );
-
-  const archiveComparison = useMemo(() => {
-    if (!selectedArchive) return null;
-
-    const archivedSummary = selectedArchive.summary || { totalAssignments: 0, perDay: {}, fairnessScore: 0 };
-    const currentSummary = currentTermSummary;
-    const allDayKeys = Array.from(new Set([
-      ...Object.keys(archivedSummary.perDay || {}),
-      ...Object.keys(currentSummary.perDay || {}),
-    ]));
-
-    const dayDiff = allDayKeys.map((dayKey) => ({
-      dayKey,
-      oldValue: archivedSummary.perDay?.[dayKey] || 0,
-      newValue: currentSummary.perDay?.[dayKey] || 0,
-      diff: (currentSummary.perDay?.[dayKey] || 0) - (archivedSummary.perDay?.[dayKey] || 0),
-    }));
-
-    return {
-      archiveName: selectedArchive.name,
-      totalDiff: (currentSummary.totalAssignments || 0) - (archivedSummary.totalAssignments || 0),
-      fairnessDiff: Number((currentSummary.fairnessScore || 0) - (archivedSummary.fairnessScore || 0)),
-      dayDiff,
-    };
-  }, [selectedArchive, currentTermSummary]);
-
-  const handleSaveTermArchive = useCallback(() => {
-    const now = new Date();
-    const name = `Dönem ${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
-    const payload = {
-      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      name,
-      createdAt: now.toISOString(),
-      summary: currentTermSummary,
-      snapshot: {
-        assignment,
-        options,
-        locked,
-      },
-    };
-
-    setTermArchives((prev) => [payload, ...prev].slice(0, 30));
-    setSelectedArchiveId(payload.id);
-    addNotification('Dönem arşivi kaydedildi', 'success');
-  }, [currentTermSummary, assignment, options, locked, addNotification]);
-
-  const handleDeleteTermArchive = useCallback((archiveId) => {
-    setTermArchives((prev) => prev.filter((item) => item.id !== archiveId));
-    setSelectedArchiveId((prev) => (prev === archiveId ? '' : prev));
-    addNotification('Arşiv kaydı silindi', 'info');
-  }, [addNotification]);
-
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
 
@@ -4245,16 +4139,6 @@ export default function App() {
         {activeSection === "schedule" && (
           <ScheduleSection
             day={day}
-            onExportTeacherPDF={exportTeacherBasedPdf}
-            onExportClassPDF={exportClassBasedPdf}
-            onExportWeeklyExcel={exportWeeklySummaryExcel}
-            termArchives={termArchives}
-            selectedArchiveId={selectedArchiveId}
-            onSelectArchive={setSelectedArchiveId}
-            onSaveTermArchive={handleSaveTermArchive}
-            onDeleteTermArchive={handleDeleteTermArchive}
-            currentTermSummary={currentTermSummary}
-            archiveComparison={archiveComparison}
             periods={periods}
             dayOptions={DAYS}
             classesForCurrentDay={classesForCurrentDay}
@@ -4295,6 +4179,9 @@ export default function App() {
             commonLessons={commonLessons}
             onExportJPG={exportJPG}
             onPrint={() => window.print()}
+            onExportTeacherPDF={exportTeacherBasedPdf}
+            onExportClassPDF={exportClassBasedPdf}
+            onExportWeeklyExcel={exportWeeklySummaryExcel}
             IconComponent={Icon}
           />
         )}
