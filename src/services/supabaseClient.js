@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_CONFIG } from '../config/supabaseConfig.js'
+import { APP_ENV } from '../config/index.js'
 
 const supabaseUrl = SUPABASE_CONFIG.url
 const supabaseAnonKey = SUPABASE_CONFIG.anonKey
@@ -12,7 +13,7 @@ const maskedKey = supabaseAnonKey.length > 12
   ? `${supabaseAnonKey.slice(0, 4)}...${supabaseAnonKey.slice(-4)}`
   : supabaseAnonKey
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !APP_ENV.isTest) {
   console.info('[Supabase] Connected to:', supabaseUrl)
   console.info('[Supabase] Using public key:', maskedKey)
 }

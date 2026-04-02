@@ -1,4 +1,8 @@
+import { logger } from './logger.js';
 import * as XLSX from 'xlsx';
+
+const debugLog = (...args) => logger.log(...args);
+
 
 /**
  * Parse teacher schedules from Excel file
@@ -23,41 +27,41 @@ export async function parseTeacherSchedulesFromExcel(file) {
         raw: false  // Convert all values to strings
       });
       
-      console.log(`Processing sheet: ${sheetName}`);
-      console.log('Sheet data length:', jsonData.length);
+      debugLog(`Processing sheet: ${sheetName}`);
+      debugLog('Sheet data length:', jsonData.length);
       
       // Debug: Show first 20 rows to understand structure
-      console.log('First 20 rows of sheet data:');
+      debugLog('First 20 rows of sheet data:');
       jsonData.slice(0, 20).forEach((row, index) => {
-        console.log(`Row ${index}:`, row);
+        debugLog(`Row ${index}:`, row);
       });
       
       // Find all teacher blocks in this sheet
       const teacherBlocks = findTeacherBlocks(jsonData);
-      console.log(`Found ${teacherBlocks.length} teacher blocks:`, teacherBlocks);
+      debugLog(`Found ${teacherBlocks.length} teacher blocks:`, teacherBlocks);
       
       // Parse each teacher's schedule
       teacherBlocks.forEach(block => {
         const { name: teacherName, startRow, endRow } = block;
-        console.log(`\n=== Processing teacher: ${teacherName} (rows ${startRow}-${endRow}) ===`);
+        debugLog(`\n=== Processing teacher: ${teacherName} (rows ${startRow}-${endRow}) ===`);
         
         const teacherData = jsonData.slice(startRow, endRow);
-        console.log(`Teacher data block length: ${teacherData.length}`);
-        console.log('First few rows of teacher data:', teacherData.slice(0, 10));
+        debugLog(`Teacher data block length: ${teacherData.length}`);
+        debugLog('First few rows of teacher data:', teacherData.slice(0, 10));
         
         const schedule = parseTeacherScheduleFromBlock(teacherData, teacherName);
         
         if (schedule && Object.keys(schedule).length > 0) {
           teacherSchedules[teacherName] = schedule;
-          console.log(`✓ Successfully parsed schedule for ${teacherName}:`, schedule);
+          debugLog(`✓ Successfully parsed schedule for ${teacherName}:`, schedule);
         } else {
-          console.log(`✗ No valid schedule found for ${teacherName}`);
+          debugLog(`✗ No valid schedule found for ${teacherName}`);
         }
       });
     });
     
-    console.log('\n=== PARSING SUMMARY ===');
-    console.log('All teacher schedules:', teacherSchedules);
+    debugLog('\n=== PARSING SUMMARY ===');
+    debugLog('All teacher schedules:', teacherSchedules);
     
     // Summary statistics
     const totalTeachers = Object.keys(teacherSchedules).length;
@@ -67,15 +71,15 @@ export async function parseTeacherSchedulesFromExcel(file) {
       }, 0);
     }, 0);
     
-    console.log(`Total teachers parsed: ${totalTeachers}`);
-    console.log(`Total classes parsed: ${totalClasses}`);
+    debugLog(`Total teachers parsed: ${totalTeachers}`);
+    debugLog(`Total classes parsed: ${totalClasses}`);
     
     if (totalTeachers === 0) {
-      console.warn('⚠️ No teachers were found in the Excel file!');
+      logger.warn('⚠️ No teachers were found in the Excel file!');
     }
     
     if (totalClasses === 0) {
-      console.warn('⚠️ No classes were parsed from any teacher!');
+      logger.warn('⚠️ No classes were parsed from any teacher!');
     }
     
     return teacherSchedules;
@@ -132,13 +136,14 @@ function findTeacherBlocks(sheetData) {
           endRow: endRow
         });
         
-        console.log(`Found valid teacher: "${teacherName}" starting at row ${rowIndex}, ending at row ${endRow}`);
+        debugLog(`Found valid teacher: "${teacherName}" starting at row ${rowIndex}, ending at row ${endRow}`);
       }
     }
   }
   
   return teacherBlocks;
 }
+
 
 /**
  * Extract teacher name from row data (column C)
@@ -158,6 +163,7 @@ function findTeacherNameInColumn(row) {
   
   return null;
 }
+
 
 /**
  * Validate if the extracted name is a valid teacher name
@@ -194,6 +200,7 @@ function isValidTeacherName(name) {
   return true;
 }
 
+
 /**
  * Parse teacher schedule from a teacher block data
  * @param {Array} teacherData - 2D array of teacher's data block
@@ -209,18 +216,18 @@ function parseTeacherScheduleFromBlock(teacherData, teacherName) {
     friday: {}
   };
   
-  console.log('Parsing schedule for teacher:', teacherName);
-  console.log('Teacher data length:', teacherData.length);
+  debugLog('Parsing schedule for teacher:', teacherName);
+  debugLog('Teacher data length:', teacherData.length);
   
   // Find the "Günler" row dynamically
   const gunlerRowIndex = findGunlerRow(teacherData);
   
   if (gunlerRowIndex === -1) {
-    console.log('Could not find "Günler" row for teacher:', teacherName);
+    debugLog('Could not find "Günler" row for teacher:', teacherName);
     return schedule;
   }
   
-  console.log(`Found "Günler" at row ${gunlerRowIndex}`);
+  debugLog(`Found "Günler" at row ${gunlerRowIndex}`);
   
   // Parse the schedule table starting from the "Günler" row
   const scheduleTable = parseScheduleTable(teacherData, gunlerRowIndex);
@@ -235,34 +242,36 @@ function parseTeacherScheduleFromBlock(teacherData, teacherName) {
   return schedule;
 }
 
+
 /**
  * Find the "Günler" row in teacher data
  * @param {Array} teacherData - Teacher's data block
  * @returns {number} Row index of "Günler" or -1 if not found
  */
 function findGunlerRow(teacherData) {
-  console.log('Searching for "Günler" row in teacher data...');
+  debugLog('Searching for "Günler" row in teacher data...');
   
   for (let i = 0; i < teacherData.length; i++) {
     const row = teacherData[i];
     if (!row || row.length === 0) continue;
     
     const firstCell = String(row[0] || '').trim();
-    console.log(`Row ${i}, first cell: "${firstCell}"`);
+    debugLog(`Row ${i}, first cell: "${firstCell}"`);
     
     // Check for various forms of "Günler"
     if (firstCell.includes('Günler') || 
         firstCell.includes('GUNLER') ||
         firstCell.includes('Dersler Günler') ||
         firstCell.includes('DERSLER GÜNLER')) {
-      console.log(`Found "Günler" row at index ${i}: "${firstCell}"`);
+      debugLog(`Found "Günler" row at index ${i}: "${firstCell}"`);
       return i;
     }
   }
   
-  console.log('Could not find "Günler" row');
+  debugLog('Could not find "Günler" row');
   return -1;
 }
+
 
 /**
  * Parse the schedule table starting from "Günler" row
@@ -290,22 +299,22 @@ function parseScheduleTable(teacherData, gunlerRowIndex) {
   
   // Detect period columns dynamically from the header row which contains cells like "(1)", "(2)", ...
   const periodColumns = detectPeriodColumns(teacherData[gunlerRowIndex]);
-  console.log('Detected period columns:', periodColumns);
+  debugLog('Detected period columns:', periodColumns);
   
-  console.log(`Parsing schedule table starting from row ${gunlerRowIndex}`);
-  console.log('Günler row:', teacherData[gunlerRowIndex]);
+  debugLog(`Parsing schedule table starting from row ${gunlerRowIndex}`);
+  debugLog('Günler row:', teacherData[gunlerRowIndex]);
   
   // Start from the row after "Günler" and parse 5 days
   for (let dayOffset = 1; dayOffset <= 5; dayOffset++) {
     const rowIndex = gunlerRowIndex + dayOffset;
     if (rowIndex >= teacherData.length) {
-      console.log(`Row ${rowIndex} is beyond data length ${teacherData.length}`);
+      debugLog(`Row ${rowIndex} is beyond data length ${teacherData.length}`);
       continue;
     }
     
     const dayRow = teacherData[rowIndex];
     if (!dayRow) {
-      console.log(`Row ${rowIndex} is empty`);
+      debugLog(`Row ${rowIndex} is empty`);
       continue;
     }
     
@@ -314,12 +323,12 @@ function parseScheduleTable(teacherData, gunlerRowIndex) {
     const dayKey = dayMapping[dayName];
     
     if (!dayKey) {
-      console.log(`Unknown day name: "${dayName}" at row ${rowIndex}`);
-      console.log('Full row:', dayRow);
+      debugLog(`Unknown day name: "${dayName}" at row ${rowIndex}`);
+      debugLog('Full row:', dayRow);
       continue;
     }
     
-    console.log(`Processing ${dayName} (${dayKey}) at row ${rowIndex}:`, dayRow);
+    debugLog(`Processing ${dayName} (${dayKey}) at row ${rowIndex}:`, dayRow);
     
     // Parse each period for this day
     Object.entries(periodColumns).forEach(([periodNum, colIndex]) => {
@@ -328,52 +337,52 @@ function parseScheduleTable(teacherData, gunlerRowIndex) {
         const cellValue = dayRow[col];
         const cellText = String(cellValue || '').trim();
         
-        console.log(`  Period ${periodNum} (col ${col}): "${cellText}" (type: ${typeof cellValue}, value: ${JSON.stringify(cellValue)})`);
+        debugLog(`  Period ${periodNum} (col ${col}): "${cellText}" (type: ${typeof cellValue}, value: ${JSON.stringify(cellValue)})`);
         
         // Test isEmptyOrFree function
         const isEmpty = isEmptyOrFree(cellText);
-        console.log(`  isEmptyOrFree("${cellText}") = ${isEmpty}`);
+        debugLog(`  isEmptyOrFree("${cellText}") = ${isEmpty}`);
         
         if (!isEmpty) {
           const classCode = extractClassFromCell(cellText);
           if (!classCode) {
-            console.log(`  - Could not extract class from "${cellText}"`);
+            debugLog(`  - Could not extract class from "${cellText}"`);
           } else {
             schedule[dayKey][periodNum] = classCode;
-            console.log(`  ✓ Found class at ${dayKey} period ${periodNum}: "${classCode}" (from "${cellText}")`);
-            console.log(`  ✓ Schedule object after adding:`, schedule[dayKey]);
+            debugLog(`  ✓ Found class at ${dayKey} period ${periodNum}: "${classCode}" (from "${cellText}")`);
+            debugLog(`  ✓ Schedule object after adding:`, schedule[dayKey]);
           }
         } else {
-          console.log(`  - Empty/free period at ${dayKey} period ${periodNum}`);
+          debugLog(`  - Empty/free period at ${dayKey} period ${periodNum}`);
         }
       } else {
-        console.log(`  - Column ${col} is beyond row length ${dayRow.length}`);
+        debugLog(`  - Column ${col} is beyond row length ${dayRow.length}`);
       }
     });
   }
   
-  console.log('Final parsed schedule:', schedule);
+  debugLog('Final parsed schedule:', schedule);
   
   // Debug: Show detailed schedule structure
-  console.log('=== DETAILED SCHEDULE STRUCTURE ===');
+  debugLog('=== DETAILED SCHEDULE STRUCTURE ===');
   Object.entries(schedule).forEach(([day, dayData]) => {
-    console.log(`${day}:`, dayData);
+    debugLog(`${day}:`, dayData);
     Object.entries(dayData).forEach(([period, className]) => {
-      console.log(`  Period ${period}: "${className}"`);
+      debugLog(`  Period ${period}: "${className}"`);
     });
   });
   
   // Validate the parsed schedule
   const totalClasses = Object.values(schedule).reduce((total, day) => total + Object.keys(day).length, 0);
-  console.log(`Total classes parsed: ${totalClasses}`);
+  debugLog(`Total classes parsed: ${totalClasses}`);
   
   // Debug: Show each day's class count
   Object.entries(schedule).forEach(([day, dayData]) => {
     const dayClassCount = Object.keys(dayData).length;
-    console.log(`${day}: ${dayClassCount} classes`);
+    debugLog(`${day}: ${dayClassCount} classes`);
     if (dayClassCount > 0) {
       Object.entries(dayData).forEach(([period, className]) => {
-        console.log(`  Period ${period}: "${className}"`);
+        debugLog(`  Period ${period}: "${className}"`);
       });
     }
   });
@@ -384,6 +393,7 @@ function parseScheduleTable(teacherData, gunlerRowIndex) {
   
   return schedule;
 }
+
 
 /**
  * Detect period columns dynamically from a header row
@@ -411,6 +421,7 @@ function detectPeriodColumns(headerRow) {
   return mapping;
 }
 
+
 /**
  * Extract class code (e.g., 9-E) from a cell value
  * @param {string} cell - The cell value to extract from
@@ -423,6 +434,7 @@ function extractClassFromCell(cell) {
   if (!m) return null;
   return `${m[1]}-${m[2]}`;
 }
+
 
 /**
  * Check if a cell value represents an empty or free period
@@ -479,3 +491,5 @@ function isEmptyOrFree(cellValue) {
   // If we get here, it's likely a valid class
   return false;
 }
+
+

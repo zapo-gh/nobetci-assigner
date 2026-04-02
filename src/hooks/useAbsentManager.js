@@ -7,7 +7,7 @@ import {
   upsertClassAbsence,
   deleteAbsentById,
 } from '../services/supabaseDataService.js';
-import { normalizeForComparison } from '../utils/pdfParser.js';
+import { normalizeForComparison } from '../utils/nameNormalization.js';
 import {
   COMMON_LESSON_LABEL,
   encodeClassAbsenceValue,
@@ -659,7 +659,7 @@ export function useAbsentManager({
           );
         }
       } catch (err) {
-        console.warn('Mazeret eklemede sınıf/periyot işaretleme hatası:', err);
+        logger.warn('Mazeret eklemede sınıf/periyot işaretleme hatası:', err);
         addNotification(`Sınıf işaretleme başarısız: ${err.message || err}`, 'error');
       }
     },

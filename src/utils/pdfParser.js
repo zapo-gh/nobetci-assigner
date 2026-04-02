@@ -1,10 +1,15 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import { getAssetUrl } from '../config/index.js';
+import { logger } from './logger.js';
+import { normalizeTeacherName, normalizeForComparison } from './nameNormalization.js';
+
+const debugLog = (...args) => logger.log(...args);
 
 // PDF.js worker setup - Local worker kullan
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = getAssetUrl('pdfjs/pdf.worker.min.js');
 }
+
 
 /**
  * PDF dosyasından metin çıkarır
@@ -35,37 +40,6 @@ export async function extractTextFromPDF(file) {
   } catch (error) {
     throw new Error(`PDF okuma hatası: ${error.message}`);
   }
-}
-
-/**
- * Öğretmen ismini normalize eder
- * @param {string} name - Ham isim
- * @returns {string} Normalize edilmiş isim
- */
-export function normalizeTeacherName(name) {
-  if (!name || typeof name !== 'string') return '';
-  
-  return name
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, ' '); // Çoklu boşlukları tek boşluğa çevir
-    // Türkçe karakterleri koruyoruz - normalize etmiyoruz!
-}
-
-// Sadece karşılaştırma için kullanılan normalize fonksiyonu
-export function normalizeForComparison(name) {
-  if (!name || typeof name !== 'string') return '';
-  
-  return name
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, ' ')
-    .replace(/[İ]/g, 'I') // Karşılaştırma için normalize et
-    .replace(/[Ğ]/g, 'G')
-    .replace(/[Ü]/g, 'U')
-    .replace(/[Ş]/g, 'S')
-    .replace(/[Ö]/g, 'O')
-    .replace(/[Ç]/g, 'C');
 }
 
 /**
@@ -102,79 +76,80 @@ export function parseScheduleTable(text) {
   // Metni satırlara böl ve temizle
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
   
-  console.log('=== PDF PARSING DEBUG ===');
-  console.log('Raw text:', text);
-  console.log('Lines:', lines);
+  debugLog('=== PDF PARSING DEBUG ===');
+  debugLog('Raw text:', text);
+  debugLog('Lines:', lines);
   
   // Farklı parsing yöntemlerini dene
   let schedule = {};
   
   // Yöntem 1: Tab-separated format
-  console.log('Trying Tab-separated format...');
+  debugLog('Trying Tab-separated format...');
   schedule = parseTabSeparatedFormat(lines, dayMapping, periodMapping);
-  console.log('Tab-separated result:', schedule);
+  debugLog('Tab-separated result:', schedule);
   if (hasValidData(schedule)) {
-    console.log('Tab-separated format successful!');
+    debugLog('Tab-separated format successful!');
     return schedule;
   }
   
   // Yöntem 2: Space-separated format
-  console.log('Trying Space-separated format...');
+  debugLog('Trying Space-separated format...');
   schedule = parseSpaceSeparatedFormat(lines, dayMapping);
-  console.log('Space-separated result:', schedule);
+  debugLog('Space-separated result:', schedule);
   if (hasValidData(schedule)) {
-    console.log('Space-separated format successful!');
+    debugLog('Space-separated format successful!');
     return schedule;
   }
   
   // Yöntem 3: Regex-based parsing
-  console.log('Trying Regex-based format...');
+  debugLog('Trying Regex-based format...');
   schedule = parseRegexFormat(text, dayMapping, periodMapping);
-  console.log('Regex-based result:', schedule);
+  debugLog('Regex-based result:', schedule);
   if (hasValidData(schedule)) {
-    console.log('Regex-based format successful!');
+    debugLog('Regex-based format successful!');
     return schedule;
   }
   
   // Yöntem 4: Genel pattern matching
-  console.log('Trying General pattern format...');
+  debugLog('Trying General pattern format...');
   schedule = parseGeneralPattern(text, dayMapping, periodMapping);
-  console.log('General pattern result:', schedule);
+  debugLog('General pattern result:', schedule);
   if (hasValidData(schedule)) {
-    console.log('General pattern format successful!');
+    debugLog('General pattern format successful!');
     return schedule;
   }
   
   // Yöntem 5: Akıllı tablo parsing
-  console.log('Trying Smart table format...');
+  debugLog('Trying Smart table format...');
   schedule = parseSmartTable(text, dayMapping);
-  console.log('Smart table result:', schedule);
+  debugLog('Smart table result:', schedule);
   if (hasValidData(schedule)) {
-    console.log('Smart table format successful!');
+    debugLog('Smart table format successful!');
     return schedule;
   }
   
   // Yöntem 6: Tek satır parsing (PDF'den gelen bozuk format için)
-  console.log('Trying Single line format...');
+  debugLog('Trying Single line format...');
   schedule = parseSingleLineFormat(text, dayMapping);
-  console.log('Single line result:', schedule);
+  debugLog('Single line result:', schedule);
   if (hasValidData(schedule)) {
-    console.log('Single line format successful!');
+    debugLog('Single line format successful!');
     return schedule;
   }
   
   // Yöntem 7: Gelişmiş tek satır parsing (gerçek PDF yapısı için)
-  console.log('Trying Advanced single line format...');
+  debugLog('Trying Advanced single line format...');
   schedule = parseAdvancedSingleLineFormat(text, dayMapping);
-  console.log('Advanced single line result:', schedule);
-  console.log('Advanced single line validation:', hasValidData(schedule));
+  debugLog('Advanced single line result:', schedule);
+  debugLog('Advanced single line validation:', hasValidData(schedule));
   if (hasValidData(schedule)) {
-    console.log('Advanced single line format successful!');
+    debugLog('Advanced single line format successful!');
     return schedule;
   }
   
   throw new Error('Çizelge formatı tanınmadı. Desteklenen formatlar: Tab-separated, Space-separated, Regex-based, genel pattern matching, akıllı tablo parsing, veya tek satır parsing.');
 }
+
 
 /**
  * Tab-separated format'ı parse eder
@@ -236,6 +211,7 @@ function parseTabSeparatedFormat(lines, dayMapping, periodMapping) {
   return schedule;
 }
 
+
 /**
  * Space-separated format'ı parse eder
  */
@@ -287,6 +263,7 @@ function parseSpaceSeparatedFormat(lines, dayMapping) {
   
   return schedule;
 }
+
 
 /**
  * Regex-based parsing
@@ -341,6 +318,7 @@ function parseRegexFormat(text, dayMapping, periodMapping) {
   
   return schedule;
 }
+
 
 /**
  * Genel pattern matching ile parse eder
@@ -447,6 +425,7 @@ function parseGeneralPattern(text, dayMapping, periodMapping) {
   return schedule;
 }
 
+
 /**
  * Akıllı tablo parsing - tablo başlıklarını filtreler
  */
@@ -521,13 +500,14 @@ function parseSmartTable(text, dayMapping) {
   return schedule;
 }
 
+
 /**
  * Tek satır format'ı parse eder (PDF'den gelen bozuk format için)
  */
 function parseSingleLineFormat(text, dayMapping) {
   const schedule = {};
   
-  console.log('Parsing single line format...');
+  debugLog('Parsing single line format...');
   
   // Her gün için veri topla
   for (const [turkishDay, englishDay] of Object.entries(dayMapping)) {
@@ -539,7 +519,7 @@ function parseSingleLineFormat(text, dayMapping) {
     
     if (!dayMatch) continue;
     
-    console.log(`Found ${turkishDay}:`, dayMatch[1]);
+    debugLog(`Found ${turkishDay}:`, dayMatch[1]);
     
     // Gün adından sonraki metni al
     const dayIndex = text.indexOf(turkishDay);
@@ -556,13 +536,13 @@ function parseSingleLineFormat(text, dayMapping) {
     );
     
     const dayText = afterDay.substring(0, nextDayIndex).trim();
-    console.log(`Day text for ${turkishDay}:`, dayText);
+    debugLog(`Day text for ${turkishDay}:`, dayText);
     
     // Büyük harfli isimleri bul (öğretmen isimleri genellikle büyük harfle yazılır)
     const namePattern = /[A-ZÇĞIİÖŞÜ][A-ZÇĞIİÖŞÜ\s]+[A-ZÇĞIİÖŞÜ]/g;
     const allNames = dayText.match(namePattern) || [];
     
-    console.log(`All names found for ${turkishDay}:`, allNames);
+    debugLog(`All names found for ${turkishDay}:`, allNames);
     
     // İsimleri filtrele (tablo başlıklarını ve istenmeyen kelimeleri çıkar)
     const filteredNames = allNames
@@ -588,7 +568,7 @@ function parseSingleLineFormat(text, dayMapping) {
       })
       .map(name => normalizeTeacherName(name));
     
-    console.log(`Filtered names for ${turkishDay}:`, filteredNames);
+    debugLog(`Filtered names for ${turkishDay}:`, filteredNames);
     
     // İsimleri periyotlara dağıt (eşit olarak böl)
     const namesPerPeriod = Math.ceil(filteredNames.length / 3);
@@ -599,12 +579,13 @@ function parseSingleLineFormat(text, dayMapping) {
       const periodNames = filteredNames.slice(startIndex, endIndex);
       
       schedule[englishDay][i.toString()] = periodNames;
-      console.log(`${turkishDay} period ${i}:`, periodNames);
+      debugLog(`${turkishDay} period ${i}:`, periodNames);
     }
   }
   
   return schedule;
 }
+
 
 /**
  * Gelişmiş tek satır parsing - gerçek PDF yapısını parse eder
@@ -612,8 +593,8 @@ function parseSingleLineFormat(text, dayMapping) {
 function parseAdvancedSingleLineFormat(text, dayMapping) {
   const schedule = {};
   
-  console.log('Parsing advanced single line format...');
-  console.log('Full text length:', text.length);
+  debugLog('Parsing advanced single line format...');
+  debugLog('Full text length:', text.length);
   
   // Raw text'teki gün isimlerini kullan
   const dayOrder = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
@@ -629,11 +610,11 @@ function parseAdvancedSingleLineFormat(text, dayMapping) {
     // Gün adını ara
     const dayIndex = text.indexOf(turkishDay);
     if (dayIndex === -1) {
-      console.log(`${turkishDay} not found in text`);
+      debugLog(`${turkishDay} not found in text`);
       continue;
     }
     
-    console.log(`Found ${turkishDay} at index ${dayIndex}`);
+    debugLog(`Found ${turkishDay} at index ${dayIndex}`);
     
     // Sonraki güne kadar olan metni al
     const nextDay = dayOrder[i + 1];
@@ -653,12 +634,12 @@ function parseAdvancedSingleLineFormat(text, dayMapping) {
     }
     
     const dayText = text.substring(dayIndex + turkishDay.length, endIndex).trim();
-    console.log(`Day text for ${turkishDay} (length: ${dayText.length}):`, dayText.substring(0, 200));
+    debugLog(`Day text for ${turkishDay} (length: ${dayText.length}):`, dayText.substring(0, 200));
     
     // Akıllı öğretmen ismi ayırma algoritması
     const teacherNames = parseTeacherNamesFromDayText(dayText, turkishDay);
     
-    console.log(`Filtered teacher names for ${turkishDay}:`, teacherNames);
+    debugLog(`Filtered teacher names for ${turkishDay}:`, teacherNames);
     
     // İsimleri 3 periyoda böl (her periyotta 2 öğretmen olmalı)
     if (teacherNames.length >= 6) {
@@ -675,11 +656,12 @@ function parseAdvancedSingleLineFormat(text, dayMapping) {
       }
     }
     
-    console.log(`${turkishDay} final schedule:`, schedule[englishDay]);
+    debugLog(`${turkishDay} final schedule:`, schedule[englishDay]);
   }
   
   return schedule;
 }
+
 
 /**
  * Gün metninden öğretmen isimlerini akıllı şekilde ayırır
@@ -715,7 +697,7 @@ function parseTeacherNamesFromDayText(dayText, dayName) {
 
   // Eğer bilinen öğretmen listesi varsa, onu kullan
   if (knownTeachers[dayName]) {
-    console.log(`Using known teachers for ${dayName}:`, knownTeachers[dayName]);
+    debugLog(`Using known teachers for ${dayName}:`, knownTeachers[dayName]);
     return knownTeachers[dayName].map(name => normalizeTeacherName(name));
   }
 
@@ -723,7 +705,7 @@ function parseTeacherNamesFromDayText(dayText, dayName) {
   const namePattern = /\b[A-ZÇĞIİÖŞÜ]{2,}(?:\s+[A-ZÇĞIİÖŞÜ]{2,}){1,2}\b/g;
   const matches = dayText.match(namePattern) || [];
   
-  console.log(`Raw matches for ${dayName}:`, matches);
+  debugLog(`Raw matches for ${dayName}:`, matches);
   
   return matches
     .map(name => normalizeTeacherName(name))
@@ -751,6 +733,7 @@ function parseTeacherNamesFromDayText(dayText, dayName) {
              !name.includes('2025');
     });
 }
+
 
 /**
  * Parse edilen verinin geçerli olup olmadığını kontrol eder
@@ -796,12 +779,13 @@ function hasValidData(schedule) {
     }
   }
   
-  console.log(`Validation: totalAssignments=${totalAssignments}, validTeacherNames=${validTeacherNames}`);
-  console.log('Invalid names:', invalidNames);
+  debugLog(`Validation: totalAssignments=${totalAssignments}, validTeacherNames=${validTeacherNames}`);
+  debugLog('Invalid names:', invalidNames);
   
   // En az 10 geçerli öğretmen ismi olmalı
   return totalAssignments > 0 && validTeacherNames >= 10;
 }
+
 
 /**
  * Satırdan belirli bir periyot için öğretmen isimlerini çıkarır
@@ -829,6 +813,7 @@ function extractTeacherNamesFromLine(line, periodName) {
   return names;
 }
 
+
 /**
  * Periyot adına göre sütun indeksini döndürür
  * @param {string} periodName - Periyot adı
@@ -844,6 +829,7 @@ function getColumnIndex(periodName) {
   
   return columnMapping[periodName] || -1;
 }
+
 
 /**
  * Parse edilen çizelge verisini doğrular
@@ -896,3 +882,5 @@ export function validateScheduleData(schedule) {
     totalAssignments
   };
 }
+
+

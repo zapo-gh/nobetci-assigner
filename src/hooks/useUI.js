@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
+import { logger } from '../utils/logger.js';
 
 // Bugünün gününü otomatik seç (Pazartesi=1, Cuma=5)
 const getTodayKey = () => {
@@ -54,7 +55,7 @@ export function useUI() {
             try {
                 localStorage.setItem("theme", next);
             } catch (storageError) {
-                console.warn('[useUI] Failed to persist theme preference', storageError);
+                logger.warn('[useUI] Failed to persist theme preference', storageError);
             }
             return next;
         });

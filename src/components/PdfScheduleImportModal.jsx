@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { extractTextFromPDF, parseScheduleTable, validateScheduleData } from '../utils/pdfParser.js';
 import { batchMatchNames, getMatchingSuggestions, summarizeMatchingResults } from '../utils/fuzzyMatch.js';
 import PdfImportConflictModal from './PdfImportConflictModal.jsx';
 import styles from './Modal.module.css';
@@ -111,14 +110,16 @@ const PdfScheduleImportModal = ({
     setError(null);
 
     try {
+      const pdfParser = await import('../utils/pdfParser.js');
+
       // 1. PDF'den metin çıkar
       setCurrentStep('extracting');
-      const text = await extractTextFromPDF(selectedFile);
+      const text = await pdfParser.extractTextFromPDF(selectedFile);
 
       // 2. Tabloyu parse et
       setCurrentStep('parsing');
-      const schedule = parseScheduleTable(text);
-      const validation = validateScheduleData(schedule);
+      const schedule = pdfParser.parseScheduleTable(text);
+      const validation = pdfParser.validateScheduleData(schedule);
 
       if (!validation.isValid) {
         throw new Error(`Çizelge doğrulama hatası: ${validation.errors.join(', ')}`);

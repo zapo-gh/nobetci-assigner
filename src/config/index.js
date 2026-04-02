@@ -30,6 +30,7 @@ export const APP_ENV = {
   mode: env.MODE || 'development',
   isDevelopment: Boolean(env.DEV),
   isProduction: Boolean(env.PROD),
+  isTest: (env.MODE || 'development') === 'test',
   apiBaseUrl: env.VITE_API_BASE_URL || '',
   assetsBaseUrl: normalizeUrl(env.VITE_ASSETS_BASE_URL || ''),
   enableAnalytics: toBoolean(env.VITE_ENABLE_ANALYTICS),

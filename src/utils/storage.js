@@ -1,3 +1,5 @@
+import { reportError } from './errorReporting.js';
+
 // Güvenli localStorage işlemleri
 
 export class SecureStorage {
@@ -19,7 +21,7 @@ export class SecureStorage {
       localStorage.setItem(this.storageKey, serializedValue);
       return true;
     } catch (error) {
-      console.error('SecureStorage setItem error:', error);
+      reportError('SecureStorage setItem error:', error);
       throw new Error('Veri kaydedilemedi: ' + error.message);
     }
   }
@@ -29,7 +31,7 @@ export class SecureStorage {
       const data = this.getAllData();
       return data[key] || null;
     } catch (error) {
-      console.error('SecureStorage getItem error:', error);
+      reportError('SecureStorage getItem error:', error);
       return null;
     }
   }
@@ -41,7 +43,7 @@ export class SecureStorage {
       localStorage.setItem(this.storageKey, JSON.stringify(data));
       return true;
     } catch (error) {
-      console.error('SecureStorage removeItem error:', error);
+      reportError('SecureStorage removeItem error:', error);
       return false;
     }
   }
@@ -51,7 +53,7 @@ export class SecureStorage {
       const item = localStorage.getItem(this.storageKey);
       return item ? JSON.parse(item) : {};
     } catch (error) {
-      console.error('SecureStorage getAllData error:', error);
+      reportError('SecureStorage getAllData error:', error);
       return {};
     }
   }
@@ -68,7 +70,7 @@ export class SecureStorage {
       localStorage.setItem(this.storageKey, serializedValue);
       return true;
     } catch (error) {
-      console.error('SecureStorage setAllData error:', error);
+      reportError('SecureStorage setAllData error:', error);
       throw new Error('Veri kaydedilemedi: ' + error.message);
     }
   }
@@ -78,7 +80,7 @@ export class SecureStorage {
       localStorage.removeItem(this.storageKey);
       return true;
     } catch (error) {
-      console.error('SecureStorage clear error:', error);
+      reportError('SecureStorage clear error:', error);
       return false;
     }
   }
@@ -95,7 +97,7 @@ export class SecureStorage {
       }
       return false;
     } catch (error) {
-      console.error('Migration error:', error);
+      reportError('Migration error:', error);
       return false;
     }
   }
@@ -103,3 +105,5 @@ export class SecureStorage {
 
 // Singleton instance for app-wide use
 export const appStorage = new SecureStorage();
+
+

@@ -1,7 +1,5 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState } from 'react';
-
-const AssignmentsContext = createContext(null);
+import React, { useState } from 'react';
+import { AssignmentsContext } from './AssignmentsContextObject.js';
 
 export function AssignmentsProvider({ children }) {
     // Assignment State
@@ -45,12 +43,4 @@ export function AssignmentsProvider({ children }) {
     };
 
     return <AssignmentsContext.Provider value={value}>{children}</AssignmentsContext.Provider>;
-}
-
-export function useAssignments() {
-    const context = useContext(AssignmentsContext);
-    if (!context) {
-        throw new Error('useAssignments must be used within AssignmentsProvider');
-    }
-    return context;
 }

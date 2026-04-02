@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { parseDutyTeachersFromExcel } from '../utils/dutyTeacherExcelParser.js';
 import Modal from './Modal.jsx';
 
 const DutyTeacherExcelImportModal = ({ isOpen, onClose, onImport }) => {
@@ -25,6 +24,7 @@ const DutyTeacherExcelImportModal = ({ isOpen, onClose, onImport }) => {
     setErrors([]);
 
     try {
+      const { parseDutyTeachersFromExcel } = await import('../utils/dutyTeacherExcelParser.js');
       const result = await parseDutyTeachersFromExcel(file);
       setPreview(result);
       

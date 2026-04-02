@@ -1,4 +1,8 @@
+import { logger } from './logger.js';
 import * as XLSX from 'xlsx';
+
+const debugLog = (...args) => logger.log(...args);
+
 
 /**
  * Parse duty teacher list from Excel file (nöbet çizelgesi formatı)
@@ -25,23 +29,23 @@ export async function parseDutyTeachersFromExcel(file) {
         raw: false  // Convert all values to strings
       });
       
-      console.log(`Processing sheet: ${sheetName}`);
-      console.log('Sheet data length:', jsonData.length);
+      debugLog(`Processing sheet: ${sheetName}`);
+      debugLog('Sheet data length:', jsonData.length);
       
       // Debug: Show first 10 rows to understand structure
-      console.log('First 10 rows of sheet data:');
+      debugLog('First 10 rows of sheet data:');
       jsonData.slice(0, 10).forEach((row, index) => {
-        console.log(`Row ${index}:`, row);
+        debugLog(`Row ${index}:`, row);
       });
       
       // Check if this is a duty schedule format
       if (isDutyScheduleFormat(jsonData)) {
-        console.log('Detected duty schedule format');
+        debugLog('Detected duty schedule format');
         const result = parseDutyScheduleFormat(jsonData, sheetName);
         
         if (result.teachers) {
           dutyTeachers.push(...result.teachers);
-          console.log(`Parsed ${result.teachers.length} duty teachers from sheet "${sheetName}"`);
+          debugLog(`Parsed ${result.teachers.length} duty teachers from sheet "${sheetName}"`);
         }
         
         if (result.dayTeachers) {
@@ -52,7 +56,7 @@ export async function parseDutyTeachersFromExcel(file) {
             }
             dayTeachers.get(day).push(...teachers);
           });
-          console.log(`Parsed day teachers for ${result.dayTeachers.size} days from sheet "${sheetName}"`);
+          debugLog(`Parsed day teachers for ${result.dayTeachers.size} days from sheet "${sheetName}"`);
         }
       } else {
         // Try traditional teacher list format
@@ -63,21 +67,21 @@ export async function parseDutyTeachersFromExcel(file) {
           return;
         }
         
-        console.log(`Found header at row ${headerRowIndex}:`, jsonData[headerRowIndex]);
+        debugLog(`Found header at row ${headerRowIndex}:`, jsonData[headerRowIndex]);
         
         // Parse data rows
         const sheetDutyTeachers = parseDataRows(jsonData, headerRowIndex);
         dutyTeachers.push(...sheetDutyTeachers);
         
-        console.log(`Parsed ${sheetDutyTeachers.length} duty teachers from sheet "${sheetName}"`);
+        debugLog(`Parsed ${sheetDutyTeachers.length} duty teachers from sheet "${sheetName}"`);
       }
     });
     
-    console.log('\n=== PARSING SUMMARY ===');
-    console.log('Total duty teachers parsed:', dutyTeachers.length);
+    debugLog('\n=== PARSING SUMMARY ===');
+    debugLog('Total duty teachers parsed:', dutyTeachers.length);
     
     if (dutyTeachers.length === 0) {
-      console.warn('⚠️ No duty teachers were found in the Excel file!');
+      logger.warn('⚠️ No duty teachers were found in the Excel file!');
     }
     
     return {
@@ -117,7 +121,7 @@ function findHeaderRow(sheetData) {
       
       for (const keyword of headerKeywords) {
         if (cellValue.includes(keyword)) {
-          console.log(`Found header keyword "${keyword}" in cell [${rowIndex}, ${colIndex}]: "${cellValue}"`);
+          debugLog(`Found header keyword "${keyword}" in cell [${rowIndex}, ${colIndex}]: "${cellValue}"`);
           return rowIndex;
         }
       }
@@ -126,6 +130,7 @@ function findHeaderRow(sheetData) {
   
   return -1;
 }
+
 
 /**
  * Parse data rows starting from header row
@@ -140,7 +145,7 @@ function parseDataRows(sheetData, headerRowIndex) {
   
   // Find column indices for different fields
   const columnMap = findColumnIndices(headerRow);
-  console.log('Column mapping:', columnMap);
+  debugLog('Column mapping:', columnMap);
   
   // Parse data rows
   for (let rowIndex = headerRowIndex + 1; rowIndex < sheetData.length; rowIndex++) {
@@ -154,12 +159,13 @@ function parseDataRows(sheetData, headerRowIndex) {
     
     if (dutyTeacher && dutyTeacher.name && dutyTeacher.name.trim()) {
       dutyTeachers.push(dutyTeacher);
-      console.log(`Parsed duty teacher: ${dutyTeacher.name}`);
+      debugLog(`Parsed duty teacher: ${dutyTeacher.name}`);
     }
   }
   
   return dutyTeachers;
 }
+
 
 /**
  * Find column indices for different fields
@@ -192,7 +198,7 @@ function findColumnIndices(headerRow) {
       for (const keyword of keywords) {
         if (cellValue.includes(keyword)) {
           columnMap[field] = index;
-          console.log(`Found ${field} column at index ${index}: "${cellValue}"`);
+          debugLog(`Found ${field} column at index ${index}: "${cellValue}"`);
           break;
         }
       }
@@ -201,6 +207,7 @@ function findColumnIndices(headerRow) {
   
   return columnMap;
 }
+
 
 /**
  * Parse a single duty teacher row
@@ -219,7 +226,7 @@ function parseDutyTeacherRow(row, columnMap, rowNumber) {
   
   // Validate required fields
   if (!name || name.trim().length < 2) {
-    console.log(`Row ${rowNumber}: Invalid name "${name}"`);
+    debugLog(`Row ${rowNumber}: Invalid name "${name}"`);
     return null;
   }
   
@@ -238,6 +245,7 @@ function parseDutyTeacherRow(row, columnMap, rowNumber) {
   };
 }
 
+
 /**
  * Get cell value from row
  * @param {Array} row - Row data
@@ -252,6 +260,7 @@ function getCellValue(row, columnIndex) {
   const value = row[columnIndex];
   return value ? String(value).trim() : '';
 }
+
 
 /**
  * Generate teacher ID from name
@@ -274,6 +283,7 @@ function generateTeacherId(name) {
   
   return `T${firstInitial}${secondInitial}${lastInitial}${lastSecondInitial}`;
 }
+
 
 /**
  * Check if this is a duty schedule format
@@ -311,6 +321,7 @@ function isDutyScheduleFormat(sheetData) {
   return false;
 }
 
+
 /**
  * Parse duty schedule format to extract unique teacher names
  * @param {Array} sheetData - 2D array of sheet data
@@ -321,8 +332,8 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
   const teacherNames = new Set();
   const dayTeachers = new Map(); // Günlük öğretmen listesi
   
-  console.log('Parsing duty schedule format...');
-  console.log('Sheet data length:', sheetData.length);
+  debugLog('Parsing duty schedule format...');
+  debugLog('Sheet data length:', sheetData.length);
   
   // Find the actual data range by looking for the header row
   let headerRowIndex = -1;
@@ -337,76 +348,76 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
     if (rowText.includes('GÜNLER') && (rowText.includes('KAT') || rowText.includes('ZEMİN'))) {
       headerRowIndex = i;
       dataStartRow = i + 1;
-      console.log(`Found header row at index ${i}:`, row);
+      debugLog(`Found header row at index ${i}:`, row);
       break;
     }
   }
   
   if (headerRowIndex === -1) {
-    console.log('Header row not found, using default start row 2');
+    debugLog('Header row not found, using default start row 2');
     dataStartRow = 2;
   }
   
-  console.log(`Data starts from row ${dataStartRow}`);
+  debugLog(`Data starts from row ${dataStartRow}`);
   
   // Process rows starting from data start
   let currentDay = null;
   let inScheduleTable = false;
   let dayRowCount = 0;
   
-  console.log(`\n=== STARTING PARSING FROM ROW ${dataStartRow} ===`);
+  debugLog(`\n=== STARTING PARSING FROM ROW ${dataStartRow} ===`);
   
   for (let rowIndex = dataStartRow; rowIndex < sheetData.length; rowIndex++) {
     const row = sheetData[rowIndex];
     if (!row || row.length === 0) {
-      console.log(`Row ${rowIndex}: Empty row, skipping`);
+      debugLog(`Row ${rowIndex}: Empty row, skipping`);
       continue;
     }
     
     // Skip completely empty rows
     if (isRowEmpty(row)) {
-      console.log(`Row ${rowIndex}: Empty row, skipping`);
+      debugLog(`Row ${rowIndex}: Empty row, skipping`);
       continue;
     }
     
     const firstCell = String(row[0] || '').trim();
-    console.log(`\n--- Row ${rowIndex} ---`);
-    console.log(`First cell: "${firstCell}"`);
-    console.log(`Full row:`, row);
+    debugLog(`\n--- Row ${rowIndex} ---`);
+    debugLog(`First cell: "${firstCell}"`);
+    debugLog(`Full row:`, row);
     
     // Check if this is a day name row
     const isDayRow = isDayNameRow(firstCell);
-    console.log(`Is day row: ${isDayRow}`);
-    console.log(`Current day: ${currentDay}`);
-    console.log(`In schedule table: ${inScheduleTable}`);
+    debugLog(`Is day row: ${isDayRow}`);
+    debugLog(`Current day: ${currentDay}`);
+    debugLog(`In schedule table: ${inScheduleTable}`);
     
     if (isDayRow) {
       currentDay = firstCell;
       inScheduleTable = true;
       dayRowCount++;
-      console.log(`✓ Found day row: ${firstCell} (Day row #${dayRowCount})`);
+      debugLog(`✓ Found day row: ${firstCell} (Day row #${dayRowCount})`);
     } else if (firstCell === '' && inScheduleTable && currentDay) {
       // This is a continuation row (empty first cell but we're in a schedule table)
-      console.log(`✓ Found continuation row for ${currentDay}`);
+      debugLog(`✓ Found continuation row for ${currentDay}`);
     } else {
       // This is not part of the schedule table
       if (inScheduleTable) {
-        console.log(`✗ Row ${rowIndex}: End of schedule table detected (${firstCell})`);
+        debugLog(`✗ Row ${rowIndex}: End of schedule table detected (${firstCell})`);
         inScheduleTable = false;
         currentDay = null;
       }
-      console.log(`✗ Row ${rowIndex}: Skipping - not part of schedule`);
+      debugLog(`✗ Row ${rowIndex}: Skipping - not part of schedule`);
       continue;
     }
     
     // Extract teacher names from this row
-    console.log(`Extracting teachers from row ${rowIndex} (Day: ${currentDay})`);
+    debugLog(`Extracting teachers from row ${rowIndex} (Day: ${currentDay})`);
     const teachersInRow = extractTeachersFromRow(row, isDayRow);
-    console.log(`Found ${teachersInRow.length} teachers in this row:`, teachersInRow);
+    debugLog(`Found ${teachersInRow.length} teachers in this row:`, teachersInRow);
     
     teachersInRow.forEach(teacher => {
       teacherNames.add(teacher);
-      console.log(`✓ Added teacher: "${teacher}" (Day: ${currentDay})`);
+      debugLog(`✓ Added teacher: "${teacher}" (Day: ${currentDay})`);
       
       // Günlük listeye de ekle
       if (currentDay) {
@@ -418,10 +429,10 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
     });
   }
   
-  console.log(`\n=== PARSING COMPLETE ===`);
-  console.log(`Total day rows found: ${dayRowCount}`);
-  console.log(`Total unique teachers: ${teacherNames.size}`);
-  console.log(`Day teachers map:`, dayTeachers);
+  debugLog(`\n=== PARSING COMPLETE ===`);
+  debugLog(`Total day rows found: ${dayRowCount}`);
+  debugLog(`Total unique teachers: ${teacherNames.size}`);
+  debugLog(`Day teachers map:`, dayTeachers);
   
   // Convert Set to Array and create teacher objects
   const uniqueTeachers = Array.from(teacherNames).map((name) => {
@@ -438,12 +449,13 @@ function parseDutyScheduleFormat(sheetData, sheetName) {
     };
   });
   
-  console.log(`Extracted ${uniqueTeachers.length} unique teachers from duty schedule`);
+  debugLog(`Extracted ${uniqueTeachers.length} unique teachers from duty schedule`);
   return {
     teachers: uniqueTeachers,
     dayTeachers: dayTeachers
   };
 }
+
 
 /**
  * Check if a cell contains a day name
@@ -463,6 +475,7 @@ function isDayNameRow(cellValue) {
   return dayNames.some(day => trimmedValue.includes(day));
 }
 
+
 /**
  * Extract teacher names from a row
  * @param {Array} row - Row data
@@ -477,34 +490,35 @@ function extractTeachersFromRow(row, isDayRow) {
   const startCol = isDayRow ? 1 : 0; // Skip day name column for day rows
   const endCol = row.length - 1; // Skip last column (NÖBETÇİ İDARECİ)
   
-  console.log(`  Extracting from columns ${startCol} to ${endCol}`);
+  debugLog(`  Extracting from columns ${startCol} to ${endCol}`);
   
   for (let colIndex = startCol; colIndex < endCol; colIndex++) {
     const cellValue = String(row[colIndex] || '').trim();
     
     if (!cellValue) continue;
     
-    console.log(`  Column ${colIndex}: "${cellValue}"`);
+    debugLog(`  Column ${colIndex}: "${cellValue}"`);
     
     // Skip location names and headers
     if (isLocationName(cellValue)) {
-      console.log(`    Skipping location: "${cellValue}"`);
+      debugLog(`    Skipping location: "${cellValue}"`);
       continue;
     }
     
     // Skip non-teacher patterns
     if (!isValidTeacherName(cellValue)) {
-      console.log(`    Skipping non-teacher: "${cellValue}"`);
+      debugLog(`    Skipping non-teacher: "${cellValue}"`);
       continue;
     }
     
     // This is a valid teacher name
     teachers.push(cellValue);
-    console.log(`    ✓ Valid teacher: "${cellValue}"`);
+    debugLog(`    ✓ Valid teacher: "${cellValue}"`);
   }
   
   return teachers;
 }
+
 
 /**
  * Validate if the extracted name is a valid teacher name
@@ -532,47 +546,48 @@ function isValidTeacherName(name) {
   const upperName = trimmedName.toUpperCase();
   for (const pattern of nonTeacherPatterns) {
     if (upperName.includes(pattern.toUpperCase())) {
-      console.log(`    Rejected: "${name}" contains "${pattern}"`);
+      debugLog(`    Rejected: "${name}" contains "${pattern}"`);
       return false;
     }
   }
   
   // Check if it's only numbers or special characters
   if (/^[0-9\s.-]+$/.test(trimmedName)) {
-    console.log(`    Rejected: "${name}" is only numbers/special chars`);
+    debugLog(`    Rejected: "${name}" is only numbers/special chars`);
     return false;
   }
   
   // Check if it contains at least one space (Ad Soyad format)
   if (!trimmedName.includes(' ')) {
-    console.log(`    Rejected: "${name}" has no space (not Ad Soyad format)`);
+    debugLog(`    Rejected: "${name}" has no space (not Ad Soyad format)`);
     return false;
   }
   
   // Check if it contains only valid Turkish characters
   if (!/^[A-ZÇĞIİÖŞÜa-zçğıiöşü\s]+$/.test(trimmedName)) {
-    console.log(`    Rejected: "${name}" contains invalid characters`);
+    debugLog(`    Rejected: "${name}" contains invalid characters`);
     return false;
   }
   
   // Check for minimum word count (at least 2 words)
   const words = trimmedName.split(/\s+/);
   if (words.length < 2) {
-    console.log(`    Rejected: "${name}" has less than 2 words`);
+    debugLog(`    Rejected: "${name}" has less than 2 words`);
     return false;
   }
   
   // Check if any word is too short (less than 2 characters)
   for (const word of words) {
     if (word.length < 2) {
-      console.log(`    Rejected: "${name}" has word shorter than 2 chars: "${word}"`);
+      debugLog(`    Rejected: "${name}" has word shorter than 2 chars: "${word}"`);
       return false;
     }
   }
   
-  console.log(`    ✓ Valid teacher name: "${name}"`);
+  debugLog(`    ✓ Valid teacher name: "${name}"`);
   return true;
 }
+
 
 
 /**
@@ -599,6 +614,7 @@ function isLocationName(cellValue) {
   return false;
 }
 
+
 /**
  * Check if row is empty
  * @param {Array} row - Row data
@@ -607,3 +623,5 @@ function isLocationName(cellValue) {
 function isRowEmpty(row) {
   return row.every(cell => !cell || String(cell).trim() === '');
 }
+
+

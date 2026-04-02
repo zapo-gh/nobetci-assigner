@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient.js'
+import { logger } from '../utils/logger.js'
+import { reportError } from '../utils/errorReporting.js'
 
 function getTableData(response, { fallback = [], tableName = 'unknown' } = {}) {
   if (!response) {
@@ -17,7 +19,7 @@ function getTableData(response, { fallback = [], tableName = 'unknown' } = {}) {
       message.toLowerCase().includes('does not exist')
 
     if (isMissingTable) {
-      console.warn(`[Supabase] Table "${tableName}" missing, returning fallback.`)
+      logger.warn(`[Supabase] Table "${tableName}" missing, returning fallback.`)
       return fallback
     }
 
@@ -33,6 +35,8 @@ const createId = () => {
   }
   return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
+
+const reportServiceError = (label, error) => reportError(label, error)
 
 export const TEACHER_SCHEDULES_SNAPSHOT_KEY = '__snapshot__'
 const CLASS_ABSENCE_NO_DUTY_SUFFIX = '__NO_DUTY__'
@@ -140,16 +144,16 @@ export async function loadInitialData() {
 
     if (snapshotRow && snapshotRow.schedule && typeof snapshotRow.schedule === 'object') {
       teacherSchedules = snapshotRow.schedule
-      console.log('[loadInitialData] Teacher schedules loaded from snapshot:', Object.keys(teacherSchedules).length, 'teachers')
+      logger.log('[loadInitialData] Teacher schedules loaded from snapshot:', Object.keys(teacherSchedules).length, 'teachers')
     } else {
       teacherSchedulesRows.forEach(item => {
         if (!item?.teacher_name) return
         teacherSchedules[item.teacher_name] = item.schedule
       })
       if (teacherSchedulesRows.length > 0) {
-        console.log('[loadInitialData] Teacher schedules loaded from individual rows:', Object.keys(teacherSchedules).length, 'teachers')
+        logger.log('[loadInitialData] Teacher schedules loaded from individual rows:', Object.keys(teacherSchedules).length, 'teachers')
       } else {
-        console.log('[loadInitialData] No teacher schedules found in database')
+        logger.log('[loadInitialData] No teacher schedules found in database')
       }
     }
 
@@ -174,7 +178,7 @@ export async function loadInitialData() {
       commonLessons
     }
   } catch (error) {
-    console.error('loadInitialData error:', error)
+    reportServiceError('loadInitialData error:', error)
     throw error
   }
 }
@@ -214,7 +218,7 @@ export async function loadClassAbsence() {
     
     return classAbsence
   } catch (error) {
-    console.error('loadClassAbsence error:', error)
+    reportServiceError('loadClassAbsence error:', error)
     throw error
   }
 }
@@ -238,7 +242,7 @@ export async function loadClassFree() {
     
     return classFree
   } catch (error) {
-    console.error('loadClassFree error:', error)
+    reportServiceError('loadClassFree error:', error)
     throw error
   }
 }
@@ -261,7 +265,7 @@ export async function insertTeacher({ teacherName, maxDutyPerDay = 6, source = '
     if (error) throw error
     return data
   } catch (error) {
-    console.error('insertTeacher full error:', JSON.stringify(error, null, 2))
+    reportServiceError('insertTeacher full error:', error)
     throw error
   }
 }
@@ -275,7 +279,7 @@ export async function deleteTeacherById(teacherId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteTeacherById error:', error)
+    reportServiceError('deleteTeacherById error:', error)
     throw error
   }
 }
@@ -289,7 +293,7 @@ export async function clearTeachersData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearTeachersData error:', error)
+    reportServiceError('clearTeachersData error:', error)
     throw error
   }
 }
@@ -319,7 +323,7 @@ export async function insertClass({ className }) {
       const existing = await getClassByName(className)
       if (existing) return existing
     }
-    console.error('insertClass full error:', JSON.stringify(error, null, 2))
+    reportServiceError('insertClass full error:', error)
     throw error
   }
 }
@@ -340,7 +344,7 @@ export async function getClassByName(className) {
     if (error) throw error
     return Array.isArray(data) && data.length > 0 ? data[0] : null
   } catch (error) {
-    console.error('getClassByName error:', error)
+    reportServiceError('getClassByName error:', error)
     throw error
   }
 }
@@ -361,7 +365,7 @@ export async function deleteClassById(classId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteClassById error:', error)
+    reportServiceError('deleteClassById error:', error)
     throw error
   }
 }
@@ -375,7 +379,7 @@ export async function clearClassesData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearClassesData error:', error)
+    reportServiceError('clearClassesData error:', error)
     throw error
   }
 }
@@ -399,7 +403,7 @@ export async function insertAbsent({ name, teacherId, reason, days }) {
     if (error) throw error
     return data || absentData
   } catch (error) {
-    console.error('insertAbsent full error:', JSON.stringify(error, null, 2))
+    reportServiceError('insertAbsent full error:', error)
     throw error
   }
 }
@@ -413,7 +417,7 @@ export async function deleteAbsentById(absentId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteAbsentById error:', error)
+    reportServiceError('deleteAbsentById error:', error)
     throw error
   }
 }
@@ -427,7 +431,7 @@ export async function clearAbsentsData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearAbsentsData error:', error)
+    reportServiceError('clearAbsentsData error:', error)
     throw error
   }
 }
@@ -447,7 +451,7 @@ export async function deleteClassAbsenceByAbsent(absentId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteClassAbsenceByAbsent error:', error)
+    reportServiceError('deleteClassAbsenceByAbsent error:', error)
     throw error
   }
 }
@@ -461,7 +465,7 @@ export async function deleteClassAbsenceByClass(classId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteClassAbsenceByClass error:', error)
+    reportServiceError('deleteClassAbsenceByClass error:', error)
     throw error
   }
 }
@@ -475,7 +479,7 @@ export async function deleteCommonLessonsByClass(classId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteCommonLessonsByClass error:', error)
+    reportServiceError('deleteCommonLessonsByClass error:', error)
     throw error
   }
 }
@@ -491,7 +495,7 @@ export async function deleteCommonLessonsByTeacher(teacherName) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteCommonLessonsByTeacher error:', error)
+    reportServiceError('deleteCommonLessonsByTeacher error:', error)
     throw error
   }
 }
@@ -507,7 +511,7 @@ export async function deleteCommonLessonsBySlot(day, period, classId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteCommonLessonsBySlot error:', error)
+    reportServiceError('deleteCommonLessonsBySlot error:', error)
     throw error
   }
 }
@@ -521,7 +525,7 @@ export async function clearClassAbsenceData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearClassAbsenceData error:', error)
+    reportServiceError('clearClassAbsenceData error:', error)
     throw error
   }
 }
@@ -535,7 +539,7 @@ export async function clearCommonLessonsData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearCommonLessonsData error:', error)
+    reportServiceError('clearCommonLessonsData error:', error)
     throw error
   }
 }
@@ -579,7 +583,7 @@ export async function upsertClassFree({ day, period, classId, isSelected }) {
 
     if (error) throw error
   } catch (error) {
-    console.error('upsertClassFree full error:', JSON.stringify(error, null, 2))
+    reportServiceError('upsertClassFree full error:', error)
     throw error
   }
 }
@@ -622,7 +626,7 @@ export async function upsertTeacherFree({ period, teacherId, isSelected }) {
 
     if (error) throw error
   } catch (error) {
-    console.error('upsertTeacherFree full error:', JSON.stringify(error, null, 2))
+    reportServiceError('upsertTeacherFree full error:', error)
     throw error
   }
 }
@@ -653,7 +657,7 @@ export async function upsertClassAbsence({ day, period, classId, absentId }) {
       if (error) throw error
     }
   } catch (error) {
-    console.error('upsertClassAbsence full error:', JSON.stringify(error, null, 2))
+    reportServiceError('upsertClassAbsence full error:', error)
     throw error
   }
 }
@@ -684,7 +688,7 @@ export async function upsertLock({ day, period, classId, teacherId }) {
       if (error) throw error
     }
   } catch (error) {
-    console.error('upsertLock full error:', JSON.stringify(error, null, 2))
+    reportServiceError('upsertLock full error:', error)
     throw error
   }
 }
@@ -698,7 +702,7 @@ export async function resetAllForClasses() {
 
     if (error) throw error
   } catch (error) {
-    console.error('resetAllForClasses error:', error)
+    reportServiceError('resetAllForClasses error:', error)
     throw error
   }
 }
@@ -712,7 +716,7 @@ export async function resetClassFreeData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('resetClassFreeData error:', error)
+    reportServiceError('resetClassFreeData error:', error)
     throw error
   }
 }
@@ -726,7 +730,7 @@ export async function resetTeacherFreeData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('resetTeacherFreeData error:', error)
+    reportServiceError('resetTeacherFreeData error:', error)
     throw error
   }
 }
@@ -740,7 +744,7 @@ export async function deleteLocksByTeacher(teacherId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteLocksByTeacher error:', error)
+    reportServiceError('deleteLocksByTeacher error:', error)
     throw error
   }
 }
@@ -754,7 +758,7 @@ export async function deleteLocksByClass(classId) {
 
     if (error) throw error
   } catch (error) {
-    console.error('deleteLocksByClass error:', error)
+    reportServiceError('deleteLocksByClass error:', error)
     throw error
   }
 }
@@ -768,7 +772,7 @@ export async function clearLocksData() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearLocksData error:', error)
+    reportServiceError('clearLocksData error:', error)
     throw error
   }
 }
@@ -789,7 +793,7 @@ export async function replacePdfSchedule(schedule) {
       if (error) throw error
     }
   } catch (error) {
-    console.error('replacePdfSchedule full error:', JSON.stringify(error, null, 2))
+    reportServiceError('replacePdfSchedule full error:', error)
     throw error
   }
 }
@@ -814,7 +818,7 @@ export async function saveTeacherSchedules(teacherSchedules) {
 
     if (error) throw error
   } catch (error) {
-    console.error('saveTeacherSchedules full error:', JSON.stringify(error, null, 2))
+    reportServiceError('saveTeacherSchedules full error:', error)
     throw error
   }
 }
@@ -828,7 +832,7 @@ export async function clearTeacherSchedules() {
 
     if (error) throw error
   } catch (error) {
-    console.error('clearTeacherSchedules error:', JSON.stringify(error, null, 2))
+    reportServiceError('clearTeacherSchedules error:', error)
     throw error
   }
 }
@@ -869,7 +873,7 @@ export async function saveCommonLessons(commonLessons) {
 
     if (error) throw error
   } catch (error) {
-    console.error('saveCommonLessons full error:', JSON.stringify(error, null, 2))
+    reportServiceError('saveCommonLessons full error:', error)
     throw error
   }
 }
@@ -895,7 +899,7 @@ export async function bulkSaveTeachers(teachers) {
 
     if (error) throw error
   } catch (error) {
-    console.error('bulkSaveTeachers full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveTeachers full error:', error)
     throw error
   }
 }
@@ -921,7 +925,7 @@ export async function bulkSaveClasses(classes) {
 
     if (error) throw error
   } catch (error) {
-    console.error('bulkSaveClasses full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveClasses full error:', error)
     throw error
   }
 }
@@ -947,7 +951,7 @@ export async function bulkSaveAbsents(absents) {
 
     if (error) throw error
   } catch (error) {
-    console.error('bulkSaveAbsents full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveAbsents full error:', error)
     throw error
   }
 }
@@ -977,7 +981,7 @@ export async function bulkSaveClassFree(classFree) {
 
     if (error) throw error
   } catch (error) {
-    console.error('bulkSaveClassFree full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveClassFree full error:', error)
     throw error
   }
 }
@@ -1052,7 +1056,7 @@ export async function bulkSaveClassAbsence(classAbsence) {
       if (deleteError) throw deleteError
     }
   } catch (error) {
-    console.error('bulkSaveClassAbsence full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveClassAbsence full error:', error)
     throw error
   }
 }
@@ -1082,7 +1086,7 @@ export async function bulkSaveTeacherFree(teacherFree) {
 
     if (error) throw error
   } catch (error) {
-    console.error('bulkSaveTeacherFree full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveTeacherFree full error:', error)
     throw error
   }
 }
@@ -1119,7 +1123,9 @@ export async function bulkSaveLocks(locks) {
 
     if (error) throw error
   } catch (error) {
-    console.error('bulkSaveLocks full error:', JSON.stringify(error, null, 2))
+    reportServiceError('bulkSaveLocks full error:', error)
     throw error
   }
 }
+
+

@@ -4,6 +4,7 @@ import './index.css'
 import './styles.css'
 import App from './App.jsx'
 import { APP_ENV } from './config/index.js'
+import { logger } from './utils/logger.js'
 import { TeachersProvider } from './contexts/TeachersContext.jsx'
 import { ClassesProvider } from './contexts/ClassesContext.jsx'
 import { AssignmentsProvider } from './contexts/AssignmentsContext.jsx'
@@ -45,7 +46,7 @@ if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register(`/service-worker.js${suffix}`)
         .catch((err) => {
-          console.error('Service worker registration failed:', err)
+          logger.error('Service worker registration failed:', err)
         })
     })
   }

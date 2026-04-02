@@ -117,8 +117,9 @@ export class SmartPollingService {
         })
 
         logger.info(`[SmartPolling] Started for ${this.intervals.size} tables`)
-        console.log(`%c🔄 [SmartPolling] Active for ${this.intervals.size} tables`, 'color: #3b82f6; font-weight: bold;')
-        console.table(
+        logger.log(`[SmartPolling] Active for ${this.intervals.size} tables`)
+        logger.log(
+            '[SmartPolling] Table intervals:',
             Array.from(this.callbacks.keys()).map(table => ({
                 Table: table,
                 Interval: `${this.tableIntervals[table] || 10000}ms`,

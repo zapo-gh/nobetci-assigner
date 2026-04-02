@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { normalizeForComparison } from '../utils/pdfParser.js';
+import { normalizeForComparison } from '../utils/nameNormalization.js';
 import { APP_ENV } from '../config/index.js';
+import { logger } from '../utils/logger.js';
 
-const IS_DEV_ENV = (APP_ENV.mode || 'development') !== 'production';
+const IS_DEV_ENV = (APP_ENV.mode || 'development') !== 'production' && !APP_ENV.isTest;
 
 export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon') {
   return useMemo(() => {
@@ -18,14 +19,14 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
 
     if (!pdfSchedule || typeof pdfSchedule !== 'object' || Object.keys(pdfSchedule).length === 0) {
       if (IS_DEV_ENV) {
-        console.warn('teachersForCurrentDay: pdfSchedule is empty or invalid');
+        logger.warn('teachersForCurrentDay: pdfSchedule is empty or invalid');
       }
       return teachers;
     }
 
     if (!pdfSchedule[pdfDayKey] || typeof pdfSchedule[pdfDayKey] !== 'object' || Object.keys(pdfSchedule[pdfDayKey]).length === 0) {
       if (IS_DEV_ENV) {
-        console.warn('teachersForCurrentDay: pdfSchedule[pdfDayKey] is empty for:', pdfDayKey);
+        logger.warn('teachersForCurrentDay: pdfSchedule[pdfDayKey] is empty for:', pdfDayKey);
       }
       return teachers;
     }
@@ -35,7 +36,7 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
 
     const daySchedule = pdfSchedule[pdfDayKey];
     if (IS_DEV_ENV) {
-      console.log('teachersForCurrentDay: daySchedule for', pdfDayKey, ':', daySchedule);
+      logger.log('teachersForCurrentDay: daySchedule for', pdfDayKey, ':', daySchedule);
     }
 
     Object.values(daySchedule).forEach((periodTeachers, periodIndex) => {
@@ -46,7 +47,7 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
         teacherNames = [periodTeachers];
       } else {
         if (IS_DEV_ENV) {
-          console.warn('teachersForCurrentDay: periodTeachers is not an array or string at period index:', periodIndex, 'value:', periodTeachers);
+          logger.warn('teachersForCurrentDay: periodTeachers is not an array or string at period index:', periodIndex, 'value:', periodTeachers);
         }
         return;
       }
@@ -72,8 +73,8 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
     });
 
     if (IS_DEV_ENV) {
-      console.log('teachersForCurrentDay: dutyTeacherIds:', Array.from(dutyTeacherIds));
-      console.log('teachersForCurrentDay: dutyTeacherNames:', Array.from(dutyTeacherNames));
+      logger.log('teachersForCurrentDay: dutyTeacherIds:', Array.from(dutyTeacherIds));
+      logger.log('teachersForCurrentDay: dutyTeacherNames:', Array.from(dutyTeacherNames));
     }
 
     if (dutyTeacherIds.size === 0 && dutyTeacherNames.size === 0) {
@@ -92,8 +93,8 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
     }
 
     if (IS_DEV_ENV) {
-      console.log('Filtered teachers count:', filteredTeachers.length);
-      console.log('Filtered teachers:', filteredTeachers.map((t) => t.teacherName));
+      logger.log('Filtered teachers count:', filteredTeachers.length);
+      logger.log('Filtered teachers:', filteredTeachers.map((t) => t.teacherName));
     }
 
     return filteredTeachers;

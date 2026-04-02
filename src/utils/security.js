@@ -1,3 +1,5 @@
+import { reportError } from './errorReporting.js';
+
 // Güvenlik yardımcı fonksiyonları
 
 /**
@@ -102,7 +104,7 @@ export class SecureStorage {
       localStorage.setItem(key, serializedValue);
       return true;
     } catch (error) {
-      console.error('SecureStorage setItem error:', error);
+      reportError('SecureStorage setItem error:', error);
       return false;
     }
   }
@@ -112,7 +114,7 @@ export class SecureStorage {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      console.error('SecureStorage getItem error:', error);
+      reportError('SecureStorage getItem error:', error);
       return null;
     }
   }
@@ -122,7 +124,7 @@ export class SecureStorage {
       localStorage.removeItem(key);
       return true;
     } catch (error) {
-      console.error('SecureStorage removeItem error:', error);
+      reportError('SecureStorage removeItem error:', error);
       return false;
     }
   }
@@ -132,7 +134,7 @@ export class SecureStorage {
       localStorage.clear();
       return true;
     } catch (error) {
-      console.error('SecureStorage clear error:', error);
+      reportError('SecureStorage clear error:', error);
       return false;
     }
   }
@@ -249,3 +251,5 @@ export class RateLimiter {
     return Math.max(0, this.windowMs - timePassed);
   }
 }
+
+

@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
             pdfjs: ['pdfjs-dist'],
             xlsx: ['xlsx'],
             html2canvas: ['html2canvas'],
-            vendor: ['papaparse', 'fuzzyset.js']
+            vendor: ['react', 'react-dom', 'papaparse', 'fuzzyset.js']
           }
         }
       }

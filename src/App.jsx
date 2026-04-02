@@ -1,20 +1,12 @@
 /* global process */
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Header from './containers/Header.jsx';
 import Icon from './components/Icon.jsx';
 import { PERIODS, DAYS, REAL_DAY_KEYS } from './constants/index.js';
 import TeachersSection from './components/TeachersSection.jsx';
-import CourseScheduleSection from './components/CourseScheduleSection.jsx';
-import ClassesSection from './components/ClassesSection.jsx';
-import AbsentsSection from './components/AbsentsSection.jsx';
-import ScheduleSection from './components/ScheduleSection.jsx';
-import OutputsSection from './components/OutputsSection.jsx';
-import GlobalModals from './components/GlobalModals.jsx';
-import html2canvas from "html2canvas";
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
 import { logger } from "./utils/logger.js";
-import { normalizeForComparison } from "./utils/pdfParser.js";
-import { parseTeacherSchedulesFromExcel } from "./utils/teacherScheduleExcelParser.js";
+import { normalizeForComparison } from "./utils/nameNormalization.js";
 import {
   dateForSelectedDay,
   formatTRDate,
@@ -27,7 +19,7 @@ import {
 } from "./utils/helpers.js";
 import "./styles.css";
 
-import { APP_ENV, getAssetUrl } from './config/index.js';
+import { APP_ENV } from './config/index.js';
 import {
   loadInitialData,
   insertTeacher,
@@ -64,6 +56,7 @@ import {
 } from './hooks/useDerivedAvailability.js';
 import { useAbsentManager } from './hooks/useAbsentManager.js';
 import { useBulkDeleteActions } from './hooks/useBulkDeleteActions.js';
+import { useVersionWatcher } from './hooks/useVersionWatcher.js';
 import {
   COMMON_LESSON_LABEL,
   encodeClassAbsenceValue,
@@ -79,6 +72,13 @@ import CommonLessonModal from "./components/CommonLessonModal.jsx";
 
 import ConfirmationModal from "./components/ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./components/PdfScheduleImportModal.jsx";
+const CourseScheduleSection = lazy(() => import('./components/CourseScheduleSection.jsx'));
+const ClassesSection = lazy(() => import('./components/ClassesSection.jsx'));
+const AbsentsSection = lazy(() => import('./components/AbsentsSection.jsx'));
+const ScheduleSection = lazy(() => import('./components/ScheduleSection.jsx'));
+const OutputsSection = lazy(() => import('./components/OutputsSection.jsx'));
+const GlobalModals = lazy(() => import('./components/GlobalModals.jsx'));
+
 // Sekme state'leri eksik, ekliyoruz
 //const [activeSection, setActiveSection] = useState("teachers");
 
@@ -134,13 +134,7 @@ const SMART_POLLING_TABLES = Object.freeze({
   class_absence: true,
   common_lessons: true,
 });
-const CURRENT_BUILD_VERSION = APP_ENV.buildVersion || 'dev';
-const VERSION_RELOAD_STORAGE_KEY = `${APP_ENV.mode || 'development'}_last_version_reload`;
-const SHOULD_CHECK_VERSION =
-  APP_ENV.isProduction &&
-  typeof CURRENT_BUILD_VERSION === 'string' &&
-  CURRENT_BUILD_VERSION !== '' &&
-  CURRENT_BUILD_VERSION !== 'dev';
+const SHOULD_CHECK_VERSION = APP_ENV.isProduction;
 let cachedAppStateVersion = null;
 
 const stripQueryParams = (value = '') => {
@@ -171,8 +165,8 @@ const detectBundleScriptSignature = () => {
       process.env &&
       process.env.NODE_ENV !== 'production';
 
-    if (typeof console !== 'undefined' && isDevEnv) {
-      console.warn('Bundle signature detection failed:', err);
+    if (isDevEnv) {
+      logger.warn('Bundle signature detection failed:', err);
     }
   }
   return '';
@@ -208,28 +202,6 @@ const resolveAppStateVersion = ({ refresh = false } = {}) => {
   }
 
   return cachedAppStateVersion;
-};
-
-const getLastReloadedVersion = () => {
-  try {
-    if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(VERSION_RELOAD_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-};
-
-const persistReloadedVersion = (version) => {
-  try {
-    if (typeof sessionStorage === 'undefined') return;
-    if (version) {
-      sessionStorage.setItem(VERSION_RELOAD_STORAGE_KEY, version);
-    } else {
-      sessionStorage.removeItem(VERSION_RELOAD_STORAGE_KEY);
-    }
-  } catch {
-    // ignore
-  }
 };
 
 const cleanupLocalStorageForVersion = () => {
@@ -511,7 +483,6 @@ export default function App() {
   const skipNextSupabaseSaveRef = useRef(false)
   const autoSaveTimeoutRef = useRef(null)
   const isPollingUpdateRef = useRef(false)
-  const versionMismatchHandledRef = useRef(false)
   const alertedAbsentIdsRef = useRef(new Set())
 
 
@@ -647,7 +618,7 @@ export default function App() {
 
         // Teacher schedules'i yükle - boş olsa bile Supabase'den geldiğini işaretle
         const loadedTeacherSchedules = supabaseData.teacherSchedules || {}
-        console.log('[applySupabaseSnapshot] Setting teacher schedules:', {
+        logger.log('[applySupabaseSnapshot] Setting teacher schedules:', {
           count: Object.keys(loadedTeacherSchedules).length,
           keys: Object.keys(loadedTeacherSchedules).slice(0, 5)
         })
@@ -838,7 +809,7 @@ export default function App() {
           const supabaseData = await loadInitialData()
           if (!isMounted) return
 
-          console.log('[App] Supabase data loaded:', {
+          logger.info('[App] Supabase data loaded:', {
             teachers: supabaseData.teachers?.length || 0,
             classes: supabaseData.classes?.length || 0,
             teacherSchedules: Object.keys(supabaseData.teacherSchedules || {}).length,
@@ -1029,131 +1000,7 @@ export default function App() {
     }
   }, [])
 
-  const forceReloadWithVersion = useCallback(async (targetVersion) => {
-    if (typeof window === 'undefined') return;
-
-    // Cache'i temizle (hard refresh için)
-    try {
-      // Service worker'ları kaldır
-      if (
-        typeof navigator !== 'undefined' &&
-        'serviceWorker' in navigator &&
-        navigator.serviceWorker?.getRegistrations
-      ) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(
-          registrations.map((registration) =>
-            registration.unregister().catch(() => { })
-          )
-        );
-      }
-    } catch (err) {
-      logger.warn?.('Service worker cleanup failed:', err);
-    }
-
-    try {
-      // Cache'leri temizle
-      if (typeof caches !== 'undefined' && caches?.keys) {
-        const cacheKeys = await caches.keys();
-        await Promise.all(
-          cacheKeys.map((cacheKey) =>
-            caches.delete(cacheKey).catch(() => false)
-          )
-        );
-      }
-    } catch (err) {
-      logger.warn?.('Cache cleanup failed:', err);
-    }
-
-    // Cache bypass için timestamp ekle ve hard refresh yap
-    const url = new URL(window.location.href);
-    if (targetVersion) {
-      url.searchParams.set('build', targetVersion);
-    }
-    // Her zaman cache bypass için timestamp ekle
-    url.searchParams.set('_t', Date.now().toString());
-
-    // location.replace ile cache bypass yaparak yenile
-    window.location.replace(url.toString());
-  }, []);
-
-  useEffect(() => {
-    if (!SHOULD_CHECK_VERSION) return undefined;
-
-    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
-
-    const checkForNewVersion = async () => {
-      // Sayfa yüklendiğinde, eğer sessionStorage'da lastReloaded varsa ve bu mevcut sürümle eşleşiyorsa, kontrolü atla
-      // Bu, sayfa yenilendiğinde döngüye girmeyi önler
-      const lastReloaded = getLastReloadedVersion();
-      if (lastReloaded === CURRENT_BUILD_VERSION) {
-        // Zaten bu sürüme yenilendi, tekrar kontrol etmeye gerek yok
-        return;
-      }
-
-      // Eğer ref zaten set edilmişse (aynı render cycle'da tekrar çağrılmışsa), atla
-      if (versionMismatchHandledRef.current) return;
-
-      try {
-        const response = await fetch(`${getAssetUrl('version.json')}?t=${Date.now()}`, {
-          cache: 'no-store',
-        });
-        if (!response.ok) return;
-
-        const payload = await response.json();
-        const remoteVersion = payload?.version;
-
-        // Sürümler eşleşiyorsa, lastReloaded'ı temizle (artık gerek yok)
-        if (remoteVersion === CURRENT_BUILD_VERSION) {
-          persistReloadedVersion(null);
-          return;
-        }
-
-        // Yeni sürüm varsa
-        if (
-          remoteVersion &&
-          CURRENT_BUILD_VERSION &&
-          remoteVersion !== CURRENT_BUILD_VERSION
-        ) {
-          // Eğer bu sürüme zaten yenilendi ama hala eski sürüm görünüyorsa (cache sorunu)
-          if (lastReloaded === remoteVersion) {
-            versionMismatchHandledRef.current = true;
-            addNotification(
-              'Yeni sürüm algılandı ancak tarayıcı önbelleği nedeniyle otomatik yenileme başarısız oldu. Lütfen sayfayı manuel olarak yenileyin.',
-              'warning',
-            );
-            return;
-          }
-
-          // Yeni sürüm bulundu, yenile
-          versionMismatchHandledRef.current = true;
-          persistReloadedVersion(remoteVersion);
-          addNotification('Yeni sürüm bulundu, sayfa yeniden yükleniyor...', 'info');
-          setTimeout(() => {
-            forceReloadWithVersion(remoteVersion);
-          }, 1200);
-        }
-      } catch (error) {
-        logger.warn('Version check failed:', error);
-      }
-    };
-
-    // Sayfa açılır açılmaz kontrol et
-    checkForNewVersion();
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkForNewVersion();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    const intervalId = window.setInterval(checkForNewVersion, CHECK_INTERVAL);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      clearInterval(intervalId);
-    };
-  }, [addNotification, forceReloadWithVersion]);
+  useVersionWatcher({ enabled: SHOULD_CHECK_VERSION });
 
   const refreshAbsenceData = useCallback(async () => {
     setAbsenceRefreshState((prev) => ({ ...prev, isRefreshing: true, error: null }));
@@ -1278,6 +1125,7 @@ export default function App() {
       if (existingCount > 0) {
         // Önce dosyayı parse et (hata kontrolü için)
         try {
+          const { parseTeacherSchedulesFromExcel } = await import('./utils/teacherScheduleExcelParser.js');
           const schedules = await parseTeacherSchedulesFromExcel(file);
           setTeacherScheduleReplaceModal({
             isOpen: true,
@@ -1288,7 +1136,7 @@ export default function App() {
             event.target.value = '';
           }
         } catch (error) {
-          console.error('Excel parsing error:', error);
+          logger.error('Excel parsing error:', error);
           addNotification(`Dosya okuma hatası: ${error.message}`, 'error');
           if (event?.target) {
             event.target.value = '';
@@ -1299,7 +1147,8 @@ export default function App() {
 
       // Mevcut veri yoksa direkt yükle
       try {
-        console.log('Starting teacher schedule upload from Excel...');
+        logger.log('Starting teacher schedule upload from Excel...');
+        const { parseTeacherSchedulesFromExcel } = await import('./utils/teacherScheduleExcelParser.js');
         const schedules = await parseTeacherSchedulesFromExcel(file);
         setTeacherSchedules(schedules);
         setTeacherSchedulesHydrated(true);
@@ -1309,7 +1158,7 @@ export default function App() {
         });
         addNotification(`${Object.keys(schedules).length} öğretmenin ders programı yüklendi`, 'success');
       } catch (error) {
-        console.error('Excel parsing error:', error);
+        logger.error('Excel parsing error:', error);
         addNotification(`Ders programı yükleme hatası: ${error.message}`, 'error');
       } finally {
         if (event?.target) {
@@ -1928,7 +1777,7 @@ export default function App() {
               if (teacher && teacher.teacherId && index < availableClasses.length) {
                 const isValidTeacher = teachers.some((t) => t.teacherId === teacher.teacherId);
                 if (!isValidTeacher) {
-                  console.warn(
+                  logger.warn(
                     `Invalid teacherId "${teacher.teacherId}" for PDF name "${pdfName}", skipping assignment`
                   );
                   return;
@@ -1943,7 +1792,7 @@ export default function App() {
                     next[key] = conflictTeacherId;
                     localConflictCount += 1;
                   } else {
-                    console.warn(
+                    logger.warn(
                       `Invalid teacherId "${conflictTeacherId}" in conflict resolution for ${key}, skipping`
                     );
                   }
@@ -1952,7 +1801,7 @@ export default function App() {
                   localAssignmentCount += 1;
                 }
               } else if (!teacher) {
-                console.warn(`Teacher not found for PDF name "${pdfName}", skipping assignment`);
+                logger.warn(`Teacher not found for PDF name "${pdfName}", skipping assignment`);
               }
             });
           }
@@ -2530,7 +2379,7 @@ export default function App() {
     if (!classFree || !day) return;
     const snapshot = classFree?.[day];
     if (!snapshot) {
-      console.log('[DEBUG] classFree snapshot missing for day:', day);
+      logger.log('[DEBUG] classFree snapshot missing for day:', day);
       return;
     }
     const classNameMap = classes.reduce((acc, cls) => {
@@ -2691,7 +2540,7 @@ export default function App() {
 
       // Sadece kullanıcıya bildirim göster, çok fazla bildirim olmasın
       const invalidTeacherIds = invalidDayEntries.map(([, tid]) => tid).join(', ');
-      console.log(`Gün değişti (${day}): ${invalidDayEntries.length} geçersiz locked kayıt temizlendi:`, invalidTeacherIds);
+      logger.log(`Gün değişti (${day}): ${invalidDayEntries.length} geçersiz locked kayıt temizlendi:`, invalidTeacherIds);
     }
   }, [day, teachers, locked]); // day, teachers veya kilitler değiştiğinde çalışır
 
@@ -3527,6 +3376,7 @@ export default function App() {
       });
 
       // Canvas'a çevir (hem tablo hem metin dahil)
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(outputSection, {
         scale: 3, // Daha yüksek kalite
         backgroundColor: '#ffffff',
@@ -3852,6 +3702,18 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [setActiveSection])
 
+  const hasOpenModal =
+    modals.teacher ||
+    modals.class ||
+    modals.absent ||
+    modals.commonLesson ||
+    modals.dutyTeacherExcel ||
+    confirmationModal.isOpen ||
+    excelReplaceModal.isOpen ||
+    teacherScheduleReplaceModal.isOpen ||
+    pdfImportModal ||
+    selectedTeacher !== null
+
   return (
     <div className={`wrap ${toolbarExpanded ? 'toolbarExpanded' : ''}`}>
       <ModernNotificationSystem notifications={notifications} onRemove={removeNotification} onAction={onNotificationAction} />
@@ -3965,136 +3827,143 @@ export default function App() {
           />
         )}
 
-        {activeSection === "courseSchedule" && (
-          <CourseScheduleSection
-            uploadInputId="teacher-schedule-upload-direct"
-            onUpload={handleTeacherScheduleUpload}
-            teacherSchedulesList={teacherSchedulesList}
-            onDeleteAllSchedules={deleteAllTeacherSchedules}
-            onOpenTeacherSchedule={openTeacherSchedule}
-            IconComponent={Icon}
-          />
-        )}
+        <Suspense fallback={null}>
+          {activeSection === "courseSchedule" && (
+            <CourseScheduleSection
+              uploadInputId="teacher-schedule-upload-direct"
+              onUpload={handleTeacherScheduleUpload}
+              teacherSchedulesList={teacherSchedulesList}
+              onDeleteAllSchedules={deleteAllTeacherSchedules}
+              onOpenTeacherSchedule={openTeacherSchedule}
+              IconComponent={Icon}
+            />
+          )}
 
-        {activeSection === "classes" && (
-          <ClassesSection
-            classes={classes}
-            classesForCurrentDay={classesForCurrentDay}
-            periods={periods}
-            classFreeForCurrentDay={classFreeForCurrentDay}
-            absentPeopleForCurrentDay={absentPeopleForCurrentDay}
-            filteredClassAbsence={filteredClassAbsence}
-            commonLessons={commonLessons}
-            day={day}
-            onToggleClassFree={toggleClassFree}
-            onSetAllClassesFree={setAllClassesFree}
-            onSelectAbsence={handleSelectAbsence}
-            onOpenCommonLessonModal={(slotDay, period, classId) =>
-              handleOpenCommonLessonModal(slotDay, period, classId)
-            }
-            onDeleteClass={deleteClass}
-            teachers={teachers}
-            onAddClass={() => setModals((m) => ({ ...m, class: true }))}
-            onDeleteAllClasses={deleteAllClasses}
-            IconComponent={Icon}
-          />
-        )}
+          {activeSection === "classes" && (
+            <ClassesSection
+              classes={classes}
+              classesForCurrentDay={classesForCurrentDay}
+              periods={periods}
+              classFreeForCurrentDay={classFreeForCurrentDay}
+              absentPeopleForCurrentDay={absentPeopleForCurrentDay}
+              filteredClassAbsence={filteredClassAbsence}
+              commonLessons={commonLessons}
+              day={day}
+              onToggleClassFree={toggleClassFree}
+              onSetAllClassesFree={setAllClassesFree}
+              onSelectAbsence={handleSelectAbsence}
+              onOpenCommonLessonModal={(slotDay, period, classId) =>
+                handleOpenCommonLessonModal(slotDay, period, classId)
+              }
+              onDeleteClass={deleteClass}
+              teachers={teachers}
+              onAddClass={() => setModals((m) => ({ ...m, class: true }))}
+              onDeleteAllClasses={deleteAllClasses}
+              IconComponent={Icon}
+            />
+          )}
 
-        {activeSection === "absents" && (
-          <AbsentsSection
-            absentPeople={absentPeople}
-            absentPeopleForCurrentDay={absentPeopleForCurrentDay}
-            onAddAbsent={() => setModals((m) => ({ ...m, absent: true }))}
-            onDeleteAbsent={deleteAbsent}
-            onDeleteAllAbsents={deleteAllAbsents}
-            IconComponent={Icon}
-          />
-        )}
+          {activeSection === "absents" && (
+            <AbsentsSection
+              absentPeople={absentPeople}
+              absentPeopleForCurrentDay={absentPeopleForCurrentDay}
+              onAddAbsent={() => setModals((m) => ({ ...m, absent: true }))}
+              onDeleteAbsent={deleteAbsent}
+              onDeleteAllAbsents={deleteAllAbsents}
+              IconComponent={Icon}
+            />
+          )}
 
-        {activeSection === "schedule" && (
-          <ScheduleSection
-            day={day}
-            periods={periods}
-            classesForCurrentDay={classesForCurrentDay}
-            teachersForCurrentDay={teachersForCurrentDay}
-            freeTeachersByDay={freeTeachersByDay}
-            freeClassesByDay={freeClassesByDay}
-            assignment={assignment}
-            locked={locked}
-            options={options}
-            assignmentInsights={assignmentInsights}
-            balanceReport={balanceReport}
-            unassignedForSelectedDay={unassignedForSelectedDay}
-            commonLessons={commonLessons}
-            classes={classes}
-            IconComponent={Icon}
-            onOptionChange={handleOptionChange}
-            onSetAllTeachersMaxDuty={setAllTeachersMaxDuty}
-            onDropAssign={dropAssign}
-            onManualAssign={handleManualAssign}
-            onManualClear={handleManualClear}
-            onManualSetAdmin={handleManualSetAdmin}
-            onManualRelease={handleManualRelease}
-          />
-        )}
+          {activeSection === "schedule" && (
+            <ScheduleSection
+              day={day}
+              periods={periods}
+              classesForCurrentDay={classesForCurrentDay}
+              teachersForCurrentDay={teachersForCurrentDay}
+              freeTeachersByDay={freeTeachersByDay}
+              freeClassesByDay={freeClassesByDay}
+              assignment={assignment}
+              locked={locked}
+              options={options}
+              assignmentInsights={assignmentInsights}
+              balanceReport={balanceReport}
+              unassignedForSelectedDay={unassignedForSelectedDay}
+              commonLessons={commonLessons}
+              classes={classes}
+              IconComponent={Icon}
+              onOptionChange={handleOptionChange}
+              onSetAllTeachersMaxDuty={setAllTeachersMaxDuty}
+              onDropAssign={dropAssign}
+              onManualAssign={handleManualAssign}
+              onManualClear={handleManualClear}
+              onManualSetAdmin={handleManualSetAdmin}
+              onManualRelease={handleManualRelease}
+            />
+          )}
 
-        {activeSection === "outputs" && (
-          <OutputsSection
-            day={day}
-            displayDate={displayDate}
-            periods={periods}
-            assignment={assignment}
-            locked={locked}
-            teachersForCurrentDay={teachersForCurrentDay}
-            classes={classes}
-            classAbsence={classAbsence}
-            filteredClassAbsence={filteredClassAbsence}
-            absentPeopleForCurrentDay={absentPeopleForCurrentDay}
-            commonLessons={commonLessons}
-            onExportJPG={exportJPG}
-            onPrint={() => window.print()}
-            IconComponent={Icon}
-          />
-        )}
+          {activeSection === "outputs" && (
+            <OutputsSection
+              day={day}
+              displayDate={displayDate}
+              periods={periods}
+              assignment={assignment}
+              locked={locked}
+              teachersForCurrentDay={teachersForCurrentDay}
+              classes={classes}
+              classAbsence={classAbsence}
+              filteredClassAbsence={filteredClassAbsence}
+              absentPeopleForCurrentDay={absentPeopleForCurrentDay}
+              commonLessons={commonLessons}
+              onExportJPG={exportJPG}
+              onPrint={() => window.print()}
+              IconComponent={Icon}
+            />
+          )}
+        </Suspense>
       </main>
 
-      <GlobalModals
-        modals={modals}
-        setModals={setModals}
-        addTeacher={addTeacher}
-        addClass={addClass}
-        addAbsent={addAbsent}
-        day={day}
-        DAYS={DAYS}
-        scheduledTeacherOptions={scheduledTeacherOptions}
-        handleCloseCommonLessonModal={handleCloseCommonLessonModal}
-        handleSetCommonLesson={handleSetCommonLesson}
-        handleSelectAbsence={handleSelectAbsence}
-        currentCommonLesson={currentCommonLesson}
-        commonLessons={commonLessons}
-        confirmationModal={confirmationModal}
-        setConfirmationModal={setConfirmationModal}
-        excelReplaceModal={excelReplaceModal}
-        handleExcelReplaceCancel={handleExcelReplaceCancel}
-        handleExcelReplaceConfirm={handleExcelReplaceConfirm}
-        teacherScheduleReplaceModal={teacherScheduleReplaceModal}
-        handleTeacherScheduleReplaceCancel={handleTeacherScheduleReplaceCancel}
-        handleTeacherScheduleReplaceConfirm={handleTeacherScheduleReplaceConfirm}
-        pdfImportModal={pdfImportModal}
-        setPdfImportModal={setPdfImportModal}
-        loadScheduleFromPDF={loadScheduleFromPDF}
-        teachers={teachers}
-        classes={classes}
-        locked={locked}
-        IconComponent={Icon}
-        handleCloseDutyTeacherExcelModal={handleCloseDutyTeacherExcelModal}
-        loadDutyTeachersFromExcel={loadDutyTeachersFromExcel}
-        selectedTeacher={selectedTeacher}
-        setSelectedTeacher={setSelectedTeacher}
-        blockedAbsentTeacherNames={blockedAbsentTeacherNames}
-      />
+      {hasOpenModal && (
+        <Suspense fallback={null}>
+          <GlobalModals
+            modals={modals}
+            setModals={setModals}
+            addTeacher={addTeacher}
+            addClass={addClass}
+            addAbsent={addAbsent}
+            day={day}
+            DAYS={DAYS}
+            scheduledTeacherOptions={scheduledTeacherOptions}
+            handleCloseCommonLessonModal={handleCloseCommonLessonModal}
+            handleSetCommonLesson={handleSetCommonLesson}
+            handleSelectAbsence={handleSelectAbsence}
+            currentCommonLesson={currentCommonLesson}
+            commonLessons={commonLessons}
+            confirmationModal={confirmationModal}
+            setConfirmationModal={setConfirmationModal}
+            excelReplaceModal={excelReplaceModal}
+            handleExcelReplaceCancel={handleExcelReplaceCancel}
+            handleExcelReplaceConfirm={handleExcelReplaceConfirm}
+            teacherScheduleReplaceModal={teacherScheduleReplaceModal}
+            handleTeacherScheduleReplaceCancel={handleTeacherScheduleReplaceCancel}
+            handleTeacherScheduleReplaceConfirm={handleTeacherScheduleReplaceConfirm}
+            pdfImportModal={pdfImportModal}
+            setPdfImportModal={setPdfImportModal}
+            loadScheduleFromPDF={loadScheduleFromPDF}
+            teachers={teachers}
+            classes={classes}
+            locked={locked}
+            IconComponent={Icon}
+            handleCloseDutyTeacherExcelModal={handleCloseDutyTeacherExcelModal}
+            loadDutyTeachersFromExcel={loadDutyTeachersFromExcel}
+            selectedTeacher={selectedTeacher}
+            setSelectedTeacher={setSelectedTeacher}
+            blockedAbsentTeacherNames={blockedAbsentTeacherNames}
+          />
+        </Suspense>
+      )}
 
       {/* Footer removed as per request */}
     </div>
   );
 }
+

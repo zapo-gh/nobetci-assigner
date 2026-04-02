@@ -1,7 +1,5 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState } from 'react';
-
-const ClassesContext = createContext(null);
+import React, { useState } from 'react';
+import { ClassesContext } from './ClassesContextObject.js';
 
 export function ClassesProvider({ children }) {
     // Class State
@@ -21,12 +19,4 @@ export function ClassesProvider({ children }) {
     };
 
     return <ClassesContext.Provider value={value}>{children}</ClassesContext.Provider>;
-}
-
-export function useClasses() {
-    const context = useContext(ClassesContext);
-    if (!context) {
-        throw new Error('useClasses must be used within ClassesProvider');
-    }
-    return context;
 }

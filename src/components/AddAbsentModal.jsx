@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Modal from './Modal';
-import { normalizeForComparison } from '../utils/pdfParser';
+import { normalizeForComparison } from '../utils/nameNormalization.js';
 
 const REASON_OPTIONS = [
   { value: 'Raporlu', label: 'Raporlu' },

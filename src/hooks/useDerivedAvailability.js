@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { COMMON_LESSON_LABEL, decodeClassAbsenceValue } from '../utils/classAbsence.js';
-import { normalizeForComparison } from '../utils/pdfParser.js';
+import { normalizeForComparison } from '../utils/nameNormalization.js';
 
 export function useFreeTeachersByDay({ teacherFree, day, periods, teacherMap, absentPeople = [] }) {
   return useMemo(() => {

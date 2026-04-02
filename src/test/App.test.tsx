@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-// @ts-ignore
-import App from '../App'
+import App from '../App.jsx'
 
 describe('App', () => {
   it('renders the main application', () => {

@@ -1,7 +1,5 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState } from 'react';
-
-const TeachersContext = createContext(null);
+import React, { useState } from 'react';
+import { TeachersContext } from './TeachersContextObject.js';
 
 export function TeachersProvider({ children }) {
     // Teacher State
@@ -24,12 +22,4 @@ export function TeachersProvider({ children }) {
     };
 
     return <TeachersContext.Provider value={value}>{children}</TeachersContext.Provider>;
-}
-
-export function useTeachers() {
-    const context = useContext(TeachersContext);
-    if (!context) {
-        throw new Error('useTeachers must be used within TeachersProvider');
-    }
-    return context;
 }

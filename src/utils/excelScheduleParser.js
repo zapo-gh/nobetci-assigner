@@ -1,4 +1,7 @@
 import * as XLSX from 'xlsx';
+import { logger } from './logger.js';
+
+const debugLog = (...args) => logger.log(...args);
 
 /**
  * Parse Excel schedule file for teacher assignments
@@ -24,13 +27,13 @@ export async function parseExcelSchedule(file) {
         raw: false  // Convert all values to strings
       });
 
-      console.log(`Processing sheet: ${sheetName}`);
-      console.log('Sheet data length:', jsonData.length);
+      debugLog(`Processing sheet: ${sheetName}`);
+      debugLog('Sheet data length:', jsonData.length);
 
       // Debug: Show first 10 rows to understand structure
-      console.log('First 10 rows of sheet data:');
+      debugLog('First 10 rows of sheet data:');
       jsonData.slice(0, 10).forEach((row, index) => {
-        console.log(`Row ${index}:`, row);
+        debugLog(`Row ${index}:`, row);
       });
 
       // Try to parse as schedule format
@@ -42,17 +45,17 @@ export async function parseExcelSchedule(file) {
           if (!schedule[day]) schedule[day] = {};
           Object.assign(schedule[day], result.schedule[day]);
         });
-        console.log(`Parsed schedule from sheet "${sheetName}"`);
+        debugLog(`Parsed schedule from sheet "${sheetName}"`);
       } else {
         errors.push(`Sayfa "${sheetName}" içinde geçerli çizelge bulunamadı`);
       }
     });
 
-    console.log('\n=== PARSING SUMMARY ===');
-    console.log('Total schedule data parsed:', Object.keys(schedule).length);
+    debugLog('\n=== PARSING SUMMARY ===');
+    debugLog('Total schedule data parsed:', Object.keys(schedule).length);
 
     if (Object.keys(schedule).length === 0) {
-      console.warn('⚠️ No schedule data was found in the Excel file!');
+      logger.warn('⚠️ No schedule data was found in the Excel file!');
     }
 
     return {
@@ -103,18 +106,18 @@ function parseScheduleFormat(sheetData) {
     if (rowText.includes('PAZARTESİ') || rowText.includes('PZT') ||
         rowText.includes('GÜNLER') || rowText.includes('DAYS')) {
       headerRowIndex = i;
-      console.log(`Found header row at index ${i}:`, row);
+      debugLog(`Found header row at index ${i}:`, row);
       break;
     }
   }
 
   if (headerRowIndex === -1) {
-    console.log('Header row not found');
+    debugLog('Header row not found');
     return { schedule };
   }
 
   const headerRow = sheetData[headerRowIndex];
-  console.log('Header row:', headerRow);
+  debugLog('Header row:', headerRow);
 
   // Find column indices for each day
   const dayColumns = {};
@@ -123,11 +126,11 @@ function parseScheduleFormat(sheetData) {
     const dayKey = dayMapping[cellValue];
     if (dayKey) {
       dayColumns[dayKey] = colIndex;
-      console.log(`Found ${cellValue} at column ${colIndex} -> ${dayKey}`);
+      debugLog(`Found ${cellValue} at column ${colIndex} -> ${dayKey}`);
     }
   });
 
-  console.log('Day columns mapping:', dayColumns);
+  debugLog('Day columns mapping:', dayColumns);
 
   // Process data rows starting from header + 1
   for (let rowIndex = headerRowIndex + 1; rowIndex < sheetData.length; rowIndex++) {
@@ -139,36 +142,36 @@ function parseScheduleFormat(sheetData) {
 
     // First column should contain period/class info
     const firstCell = String(row[0] || '').trim();
-    console.log(`\nProcessing row ${rowIndex}, first cell: "${firstCell}"`);
+    debugLog(`\nProcessing row ${rowIndex}, first cell: "${firstCell}"`);
 
     // Try to extract period number from first cell
     const periodMatch = firstCell.match(/(\d+)/);
     if (!periodMatch) {
-      console.log(`No period number found in "${firstCell}", skipping`);
+      debugLog(`No period number found in "${firstCell}", skipping`);
       continue;
     }
 
     const period = parseInt(periodMatch[1], 10);
     if (period < 1 || period > 12) {
-      console.log(`Invalid period ${period}, skipping`);
+      debugLog(`Invalid period ${period}, skipping`);
       continue;
     }
 
-    console.log(`Found period ${period}`);
+    debugLog(`Found period ${period}`);
 
     // Process each day column
     Object.entries(dayColumns).forEach(([dayKey, colIndex]) => {
       if (colIndex >= row.length) return;
 
       const cellValue = String(row[colIndex] || '').trim();
-      console.log(`  ${dayKey} (col ${colIndex}): "${cellValue}"`);
+      debugLog(`  ${dayKey} (col ${colIndex}): "${cellValue}"`);
 
       if (!cellValue) return;
 
       // Extract teacher name from cell
       const teacherName = extractTeacherFromCell(cellValue);
       if (!teacherName) {
-        console.log(`    No teacher found in "${cellValue}"`);
+        debugLog(`    No teacher found in "${cellValue}"`);
         return;
       }
 
@@ -179,22 +182,22 @@ function parseScheduleFormat(sheetData) {
       // Add teacher to schedule
       if (!schedule[dayKey][period].includes(teacherName)) {
         schedule[dayKey][period].push(teacherName);
-        console.log(`    ✓ Added ${teacherName} to ${dayKey} period ${period}`);
+        debugLog(`    ✓ Added ${teacherName} to ${dayKey} period ${period}`);
       }
     });
   }
 
-  console.log('Final parsed schedule:', schedule);
+  debugLog('Final parsed schedule:', schedule);
 
   // Validate the parsed schedule
   const totalAssignments = Object.values(schedule).reduce((total, day) =>
     total + Object.values(day).reduce((dayTotal, periods) =>
       dayTotal + periods.length, 0), 0);
 
-  console.log(`Total assignments parsed: ${totalAssignments}`);
+  debugLog(`Total assignments parsed: ${totalAssignments}`);
 
   if (totalAssignments === 0) {
-    console.warn('⚠️ No assignments were parsed from this sheet!');
+    logger.warn('⚠️ No assignments were parsed from this sheet!');
   }
 
   return { schedule };

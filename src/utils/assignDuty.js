@@ -1,4 +1,5 @@
 import { toInt } from './helpers.js';
+import { logger } from './logger.js';
 
 export const MANUAL_EMPTY_TEACHER_ID = '__MANUAL_EMPTY__'
 export const MANUAL_ADMIN_TEACHER_ID = '__MANUAL_ADMIN__'
@@ -123,10 +124,10 @@ function simulateAssignment({
           dutyCount: simDutyCount,
           maxPerDay,
           options,
+          ruleEngine,
           slotUsage: simSlotUsage,
           maxPerSlot,
           ignoreConsecutiveLimit,
-          ruleEngine,
         }))
         .sort((a, b) => {
           const dutyA = simDutyCount[day]?.[a] || 0
@@ -192,7 +193,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
   })
 
   if (duplicateTeacherIds.size > 0) {
-    console.warn(
+    logger.warn(
       '[assignDuties] Yinelenen teacherId tespit edildi:',
       Array.from(duplicateTeacherIds.values())
     )
@@ -261,7 +262,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
         const candidates = baseSorted.filter(
           tid =>
             (slotUsage[period]?.[tid] || 0) === 0 &&
-            canAssign({ day, period, teacherId: tid, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit })
+            canAssign({ day, period, teacherId: tid, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit, ruleEngine })
         )
         let pick = null
         if (candidates.length === 1) {
@@ -340,7 +341,7 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
           const pick = freshSorted.find(
             tid =>
               (slotUsage[period]?.[tid] || 0) < maxPerSlot &&
-              canAssign({ day, period, teacherId: tid, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit })
+              canAssign({ day, period, teacherId: tid, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit, ruleEngine })
           )
           if (pick) {
             pushAssign(day, p, classId, pick, byDay, dutyCount, slotUsage, lastAssignedPeriod)
@@ -375,8 +376,7 @@ function pushAssign(day, p, classId, teacherId, byDay, dutyCount, slotUsage, las
   )
 }
 
-function canAssign({ day, period, teacherId, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit }) {
-  const ruleEngine = normalizeRuleEngine(options?.ruleEngine)
+function canAssign({ day, period, teacherId, byDay, dutyCount, maxPerDay, options, slotUsage, maxPerSlot, ignoreConsecutiveLimit, ruleEngine }) {
   if (violatesRuleEngine({ day, period, teacherId, dutyCount, ruleEngine })) return false
 
   // 1. Günlük görev limiti kontrolü
