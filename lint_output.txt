@@ -1,0 +1,23 @@
+
+> nobetci-assigner@0.0.0 lint
+> eslint .
+
+
+C:\Users\zafer\OneDrive\Desktop\nobetci-assigner-main\src\App.jsx
+    22:8   error  'styles' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  2268:31  error  'REAL_DAY_KEYS' is not defined                                                 no-undef
+
+C:\Users\zafer\OneDrive\Desktop\nobetci-assigner-main\src\contexts\AssignmentsContext.jsx
+  49:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\zafer\OneDrive\Desktop\nobetci-assigner-main\src\contexts\ClassesContext.jsx
+  25:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\zafer\OneDrive\Desktop\nobetci-assigner-main\src\contexts\TeachersContext.jsx
+  28:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\zafer\OneDrive\Desktop\nobetci-assigner-main\src\contexts\UIContext.jsx
+  12:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+Ô£û 6 problems (6 errors, 0 warnings)
+
