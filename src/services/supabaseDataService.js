@@ -778,6 +778,20 @@ export async function clearLocksData() {
   }
 }
 
+export async function clearAdminLocks() {
+  try {
+    const { error } = await supabase
+      .from('locks')
+      .delete()
+      .eq('teacherId', '__MANUAL_ADMIN__')
+
+    if (error) throw error
+  } catch (error) {
+    reportServiceError('clearAdminLocks error:', error)
+    throw error
+  }
+}
+
 export async function replacePdfSchedule(schedule) {
   try {
     // Delete existing

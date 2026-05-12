@@ -44,6 +44,7 @@ import {
   bulkSaveClassFree,
   bulkSaveClassAbsence,
   bulkSaveTeacherFree,
+  clearAdminLocks,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
 } from './services/supabaseDataService.js';
 import { smartPolling } from './services/smartPolling.js';
@@ -818,6 +819,26 @@ export default function App() {
           })
 
           applySupabaseSnapshotRef.current?.(supabaseData)
+
+          // Yeni günde "İdare kontrolünde" kilitleri otomatik temizle
+          const ADMIN_LOCK_DATE_KEY = 'nobetci_admin_lock_date'
+          const todayISO = new Date().toISOString().slice(0, 10)
+          const lastClearedDate = localStorage.getItem(ADMIN_LOCK_DATE_KEY)
+          if (lastClearedDate !== todayISO) {
+            const adminLockKeys = Object.keys(supabaseData.locked || {}).filter(
+              k => supabaseData.locked[k] === MANUAL_ADMIN_TEACHER_ID
+            )
+            if (adminLockKeys.length > 0) {
+              clearAdminLocks().catch(err => logger.warn('[App] clearAdminLocks error:', err))
+              setLocked(prev => {
+                const next = { ...prev }
+                adminLockKeys.forEach(k => delete next[k])
+                return next
+              })
+              logger.info(`[App] ${adminLockKeys.length} adet eski "İdare kontrolünde" kilidi temizlendi`)
+            }
+            localStorage.setItem(ADMIN_LOCK_DATE_KEY, todayISO)
+          }
 
           logger.info('Data loaded from Supabase successfully')
           if (isMounted) {
