@@ -158,16 +158,16 @@ export default function PrintableDailyList({
                                       Ders Birleştirilecek
                                     </small>
                                     {item.ownerInfo && (
-                                      <small className="absline">
-                                        {item.ownerInfo.name} — {REASON_LABELS[item.ownerInfo.reason] || item.ownerInfo.reason}
-                                      </small>
+                                      <>
+                                        <small className="absline">{item.ownerInfo.name} —</small>
+                                        <small className="absline">{REASON_LABELS[item.ownerInfo.reason] || item.ownerInfo.reason}</small>
+                                      </>
                                     )}
                                   </div>
                                 ) : item.info && (
                                   <div className="abs">
-                                    <small className="absline">
-                                      {item.info.name} — {REASON_LABELS[item.info.reason] || item.info.reason}
-                                    </small>
+                                    <small className="absline">{item.info.name} —</small>
+                                    <small className="absline">{REASON_LABELS[item.info.reason] || item.info.reason}</small>
                                   </div>
                                 )}
                               </li>
@@ -211,9 +211,10 @@ export default function PrintableDailyList({
                                       Ders Birleştirilecek
                                     </small>
                                     {ownerInfo && (
-                                      <small className="absline">
-                                        {ownerInfo.name} — {REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}
-                                      </small>
+                                      <>
+                                        <small className="absline">{ownerInfo.name} —</small>
+                                        <small className="absline">{REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}</small>
+                                      </>
                                     )}
                                   </div>
                                 </li>
@@ -251,9 +252,10 @@ export default function PrintableDailyList({
                                     İdare kontrolünde
                                   </small>
                                   {ownerInfo && (
-                                    <small className="absline">
-                                      {ownerInfo.name} — {REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}
-                                    </small>
+                                    <>
+                                      <small className="absline">{ownerInfo.name} —</small>
+                                      <small className="absline">{REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}</small>
+                                    </>
                                   )}
                                 </div>
                               </li>
