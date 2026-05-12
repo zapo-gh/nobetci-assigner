@@ -524,7 +524,7 @@ export function applyFairnessAdjustments({
       for (const classId of Array.from(needSet)) {
         const lockKey = `${day}|${period}|${classId}`;
         const lockOwner = locked?.[lockKey];
-        if (lockOwner && lockOwner !== MANUAL_EMPTY_TEACHER_ID) continue;
+        if (lockOwner) continue;
         if (dayCommonLessons?.[period]?.[classId]) continue;
         if (!canTakePeriod(teacherId, period)) continue;
 
@@ -565,7 +565,7 @@ export function applyFairnessAdjustments({
       for (const candidate of candidates) {
         const lockKey = `${day}|${period}|${candidate.classId}`;
         const lockOwner = locked?.[lockKey];
-        if (lockOwner && lockOwner !== MANUAL_EMPTY_TEACHER_ID) continue;
+        if (lockOwner) continue;
         if (!canTakePeriod(teacherId, period)) continue;
 
         ensureClone();
@@ -631,7 +631,7 @@ export function applyFairnessAdjustments({
       const { period, classId, idx } = assignment
       const lockKey = `${day}|${period}|${classId}`
       const lockOwner = locked?.[lockKey]
-      if (lockOwner && lockOwner !== MANUAL_EMPTY_TEACHER_ID) continue
+      if (lockOwner) continue
       if (dayCommonLessons?.[period]?.[classId]) continue
       const canTakeStrict = canTakePeriod(receiverId, period)
       const canTakeRelaxed = canTakePeriodForBalance(receiverId, period)

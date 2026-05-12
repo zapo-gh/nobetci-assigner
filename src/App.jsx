@@ -1604,7 +1604,7 @@ export default function App() {
       // Mevcut öğretmenleri kontrol et
       const existingTeachers = teachers.filter(t => t.source === 'duty_schedule');
       if (existingTeachers.length > 0) {
-        addNotification("Önce mevcut nöbetçi öğretmen listesini silmelisiniz.", "warning");
+        setExcelReplaceModal({ isOpen: true, data, existingCount: existingTeachers.length });
         return;
       }
 
@@ -1625,7 +1625,7 @@ export default function App() {
         // no-op
       }
     },
-    [addNotification, teachers, importDutyTeachersData, setActiveSection]
+    [addNotification, teachers, importDutyTeachersData, setActiveSection, setExcelReplaceModal]
   );
 
 
@@ -1748,10 +1748,12 @@ export default function App() {
       return;
     }
 
+    const PDF_DAY_TO_SYSTEM_CONFLICTS = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri' };
     const resolvedConflicts = new Map();
     (conflicts || []).forEach((conflict) => {
       if (conflict.resolution === 'use_pdf') {
-        resolvedConflicts.set(`${conflict.day}|${conflict.period}|${conflict.classId}`, conflict.pdfTeacher.teacherId);
+        const conflictSystemDay = PDF_DAY_TO_SYSTEM_CONFLICTS[conflict.day] || conflict.day;
+        resolvedConflicts.set(`${conflictSystemDay}|${conflict.period}|${conflict.classId}`, conflict.pdfTeacher.teacherId);
       }
     });
 
@@ -1760,13 +1762,15 @@ export default function App() {
       let localAssignmentCount = 0;
       let localConflictCount = 0;
 
+      const PDF_DAY_TO_SYSTEM = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri' };
       Object.entries(schedule).forEach(([dayKey, dayData]) => {
+        const systemDay = PDF_DAY_TO_SYSTEM[dayKey] || dayKey;
         Object.entries(dayData || {}).forEach(([period, pdfNames]) => {
           if (Array.isArray(pdfNames) && pdfNames.length > 0) {
             const availableClasses = classes.filter(
               (c) =>
-                !next[`${dayKey}|${period}|${c.classId}`] ||
-                resolvedConflicts.has(`${dayKey}|${period}|${c.classId}`)
+                !next[`${systemDay}|${period}|${c.classId}`] ||
+                resolvedConflicts.has(`${systemDay}|${period}|${c.classId}`)
             );
 
             pdfNames.forEach((pdfName, index) => {
@@ -1781,7 +1785,7 @@ export default function App() {
                 }
 
                 const classId = availableClasses[index].classId;
-                const key = `${dayKey}|${period}|${classId}`;
+                const key = `${systemDay}|${period}|${classId}`;
 
                 if (resolvedConflicts.has(key)) {
                   const conflictTeacherId = resolvedConflicts.get(key);
@@ -1996,7 +2000,7 @@ export default function App() {
       Object.keys(commonLessons[dayKey] || {}).forEach(periodKey => {
         const period = Number(periodKey);
         Object.entries(commonLessons[dayKey][period] || {}).forEach(([classId, teacherName]) => {
-          if (teacherName === absentTeacherName || teacherName === absentIdToDelete) {
+          if ((absentTeacherName && normalizeForComparison(teacherName) === normalizeForComparison(absentTeacherName)) || teacherName === absentIdToDelete) {
             const existing = commonLessonsToDelete.find(s =>
               s.day === dayKey && s.period === period && s.classId === classId
             );
@@ -2142,13 +2146,14 @@ export default function App() {
 
     if (currentDateString === lastCleanupDate) return;
 
-    const currentRealDayKey = REAL_DAY_KEYS[new Date().getDay()] || 'Mon';
+    const currentDayIndex = new Date().getDay();
+    const todayAndFutureDayKeys = REAL_DAY_KEYS.slice(currentDayIndex);
 
     if (Array.isArray(absentPeople) && absentPeople.length > 0) {
       const staleAbsents = absentPeople.filter(person => {
         if (!person?.absentId) return false;
         if (!Array.isArray(person.days) || person.days.length === 0) return true;
-        return !person.days.includes(currentRealDayKey);
+        return !person.days.some(d => todayAndFutureDayKeys.includes(d));
       });
 
       if (staleAbsents.length > 0) {
@@ -2796,7 +2801,11 @@ export default function App() {
       const rawSet = dayClassFree?.[period]
       const requiredSet = rawSet instanceof Set ? new Set(rawSet) : new Set(Array.isArray(rawSet) ? rawSet : [])
       const assigned = (assignmentsForDay[period] || []).length
-      const lockedCount = Object.keys(locked || {}).filter((key) => key.startsWith(`${day}|${period}|`)).length
+      const lockedCount = Object.keys(locked || {}).filter((key) => {
+        if (!key.startsWith(`${day}|${period}|`)) return false;
+        const v = (locked || {})[key];
+        return v === MANUAL_EMPTY_TEACHER_ID || v === MANUAL_ADMIN_TEACHER_ID;
+      }).length
       const remainingClassIds = new Set(requiredSet)
         ; (assignmentsForDay[period] || []).forEach(({ classId }) => remainingClassIds.delete(classId))
       const remainingClasses = Array.from(remainingClassIds).map((classId) => {
@@ -2974,30 +2983,28 @@ export default function App() {
       const next = { ...prev }
       const toKey = `${day}|${period}|${toClassId}`
 
-      let removedKey = null
       if (fromClassId) {
         const fromKey = `${day}|${period}|${fromClassId}`
         if (next[fromKey] === teacherId) {
-          removedKey = fromKey
           delete next[fromKey]
+          upsertLock({ day, period, classId: fromClassId, teacherId: null }).catch(err =>
+            logger.error('Lock remove error:', err)
+          )
         }
       } else {
         const prefix = `${day}|${period}|`
-        const existingKey = Object.keys(next).find(key => key.startsWith(prefix) && next[key] === teacherId)
-        if (existingKey) {
-          removedKey = existingKey
-          delete next[existingKey]
-        }
+        const existingKeys = Object.keys(next).filter(key => key.startsWith(prefix) && next[key] === teacherId)
+        existingKeys.forEach(k => {
+          delete next[k]
+          const [, , removedCid] = k.split('|')
+          upsertLock({ day, period, classId: removedCid, teacherId: null }).catch(err =>
+            logger.error('Lock remove error:', err)
+          )
+        })
       }
 
       next[toKey] = teacherId
 
-      if (removedKey) {
-        const [, , removedClassId] = removedKey.split('|')
-        upsertLock({ day, period, classId: removedClassId, teacherId: null }).catch(err =>
-          logger.error('Lock remove error:', err)
-        )
-      }
       upsertLock({ day, period, classId: toClassId, teacherId }).catch(err =>
         logger.error('Lock upsert error:', err)
       )
