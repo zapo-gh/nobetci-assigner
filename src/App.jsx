@@ -40,10 +40,10 @@ import {
   upsertLock,
   replacePdfSchedule,
   saveTeacherSchedules,
-  clearTeacherSchedules,
   saveCommonLessons,
   bulkSaveClassFree,
   bulkSaveClassAbsence,
+  bulkSaveTeacherFree,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
 } from './services/supabaseDataService.js';
 import { smartPolling } from './services/smartPolling.js';
@@ -79,8 +79,6 @@ const ScheduleSection = lazy(() => import('./components/ScheduleSection.jsx'));
 const OutputsSection = lazy(() => import('./components/OutputsSection.jsx'));
 const GlobalModals = lazy(() => import('./components/GlobalModals.jsx'));
 
-// Sekme state'leri eksik, ekliyoruz
-//const [activeSection, setActiveSection] = useState("teachers");
 
 
 function ThemeToggle({ theme, onToggle }) {
@@ -127,7 +125,7 @@ const LOCAL_STORAGE_PREFIXES = [
   'duty_',
 ];
 
-const SMART_POLLING_ENABLED = false;
+const SMART_POLLING_ENABLED = true;
 const SMART_POLLING_TABLES = Object.freeze({
   absents: true,
   class_free: true,
@@ -394,12 +392,14 @@ function migrateClassAbsence(oldClassAbsence) {
 
   // Migrate from old format {period: {classId: absentId}} to new format {day: {period: {classId: absentId}}}
   const migrated = {};
-  const currentDay = "Mon"; // Default to Monday for migration
-
+  // Eski format verisi tüm günlere yayıl (sadece Pazartesi'ye değil)
+  const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   for (const [period, classData] of Object.entries(oldClassAbsence)) {
     if (typeof classData === 'object') {
-      if (!migrated[currentDay]) migrated[currentDay] = {};
-      migrated[currentDay][period] = classData;
+      allDays.forEach(d => {
+        if (!migrated[d]) migrated[d] = {};
+        migrated[d][period] = classData;
+      });
     }
   }
 
@@ -480,10 +480,10 @@ export default function App() {
   const classFreeSnapshotRef = useRef('')
   const classAbsenceSnapshotRef = useRef('')
   const classAbsenceStateRef = useRef({})
-  const skipNextSupabaseSaveRef = useRef(false)
   const autoSaveTimeoutRef = useRef(null)
   const isPollingUpdateRef = useRef(false)
   const alertedAbsentIdsRef = useRef(new Set())
+  const applySupabaseSnapshotRef = useRef(null)
 
 
 
@@ -583,6 +583,7 @@ export default function App() {
     return { map: next, changed };
   }, [normalizeCommonLessonTeacherName, validClassIdSet]);
 
+
   const applySupabaseSnapshot = useCallback(
     (supabaseData, { persistLocal = true } = {}) => {
       if (!supabaseData || typeof supabaseData !== 'object') return;
@@ -653,9 +654,6 @@ export default function App() {
       }
     },
     [
-      day,
-      periods,
-      options,
       sanitizeCommonLessonsMap,
       setTeachers,
       setClasses,
@@ -670,6 +668,9 @@ export default function App() {
       setTeacherSchedulesHydrated,
     ],
   );
+
+  // applySupabaseSnapshot ref'ini her render'da güncelle (loadData effect'i stable dep ile kullanabilsin)
+  useEffect(() => { applySupabaseSnapshotRef.current = applySupabaseSnapshot; });
 
   // Polling handler for absents
   const handlePollingAbsents = useCallback((data) => {
@@ -816,7 +817,7 @@ export default function App() {
             hasTeacherSchedules: !!supabaseData.teacherSchedules && Object.keys(supabaseData.teacherSchedules).length > 0
           })
 
-          applySupabaseSnapshot(supabaseData)
+          applySupabaseSnapshotRef.current?.(supabaseData)
 
           logger.info('Data loaded from Supabase successfully')
           if (isMounted) {
@@ -891,27 +892,8 @@ export default function App() {
     return () => {
       isMounted = false
     }
-  }, [
-    day,
-    periods,
-    options,
-    setTeachers,
-    setClasses,
-    setAbsentPeople,
-    setTeacherFree,
-    setClassFree,
-    setClassAbsence,
-    setLocked,
-    setPdfSchedule,
-    setTeacherSchedules,
-    setTeacherSchedulesHydrated,
-    setCommonLessons,
-    setDay,
-    setPeriods,
-    setOptions,
-    sanitizeCommonLessonsMap,
-    applySupabaseSnapshot,
-  ])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Otomatik kaydet (debounced)
   useEffect(() => {
@@ -924,11 +906,6 @@ export default function App() {
 
     // Debounce auto-save, especially for classAbsence
     autoSaveTimeoutRef.current = setTimeout(() => {
-      const shouldSkipSupabaseSync = skipNextSupabaseSaveRef.current
-      if (shouldSkipSupabaseSync) {
-        skipNextSupabaseSaveRef.current = false
-      }
-
       // Skip Supabase sync if this is a polling update
       const shouldSkipDueToPolling = isPollingUpdateRef.current
 
@@ -959,10 +936,11 @@ export default function App() {
         }
       }
 
-      if (!shouldSkipSupabaseSync && !shouldSkipDueToPolling) {
+      if (!shouldSkipDueToPolling) {
         if (teacherSchedules && Object.keys(teacherSchedules).length > 0) {
           saveTeacherSchedules(teacherSchedules).catch(err => logger.error('Auto save teacherSchedules error:', err));
         }
+        bulkSaveTeacherFree(serializedTeacherFree).catch(err => logger.error('Auto save teacherFree error:', err));
         bulkSaveClassFree(serializedClassFree).catch(err => logger.error('Auto save classFree error:', err))
         bulkSaveClassAbsence(classAbsence).catch(err => logger.error('Auto save classAbsence error:', err))
         saveCommonLessons(commonLessons).catch(err => logger.error('Auto save commonLessons error:', err));
@@ -974,7 +952,7 @@ export default function App() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, commonLessons, options, locked, pdfSchedule, teacherSchedules, teacherSchedulesHydrated]);
+  }, [teacherFree, classFree, classAbsence, commonLessons, teacherSchedules, teacherSchedulesHydrated]);
 
   // Bildirim sistemi (diğer fonksiyonlardan önce tanımlanmalı)
   const addNotification = useCallback((messageOrOpts, maybeType) => {
@@ -1563,10 +1541,8 @@ export default function App() {
     if (!data || !data.schedules) return;
 
     try {
-      // Önce eski ders programlarını temizle
-      await clearTeacherSchedules();
-
-      // Yeni ders programlarını kaydet
+      // clearTeacherSchedules() çağrılmıyor: saveTeacherSchedules zaten mevcut snapshot'ı günceller
+      // (clear+save arasında başka cihaz poll yaparsa boş veri görürü engeller)
       const schedules = data.schedules;
       setTeacherSchedules(schedules);
       setTeacherSchedulesHydrated(true);

@@ -75,6 +75,7 @@ const parseTeacherFreeRows = (teacherFreeRaw = []) => {
 const parseClassAbsenceRows = (classAbsenceRaw = []) => {
   const classAbsence = {}
   classAbsenceRaw.forEach(item => {
+    if (!item?.day || !item?.period || !item?.classId) return
     if (!classAbsence[item.day]) classAbsence[item.day] = {}
     if (!classAbsence[item.day][item.period]) classAbsence[item.day][item.period] = {}
     classAbsence[item.day][item.period][item.classId] = item.absentId
@@ -805,18 +806,33 @@ export async function saveTeacherSchedules(teacherSchedules) {
       return
     }
 
-    // Önce tüm eski kayıtları temizle (hem snapshot hem de eski format kayıtları)
-    await clearTeacherSchedules()
-
-    // Yeni snapshot kaydını oluştur
-    const { error } = await supabase
+    // Önce mevcut snapshot satırını kontrol et
+    const { data: existing } = await supabase
       .from('teacher_schedules')
-      .insert({
-        teacher_name: TEACHER_SCHEDULES_SNAPSHOT_KEY,
-        schedule: teacherSchedules
-      })
+      .select('teacher_name')
+      .eq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY)
+      .maybeSingle()
 
-    if (error) throw error
+    if (existing) {
+      // Satır varsa güncelle (silmeden — veri kaybını önler)
+      const { error } = await supabase
+        .from('teacher_schedules')
+        .update({ schedule: teacherSchedules })
+        .eq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY)
+      if (error) throw error
+    } else {
+      // Satır yoksa ekle
+      const { error } = await supabase
+        .from('teacher_schedules')
+        .insert({ teacher_name: TEACHER_SCHEDULES_SNAPSHOT_KEY, schedule: teacherSchedules })
+      if (error) throw error
+    }
+
+    // Yeni snapshot başarıyla kaydedildikten SONRA eski format kayıtlarını temizle
+    await supabase
+      .from('teacher_schedules')
+      .delete()
+      .neq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY)
   } catch (error) {
     reportServiceError('saveTeacherSchedules full error:', error)
     throw error
@@ -865,11 +881,18 @@ export async function saveCommonLessons(commonLessons) {
       })
     })
 
+    // Tüm mevcut kayıtları sil (tek istek), ardından yeniden upsert et
+    // Bu yöntem id kolonu bağımsız çalışır ve orphan kayıt bırakmaz
+    const { error: clearError } = await supabase
+      .from('common_lessons')
+      .delete()
+      .not('day', 'is', null)
+
+    if (clearError) throw clearError
+
     const { error } = await supabase
       .from('common_lessons')
-      .upsert(lessonsData, {
-        onConflict: 'day,period,class_id'
-      })
+      .insert(lessonsData)
 
     if (error) throw error
   } catch (error) {
@@ -1048,12 +1071,33 @@ export async function bulkSaveClassAbsence(classAbsence) {
       return !targetMap.has(key)
     })
 
-    for (const row of rowsToDelete) {
-      const { error: deleteError } = await supabase
-        .from('class_absence')
-        .delete()
-        .match({ day: row.day, period: row.period, classId: row.classId })
-      if (deleteError) throw deleteError
+    // Batch DELETE (N istek → 1 istek)
+    if (rowsToDelete.length > 0) {
+      const existingKeysToDelete = rowsToDelete.map((row) => row.absentId).filter(Boolean)
+
+      if (existingKeysToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('class_absence')
+          .delete()
+          .in('absentId', existingKeysToDelete)
+        if (deleteError) {
+          // Fallback: satır satır sil (sadece batch başarısız olursa)
+          for (const row of rowsToDelete) {
+            await supabase
+              .from('class_absence')
+              .delete()
+              .match({ day: row.day, period: row.period, classId: row.classId })
+          }
+        }
+      } else {
+        // absentId yoksa composite key ile sil
+        for (const row of rowsToDelete) {
+          await supabase
+            .from('class_absence')
+            .delete()
+            .match({ day: row.day, period: row.period, classId: row.classId })
+        }
+      }
     }
   } catch (error) {
     reportServiceError('bulkSaveClassAbsence full error:', error)

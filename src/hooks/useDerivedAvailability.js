@@ -30,28 +30,12 @@ export function useFreeTeachersByDay({ teacherFree, day, periods, teacherMap, ab
 export function useClassFreeForDay({ classFree, day, periods }) {
   return useMemo(() => {
     const dayData = classFree?.[day];
-    if (dayData && Object.keys(dayData).length > 0) {
-      const normalized = {};
-      periods.forEach((p) => {
-        const set = dayData[p];
-        normalized[p] = new Set(set instanceof Set ? Array.from(set) : Array.isArray(set) ? set : []);
-      });
-      return { [day]: normalized };
-    }
-
-    const fallback = {};
+    const normalized = {};
     periods.forEach((p) => {
-      fallback[p] = new Set();
-      Object.values(classFree || {}).forEach((dayMap) => {
-        const set = dayMap?.[p];
-        if (set instanceof Set) {
-          set.forEach((cid) => fallback[p].add(cid));
-        } else if (Array.isArray(set)) {
-          set.forEach((cid) => fallback[p].add(cid));
-        }
-      });
+      const set = dayData?.[p];
+      normalized[p] = new Set(set instanceof Set ? Array.from(set) : Array.isArray(set) ? set : []);
     });
-    return { [day]: fallback };
+    return { [day]: normalized };
   }, [classFree, day, periods]);
 }
 
