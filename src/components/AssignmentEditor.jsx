@@ -329,7 +329,7 @@ function AssignmentEditor({
                     teacherById[commonLessonTeacherVal]?.teacherName || commonLessonTeacherVal
                   )
                   const isUnassignedCell = unassignedKeySet.has(`${p}|${cls.classId}`)
-                  const hasLock = isManualEmpty || isManualAdmin
+                  const hasLock = isManualEmpty
 
                   const tdClasses = [
                     styles.dndTarget,
