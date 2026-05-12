@@ -14,6 +14,7 @@ export default function OutputsSection({
   absentPeopleForCurrentDay,
   commonLessons,
   onPrint,
+  onExportJPG,
   IconComponent,
 }) {
   if (!IconComponent) {
@@ -26,6 +27,11 @@ export default function OutputsSection({
         <button className="btn" onClick={onPrint}>
           <IconComponent name="printer" size={16} /> Yazdır
         </button>
+        {onExportJPG && (
+          <button className="btn" onClick={onExportJPG}>
+            <IconComponent name="image" size={16} /> JPEG Kaydet
+          </button>
+        )}
       </div>
       <PrintableDailyList
         day={day}
