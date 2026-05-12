@@ -3305,7 +3305,7 @@ export default function App() {
       // Hata durumunda geri yükle
       if (printStyle && printStyle.parentNode) document.head.removeChild(printStyle);
       document.documentElement.setAttribute('data-theme', originalTheme);
-      restoreList.forEach(fn => { try { fn(); } catch (_) {} });
+      restoreList.forEach(fn => { try { fn(); } catch (restoreErr) { logger.warn('restore error', restoreErr); } });
     }
   }
 
