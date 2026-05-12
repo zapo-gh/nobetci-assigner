@@ -3123,559 +3123,171 @@ export default function App() {
   }, [classes, addNotification])
 
   async function exportJPG() {
+    const outputSection = document.getElementById('panel-outputs');
+    if (!outputSection) {
+      addNotification("Çıktılar bölümü bulunamadı", "error");
+      return;
+    }
+
+    addNotification("JPEG oluşturuluyor...", "info");
+
+    // Geri yükleme listesi
+    const restoreList = [];
+    const originalTheme = document.documentElement.getAttribute('data-theme');
+    let printStyle = null;
+
     try {
-      addNotification("JPG oluşturuluyor...", "info");
 
-      const outputSection = document.getElementById('panel-outputs');
-      if (!outputSection) {
-        addNotification("Çıktılar bölümü bulunamadı", "error");
-        return;
-      }
-
-      // Geçici olarak gizlenecek elementleri seç
-      const elementsToHide = document.querySelectorAll('.no-print, .topbar, .tabs-container, .screenOnly, .btn, .toolbar');
-      elementsToHide.forEach(el => el.classList.add('temp-hidden-for-jpg'));
-
-      // Assignment-text-container'ı başlığa göre bul ve gizle (CSS Module class name hash'li olabilir)
-      const assignmentHeaders = outputSection.querySelectorAll('h3');
-      assignmentHeaders.forEach(header => {
-        if (header.textContent && header.textContent.includes('Görevlendirme Metni')) {
-          const container = header.closest('div');
-          if (container) {
-            container.classList.add('temp-hidden-for-jpg');
-            container.style.display = 'none';
-          }
-        }
-      });
-
-      // Print-only elementleri gizle (metni Canvas API ile çizeceğiz)
-      const printOnlyElements = outputSection.querySelectorAll('.printOnly');
-      printOnlyElements.forEach(el => {
-        el.classList.add('temp-hidden-for-jpg');
-        el.style.display = 'none';
-      });
-
-      // Mevcut tema ve stilleri sakla
-      const originalTheme = document.documentElement.getAttribute('data-theme');
-
-      // Geçici olarak light theme'e geç ve print moduna al
+      // 1. Light tema uygula
       document.documentElement.setAttribute('data-theme', 'light');
-      outputSection.classList.add('force-print-styles');
 
-      // Print stillerini uygulamak için geçici stil elementi ekle
-      const printStyle = document.createElement('style');
-      printStyle.id = 'temp-print-styles-for-jpg';
+      // 2. Toolbar / buton / no-print elementlerini gizle
+      const hideEls = outputSection.querySelectorAll('.toolbar, .btn, .no-print');
+      hideEls.forEach(el => {
+        const prev = el.style.display;
+        el.style.display = 'none';
+        restoreList.push(() => { el.style.display = prev; });
+      });
+
+      // 3. AssignmentText: screenOnly gizle, printOnly göster
+      //    CSS Module isimleri hash'li olduğu için substring eşleşmesi kullanıyoruz
+      outputSection.querySelectorAll('[class*="screenOnly"]').forEach(el => {
+        const prev = { val: el.style.getPropertyValue('display'), pri: el.style.getPropertyPriority('display') };
+        el.style.setProperty('display', 'none', 'important');
+        restoreList.push(() => el.style.setProperty('display', prev.val, prev.pri));
+      });
+      outputSection.querySelectorAll('[class*="printOnly"]').forEach(el => {
+        const prev = { val: el.style.getPropertyValue('display'), pri: el.style.getPropertyPriority('display') };
+        el.style.setProperty('display', 'block', 'important');
+        restoreList.push(() => el.style.setProperty('display', prev.val, prev.pri));
+      });
+
+      // 4. assign-table-wrap: overflow kaldır (html2canvas tüm tabloyu yakalasın)
+      outputSection.querySelectorAll('.assign-table-wrap').forEach(el => {
+        const prev = el.style.overflow;
+        el.style.overflow = 'visible';
+        restoreList.push(() => { el.style.overflow = prev; });
+      });
+
+      // 5. Print stilleri — @media print kurallarını doğrudan uygula
+      printStyle = document.createElement('style');
       printStyle.textContent = `
         #panel-outputs {
-          background: white !important;
-          color: black !important;
-          padding: 20px !important;
-          margin: 0 !important;
-          box-shadow: none !important;
-          border: none !important;
-        }
-        .printable-daily-list, .table-container {
-          background: white !important;
-          border: none !important;
-          box-shadow: none !important;
-          margin: 0 !important;
-          padding: 10px !important;
-        }
-        .printOnly {
-          display: block !important;
-          font-family: 'Times New Roman', serif !important;
-          font-size: 8.5pt !important;
+          background: #ffffff !important;
           color: #000000 !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          white-space: pre-wrap !important;
-          word-wrap: break-word !important;
-          overflow-wrap: break-word !important;
-          margin: 0 !important;
-          padding: 0 !important;
+          padding: 20px !important;
+          box-shadow: none !important;
+          border: none !important;
         }
-        .printLine {
-          display: block !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          line-height: 1.15 !important;
-          white-space: normal !important;
-          word-wrap: break-word !important;
-          overflow-wrap: break-word !important;
-          max-width: 100% !important;
-          width: 100% !important;
-          font-size: 8.5pt !important;
-          clear: both !important;
-          float: none !important;
-          box-sizing: border-box !important;
+        #panel-outputs * {
+          color: #000000 !important;
+          font-family: 'Times New Roman', serif !important;
         }
-        .printColumns {
-          display: flex !important;
-          flex-direction: row !important;
-          gap: 4mm !important;
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          align-items: flex-start !important;
+        #panel-outputs table, #panel-outputs thead,
+        #panel-outputs tbody, #panel-outputs tr,
+        #panel-outputs th, #panel-outputs td {
+          background: #ffffff !important;
         }
-        .printCol {
-          flex: 1 1 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          display: flex !important;
-          flex-direction: column !important;
-          align-items: stretch !important;
+        #panel-outputs .assign-table-wrap {
+          overflow: visible !important;
+          border: none !important;
+          border-radius: 0 !important;
+          background: #ffffff !important;
+          box-shadow: none !important;
         }
-        .printCol .printLine {
-          flex: 0 0 auto !important;
-          display: block !important;
-          width: 100% !important;
-          box-sizing: border-box !important;
-          break-inside: avoid !important;
-          page-break-inside: avoid !important;
-        }
-        .printCol > .printLine {
-          display: block !important;
-          clear: both !important;
-          float: none !important;
-        }
-        /* İki sütun div yapısı için stiller */
-        .printHeader {
-          display: block !important;
-          margin: 0 0 2px 0 !important;
-          padding: 0 !important;
-          font-size: 8.5pt !important;
-          line-height: 1.15 !important;
-        }
-        .printTwoCols {
-          display: block !important;
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          position: relative !important;
-        }
-        .printColLeft {
-          display: block !important;
-          width: 48% !important;
-          float: left !important;
-          margin: 0 !important;
-          padding: 0 2% 0 0 !important;
-          box-sizing: border-box !important;
-        }
-        .printColRight {
-          display: block !important;
-          width: 48% !important;
-          float: right !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          box-sizing: border-box !important;
-        }
-        .printLineBlock {
-          display: block !important;
-          width: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          font-size: 8.5pt !important;
-          line-height: 1.15 !important;
-          white-space: normal !important;
-          word-wrap: break-word !important;
-          overflow-wrap: break-word !important;
-          clear: both !important;
-        }
-        .print-title {
-          margin-bottom: 3mm !important;
-          font-size: 14pt !important;
-        }
-        .assign-table {
+        #panel-outputs .assign-table {
           border-collapse: collapse !important;
           width: 100% !important;
-          font-size: 11pt !important;
-          line-height: 1.2 !important;
-          font-family: 'Times New Roman', serif !important;
+          font-size: 9.3pt !important;
+          line-height: 1.1 !important;
+          min-width: auto !important;
         }
-        .assign-table thead th, .assign-table tbody td {
-          border: 0.8pt solid #000 !important;
-          background: #fff !important;
-          color: #000 !important;
-          padding: 3px 4px !important;
+        #panel-outputs .assign-table thead th,
+        #panel-outputs .assign-table tbody td {
+          border: 0.8pt solid #000000 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          padding: 1px 2px !important;
           vertical-align: middle !important;
           text-align: center !important;
           display: table-cell !important;
-        }
-        .assign-table tbody tr {
-          border: none !important;
-        }
-        .assign-table tbody tr td {
-          border-top: 0.8pt solid #000 !important;
-          border-bottom: 0.8pt solid #000 !important;
-          border-left: 0.8pt solid #000 !important;
-          border-right: 0.8pt solid #000 !important;
-        }
-        thead th {
           position: static !important;
-        }
-        .teacher-col {
-          width: 170px !important;
-        }
-        .teacher-name .teacher-id {
-          display: none !important;
-        }
-        .assign-table thead th:first-child,
-        .assign-table tbody td:first-child {
-          position: static !important;
-          background: #fff !important;
           z-index: auto !important;
         }
-        .cell-list {
-          gap: 2px !important;
+        #panel-outputs .teacher-col { width: 170px !important; }
+        #panel-outputs .teacher-name .nowrap {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
+          display: inline-block !important;
+          max-width: 100% !important;
+          line-height: 1.15 !important;
         }
-        .cell-item {
+        #panel-outputs .cell-list { gap: 2px !important; }
+        #panel-outputs .cell-item {
           background: transparent !important;
           border: none !important;
           padding: 0 !important;
           border-radius: 0 !important;
         }
-        .abs {
-          font-size: 8.5pt !important;
+        #panel-outputs .abs { font-size: 8.5pt !important; }
+        #panel-outputs .print-title { font-size: 11pt !important; margin-bottom: 3mm !important; }
+        #panel-outputs [class*="assignmentTextContainer"] {
+          background: #ffffff !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          margin-top: 8px !important;
         }
-        #panel-outputs * {
-          font-family: 'Times New Roman', serif !important;
-        }
-        #panel-outputs *:not(.cell-item):not(.cell-list):not(.cell) {
-          color: black !important;
-        }
-        #panel-outputs table, #panel-outputs thead, #panel-outputs tbody, #panel-outputs tr, #panel-outputs th, #panel-outputs td {
-          background: white !important;
-          color: black !important;
-        }
+        #panel-outputs [class*="title"] { font-size: 11pt !important; }
       `;
       document.head.appendChild(printStyle);
 
-      // DOM'un güncellenmesi için kısa bir bekleme
+      // 6. DOM güncellemesini bekle
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Print-only elementlerin görünür olduğundan emin ol (inline style'lar zaten var)
-      const printOnlyCheck = outputSection.querySelectorAll('.printOnly');
-      printOnlyCheck.forEach(el => {
-        if (!el.style.display || el.style.display === 'none') {
-          el.style.display = 'block';
-        }
-      });
-
-      // PrintColumns ve printCol elementlerinin stillerini kontrol et (eski yapı için)
-      const printColumnsCheck = outputSection.querySelectorAll('.printColumns');
-      printColumnsCheck.forEach(el => {
-        el.style.display = 'flex';
-        el.style.flexDirection = 'row';
-      });
-
-      const printColsCheck = outputSection.querySelectorAll('.printCol');
-      printColsCheck.forEach(el => {
-        el.style.display = 'flex';
-        el.style.flexDirection = 'column';
-      });
-
-      const printLinesCheck = outputSection.querySelectorAll('.printCol .printLine');
-      printLinesCheck.forEach(el => {
-        el.style.display = 'block';
-        el.style.whiteSpace = 'normal';
-      });
-
-      // Canvas'a çevir (hem tablo hem metin dahil)
+      // 7. html2canvas ile yakala
       const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(outputSection, {
-        scale: 3, // Daha yüksek kalite
+        scale: 2,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
         allowTaint: true,
-        windowWidth: 1400, // Daha geniş canvas
-        width: 1400, // Sabit genişlik
+        windowWidth: 1400,
+        width: outputSection.scrollWidth || 1400,
         onclone: (clonedDoc) => {
-          // Clone edilen dokümanda da light theme uygula
-          const clonedSection = clonedDoc.getElementById('panel-outputs');
-          if (clonedSection) {
-            clonedSection.style.backgroundColor = '#ffffff';
-            clonedSection.style.color = '#000000';
-            clonedSection.style.padding = '20px';
-            clonedSection.style.width = '1400px';
-            clonedSection.style.minWidth = '1400px';
-          }
+          clonedDoc.documentElement.setAttribute('data-theme', 'light');
+          const cloned = clonedDoc.getElementById('panel-outputs');
+          if (!cloned) return;
 
-          // Clone edilen dokümandaki gizli elementleri de gizle
-          const clonedElementsToHide = clonedDoc.querySelectorAll('.temp-hidden-for-jpg');
-          clonedElementsToHide.forEach(el => el.style.display = 'none');
-
-          // Clone edilen dokümandaki print-only elementleri görünür yap
-          const clonedPrintOnlyElements = clonedDoc.querySelectorAll('.printOnly');
-          clonedPrintOnlyElements.forEach(el => {
-            el.style.display = 'block';
+          // Klonda da aynı stil değişikliklerini uygula
+          cloned.querySelectorAll('[class*="screenOnly"]').forEach(el =>
+            el.style.setProperty('display', 'none', 'important'));
+          cloned.querySelectorAll('[class*="printOnly"]').forEach(el =>
+            el.style.setProperty('display', 'block', 'important'));
+          cloned.querySelectorAll('.toolbar, .btn, .no-print').forEach(el =>
+            el.style.setProperty('display', 'none', 'important'));
+          cloned.querySelectorAll('.assign-table-wrap').forEach(el => {
+            el.style.overflow = 'visible';
           });
-
-          // Clone edilen dokümandaki screen-only elementleri gizle
-          const clonedScreenOnlyElements = clonedDoc.querySelectorAll('.screenOnly');
-          clonedScreenOnlyElements.forEach(el => {
-            el.style.display = 'none';
-          });
-
-          // Clone edilen dokümandaki assignment-text-container'ı başlığa göre bul ve gizle
-          const clonedAssignmentHeaders = clonedDoc.querySelectorAll('h3');
-          clonedAssignmentHeaders.forEach(header => {
-            if (header.textContent && header.textContent.includes('Görevlendirme Metni')) {
-              const container = header.closest('div');
-              if (container) {
-                container.style.display = 'none';
-              }
-            }
-          });
-
-          // Clone edilen dokümandaki printColumns ve printCol elementlerini düzgün stilize et
-          const clonedPrintColumns = clonedDoc.querySelectorAll('.printColumns');
-          clonedPrintColumns.forEach(el => {
-            el.style.display = 'flex';
-            el.style.flexDirection = 'row';
-            el.style.gap = '4mm';
-            el.style.width = '100%';
-          });
-
-          const clonedPrintCols = clonedDoc.querySelectorAll('.printCol');
-          clonedPrintCols.forEach(el => {
-            el.style.display = 'flex';
-            el.style.flexDirection = 'column';
-            el.style.flex = '1 1 0';
-            el.style.alignItems = 'stretch';
-          });
-
-          // Print-only elementlerin inline style'larını kontrol et (zaten inline style'lar var)
-          const clonedPrintOnly = clonedDoc.querySelectorAll('.printOnly');
-          clonedPrintOnly.forEach(el => {
-            if (!el.style.display || el.style.display === 'none') {
-              el.style.display = 'block';
-            }
-          });
-
-          // Eski printLine elementleri için (header için)
-          const clonedPrintLines = clonedDoc.querySelectorAll('.printLine:not(.printLineBlock)');
-          clonedPrintLines.forEach(el => {
-            el.style.display = 'block';
-            el.style.whiteSpace = 'normal';
-            el.style.width = '100%';
-            el.style.margin = '0';
-            el.style.padding = '0';
-          });
-
-          // Clone edilen dokümandaki tablo hücrelerine border uygula
-          const clonedTableCells = clonedDoc.querySelectorAll('.assign-table thead th, .assign-table tbody td');
-          clonedTableCells.forEach(cell => {
-            cell.style.border = '0.8pt solid #000';
-            cell.style.borderTop = '0.8pt solid #000';
-            cell.style.borderBottom = '0.8pt solid #000';
-            cell.style.borderLeft = '0.8pt solid #000';
-            cell.style.borderRight = '0.8pt solid #000';
-            cell.style.display = 'table-cell';
-          });
-
-          // Clone edilen dokümandaki tüm elementlere print stillerini uygula
-          const clonedPrintStyle = clonedDoc.createElement('style');
-          clonedPrintStyle.textContent = printStyle.textContent;
-          clonedDoc.head.appendChild(clonedPrintStyle);
         }
       });
 
-      // Orijinal stilleri geri yükle
+      // 8. Geri yükle
       document.head.removeChild(printStyle);
+      printStyle = null;
       document.documentElement.setAttribute('data-theme', originalTheme);
-      outputSection.classList.remove('force-print-styles');
-      elementsToHide.forEach(el => el.classList.remove('temp-hidden-for-jpg'));
+      restoreList.forEach(fn => fn());
 
-      // Print-only elementleri geri yükle
-      printOnlyElements.forEach(el => {
-        el.classList.remove('temp-hidden-for-jpg');
-        el.style.display = '';
-      });
-
-      // Assignment-text-container'ı geri yükle
-      const assignmentHeadersRestore = outputSection.querySelectorAll('h3');
-      assignmentHeadersRestore.forEach(header => {
-        if (header.textContent && header.textContent.includes('Görevlendirme Metni')) {
-          const container = header.closest('div');
-          if (container) {
-            container.classList.remove('temp-hidden-for-jpg');
-            container.style.display = '';
-          }
-        }
-      });
-
-      // Görevlendirme metnini Canvas API ile çiz
-      const REASON_LABELS = {
-        "raporlu": "Raporlu",
-        "sevkli": "Sevkli",
-        "izinli": "İzinli",
-        "gorevli-izinli": "Görevli İzinli",
-        "diger": "Diğer"
-      };
-
-      // Metin verilerini hazırla
-      const assignmentLines = [];
-      const normalizeTeacherKey = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
-      const absentMap = {};
-      (absentPeople || []).forEach(a => {
-        if (a && a.absentId) absentMap[a.absentId] = { name: a.name, reason: a.reason };
-      });
-
-      for (const p of periods) {
-        const periodTeacherLineIndex = new Map();
-        const arr = assignment?.[day]?.[p] || [];
-        arr.forEach(a => {
-          const c = classes.find(x => x.classId === a.classId);
-          const t = teachers.find(x => x.teacherId === a.teacherId);
-          const rawAbsValue = classAbsence?.[day]?.[p]?.[a.classId];
-          const decodedAbs = decodeClassAbsenceValue(rawAbsValue);
-          const abs = decodedAbs.absentId ? absentMap[decodedAbs.absentId] : null;
-          const reason = abs ? (REASON_LABELS[abs.reason] || abs.reason) : "";
-          const suffix = abs ? ` (${abs.name} - ${reason})` : "";
-          const teacherDisplayName = t?.teacherName || (a.teacherId.startsWith('auto_') ? 'Bilinmeyen Öğretmen' : a.teacherId);
-          assignmentLines.push(`${p}. saat — ${c?.className || a.classId}: ${teacherDisplayName}${suffix}`);
-          const teacherKey = normalizeTeacherKey(teacherDisplayName);
-          const mapKey = `${p}|${teacherKey}`;
-          if (!periodTeacherLineIndex.has(mapKey)) {
-            periodTeacherLineIndex.set(mapKey, assignmentLines.length - 1);
-          }
-        });
-
-        if (commonLessons?.[day]?.[p]) {
-          const mergedCommonLessonsByTeacher = {};
-          Object.entries(commonLessons[day][p]).forEach(([classId, teacherName]) => {
-            const c = classes.find(x => x.classId === classId);
-            const teacherLabel = teacherName && teacherName !== COMMON_LESSON_LABEL
-              ? teacherName
-              : 'Diğer öğretmen';
-            const rawValue = classAbsence?.[day]?.[p]?.[classId];
-            const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue);
-            const ownerInfo = commonLessonOwnerId ? absentMap[commonLessonOwnerId] : null;
-            const ownerReason = ownerInfo ? (REASON_LABELS[ownerInfo.reason] || ownerInfo.reason) : '';
-            const ownerSuffix = ownerInfo ? ` (${ownerInfo.name} - ${ownerReason})` : '';
-            const classLabel = `${c?.className || classId}${ownerSuffix}`;
-            const teacherKey = normalizeTeacherKey(teacherLabel);
-            const mapKey = `${p}|${teacherKey}`;
-            const existingLineIndex = periodTeacherLineIndex.get(mapKey);
-
-            if (Number.isInteger(existingLineIndex)) {
-              if (!mergedCommonLessonsByTeacher[mapKey]) {
-                mergedCommonLessonsByTeacher[mapKey] = [];
-              }
-              mergedCommonLessonsByTeacher[mapKey].push(classLabel);
-              return;
-            }
-
-            assignmentLines.push(`${p}. saat — ${classLabel}: Ders Birleştirilecek - ${teacherLabel}`);
-          });
-
-          Object.entries(mergedCommonLessonsByTeacher).forEach(([mapKey, classLabels]) => {
-            const lineIndex = periodTeacherLineIndex.get(mapKey);
-            if (!Number.isInteger(lineIndex) || !assignmentLines[lineIndex]) return;
-            const uniqLabels = Array.from(new Set(classLabels)).filter(Boolean);
-            if (uniqLabels.length === 0) return;
-            assignmentLines[lineIndex] = `${assignmentLines[lineIndex]} [Ders Birleştirilecek: ${uniqLabels.join(', ')}]`;
-          });
-        }
-
-        Object.entries(locked || {}).forEach(([key, teacherId]) => {
-          if (teacherId !== MANUAL_ADMIN_TEACHER_ID) return;
-          const [lockDay, lockPeriod, classId] = key.split('|');
-          if (lockDay !== day || Number(lockPeriod) !== Number(p)) return;
-          const c = classes.find(x => x.classId === classId);
-          assignmentLines.push(`${p}. saat — ${c?.className || classId}: İdare kontrolünde`);
-        });
-      }
-
-      const headerLine = `Tarih: ${displayDate}`;
-      const leftLines = assignmentLines.filter(l => {
-        const m = l.match(/^(\d+)\.\s*saat/i);
-        return m ? parseInt(m[1], 10) <= 6 : true;
-      });
-      const rightLines = assignmentLines.filter(l => {
-        const m = l.match(/^(\d+)\.\s*saat/i);
-        return m ? parseInt(m[1], 10) >= 7 : false;
-      });
-
-      // Metin canvas'ı oluştur (yüksek çözünürlük için scale)
-      const scale = 3; // html2canvas ile aynı scale
-      const textCanvas = document.createElement('canvas');
-      const textCtx = textCanvas.getContext('2d');
-      const fontSize = 13 * scale; // Scale ile çarp (11'den 13'e artırıldı)
-      const lineHeight = fontSize * 1.3;
-      const fontFamily = 'Times New Roman, serif';
-      textCtx.font = `${fontSize}px ${fontFamily}`; // pt yerine px kullan (scale için)
-      textCtx.fillStyle = '#000000';
-      textCtx.textBaseline = 'top';
-      textCtx.textAlign = 'left';
-
-      // Canvas genişliğini hesapla (tablo genişliği ile aynı)
-      const tableWidth = canvas.width;
-      const colWidth = (tableWidth - 60 * scale) / 2; // Scale ile çarp
-      const colGap = 60 * scale;
-
-      // Canvas yüksekliğini hesapla
-      const maxLines = Math.max(leftLines.length, rightLines.length);
-      const headerHeight = lineHeight * 1.8;
-      const textHeight = headerHeight + (maxLines * lineHeight) + 30 * scale; // Scale ile çarp
-      textCanvas.width = tableWidth;
-      textCanvas.height = textHeight;
-
-      // Arka planı beyaz yap
-      textCtx.fillStyle = '#ffffff';
-      textCtx.fillRect(0, 0, textCanvas.width, textCanvas.height);
-
-      // Metni çiz (scale ile çarpılmış koordinatlar)
-      textCtx.fillStyle = '#000000';
-
-      // Başlık (fontSize zaten scale ile çarpılmış)
-      const headerFontSize = (fontSize / scale) + 2;
-      textCtx.font = `${headerFontSize * scale}px ${fontFamily}`;
-      textCtx.fillText(headerLine, 30 * scale, fontSize + 10 * scale);
-
-      // Sütun metinleri (fontSize zaten scale ile çarpılmış)
-      textCtx.font = `${fontSize}px ${fontFamily}`;
-
-      // Sol sütun
-      let y = headerHeight + fontSize + 5 * scale;
-      leftLines.forEach(line => {
-        textCtx.fillText(line, 30 * scale, y);
-        y += lineHeight;
-      });
-
-      // Sağ sütun
-      y = headerHeight + fontSize + 5 * scale;
-      rightLines.forEach(line => {
-        textCtx.fillText(line, 30 * scale + colWidth + colGap, y);
-        y += lineHeight;
-      });
-
-      // İki canvas'ı birleştir
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = Math.max(canvas.width, textCanvas.width);
-      finalCanvas.height = canvas.height + textCanvas.height;
-      const finalCtx = finalCanvas.getContext('2d');
-
-      // Arka planı beyaz yap
-      finalCtx.fillStyle = '#ffffff';
-      finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-
-      // Tabloyu çiz
-      finalCtx.drawImage(canvas, 0, 0);
-
-      // Metni çiz
-      finalCtx.drawImage(textCanvas, 0, canvas.height);
-
-      // Final canvas'ı JPG'ye çevir
-      finalCanvas.toBlob((blob) => {
+      // 9. JPEG olarak indir
+      canvas.toBlob((blob) => {
         if (!blob) {
-          addNotification("JPG oluşturulamadı", "error");
+          addNotification("JPEG oluşturulamadı", "error");
           return;
         }
-
-        // İndir
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -3684,12 +3296,16 @@ export default function App() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        addNotification("JPEG başarıyla kaydedildi", "success");
+      }, 'image/jpeg', 0.95);
 
-        addNotification("JPG başarıyla kaydedildi", "success");
-      }, 'image/jpeg', 0.95); // 95% kalite
     } catch (e) {
       logger.error(e);
-      addNotification("JPG oluşturma hatası", "error");
+      addNotification("JPEG oluşturma hatası", "error");
+      // Hata durumunda geri yükle
+      if (printStyle && printStyle.parentNode) document.head.removeChild(printStyle);
+      document.documentElement.setAttribute('data-theme', originalTheme);
+      restoreList.forEach(fn => { try { fn(); } catch (_) {} });
     }
   }
 
