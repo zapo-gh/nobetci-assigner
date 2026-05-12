@@ -45,11 +45,11 @@ export interface Locks {
 }
 
 export interface PdfSchedule {
-  [key: string]: any; // Structure depends on PDF parsing
+  [key: string]: Record<string, unknown>; // Structure depends on PDF parsing
 }
 
 export interface TeacherSchedules {
-  [teacherName: string]: any; // Structure depends on schedule parsing
+  [teacherName: string]: Record<string, unknown>; // Structure depends on schedule parsing
 }
 
 export interface CommonLessons {

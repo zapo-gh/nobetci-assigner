@@ -654,6 +654,7 @@ export default function App() {
         releasePollingGuard();
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       sanitizeCommonLessonsMap,
       setTeachers,
@@ -973,6 +974,7 @@ export default function App() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherFree, classFree, classAbsence, commonLessons, teacherSchedules, teacherSchedulesHydrated]);
 
   // Bildirim sistemi (diğer fonksiyonlardan önce tanımlanmalı)
