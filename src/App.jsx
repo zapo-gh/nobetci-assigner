@@ -47,7 +47,6 @@ import {
   clearAdminLocks,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
 } from './services/supabaseDataService.js';
-import { smartPolling } from './services/smartPolling.js';
 import { useUI } from './hooks/useUI.js';
 import { useDutyTeacherFilter } from './hooks/useDutyTeacherFilter.js';
 import {
@@ -126,13 +125,6 @@ const LOCAL_STORAGE_PREFIXES = [
   'duty_',
 ];
 
-const SMART_POLLING_ENABLED = true;
-const SMART_POLLING_TABLES = Object.freeze({
-  absents: true,
-  class_free: true,
-  class_absence: true,
-  common_lessons: true,
-});
 const SHOULD_CHECK_VERSION = APP_ENV.isProduction;
 let cachedAppStateVersion = null;
 
@@ -674,66 +666,6 @@ export default function App() {
   // applySupabaseSnapshot ref'ini her render'da güncelle (loadData effect'i stable dep ile kullanabilsin)
   useEffect(() => { applySupabaseSnapshotRef.current = applySupabaseSnapshot; });
 
-  // Polling handler for absents
-  const handlePollingAbsents = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    const normalized = normalizeAbsentPeople(data, classAbsenceStateRef.current || {});
-    setAbsentPeople(normalized);
-  }, []);
-
-  // Polling handler for class_free
-  const handlePollingClassFree = useCallback((data) => {
-    if (!Array.isArray(data) || data.length === 0) return;
-    // class_free tablosunda tek bir row var, data alanında tüm bilgi
-    const dataSnapshot = data[0]?.data || {};
-    const serializedIncoming = stableStringify(dataSnapshot);
-    if (serializedIncoming === classFreeSnapshotRef.current) {
-      return; // Değişiklik yok
-    }
-    classFreeSnapshotRef.current = serializedIncoming;
-    setClassFree(migrateClassFree(dataSnapshot || {}));
-  }, []);
-
-  // Polling handler for class_absence
-  const handlePollingClassAbsence = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    isPollingUpdateRef.current = true;
-    const absenceMap = {};
-    data.forEach(row => {
-      const { day, period, classId, absentId } = row;
-      if (!day || !period || !classId) return;
-      if (!absenceMap[day]) absenceMap[day] = {};
-      if (!absenceMap[day][period]) absenceMap[day][period] = {};
-      absenceMap[day][period][classId] = absentId;
-    });
-    setClassAbsence(absenceMap);
-    // Reset flag after state update
-    setTimeout(() => {
-      isPollingUpdateRef.current = false;
-    }, 100);
-  }, []);
-
-  // Polling handler for common_lessons
-  const handlePollingCommonLessons = useCallback((data) => {
-    if (!Array.isArray(data)) return;
-    const lessonsMap = {};
-    data.forEach(row => {
-      const { day, period, class_id, teacher_name } = row;
-      if (!day || !period || !class_id || !teacher_name) return;
-      if (!lessonsMap[day]) lessonsMap[day] = {};
-      if (!lessonsMap[day][period]) lessonsMap[day][period] = {};
-      lessonsMap[day][period][class_id] = normalizeCommonLessonTeacherName(teacher_name);
-    });
-    setCommonLessons(lessonsMap);
-  }, [normalizeCommonLessonTeacherName]);
-
-  // handleRealtimeTeacherSchedules removed - now using polling
-
-  // handleRealtimeTeacherSchedules removed - now using polling
-
-
-
-
   const handleDayChange = useCallback((nextDay) => {
     if (!nextDay || nextDay === day) return;
     setDay(nextDay);
@@ -763,38 +695,6 @@ export default function App() {
     saveCommonLessons(sanitizedMap).catch(err => logger.error('Common lesson sanitize save error:', err));
   }, [commonLessons, sanitizeCommonLessonsMap, setCommonLessons]);
 
-
-  const smartPollingCallbacks = useMemo(() => {
-    const callbacks = {};
-    if (SMART_POLLING_TABLES.absents) callbacks.absents = handlePollingAbsents;
-    if (SMART_POLLING_TABLES.class_free) callbacks.class_free = handlePollingClassFree;
-    if (SMART_POLLING_TABLES.class_absence) callbacks.class_absence = handlePollingClassAbsence;
-    if (SMART_POLLING_TABLES.common_lessons) callbacks.common_lessons = handlePollingCommonLessons;
-    return callbacks;
-  }, [handlePollingAbsents, handlePollingClassFree, handlePollingClassAbsence, handlePollingCommonLessons]);
-
-
-  useEffect(() => {
-    if (!SMART_POLLING_ENABLED) {
-      logger.info('[SmartPolling] Disabled via SMART_POLLING_ENABLED flag');
-      return undefined;
-    }
-
-    const callbackEntries = Object.entries(smartPollingCallbacks);
-    if (callbackEntries.length === 0) {
-      logger.info('[SmartPolling] No tables configured for polling');
-      return undefined;
-    }
-
-    // Smart Polling subscription (sadece mazeret işlemleriyle ilişkili tablolar)
-    const unsubscribePolling = smartPolling.start(Object.fromEntries(callbackEntries));
-
-    return () => {
-      if (typeof unsubscribePolling === 'function') {
-        unsubscribePolling();
-      }
-    };
-  }, [smartPollingCallbacks]);
 
   // İlk yüklemede önce Supabase'den, başarısız olursa localStorage'dan çek
   useEffect(() => {
@@ -3588,4 +3488,3 @@ export default function App() {
     </div>
   );
 }
-
