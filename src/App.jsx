@@ -106,7 +106,7 @@ function ThemeToggle({ theme, onToggle }) {
 
 /* ====================== Sabitler & Yardımcılar ====================== */
 
-const DISABLE_LOCAL_STORAGE = true;
+const DISABLE_LOCAL_STORAGE = false;
 const STORAGE_KEY = `${APP_ENV.mode || 'development'}_nobetci_persist_v4`;
 const LAST_ABSENT_CLEANUP_KEY = `${APP_ENV.mode || 'development'}_last_absent_cleanup`;
 const STORAGE_VERSION_KEY = `${APP_ENV.mode || 'development'}_storage_version`;
@@ -126,7 +126,7 @@ const LOCAL_STORAGE_PREFIXES = [
   'duty_',
 ];
 
-const SMART_POLLING_ENABLED = true;
+const SMART_POLLING_ENABLED = false;
 const SMART_POLLING_TABLES = Object.freeze({
   absents: true,
   class_free: true,
@@ -804,10 +804,47 @@ export default function App() {
 
     let isMounted = true
 
+    const CACHE_TTL_MS = 60 * 60 * 1000; // 1 saat
+
     const loadData = async () => {
       try {
 
-        // Önce Supabase'den veri çekmeyi dene
+        // Önce localStorage önbelleğini kontrol et (TTL: 10 dakika)
+        if (!DISABLE_LOCAL_STORAGE) {
+          try {
+            const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+            if (raw) {
+              const parsed = JSON.parse(raw || '{}') || {};
+              const cacheAge = Date.now() - (parsed.lastSaved || 0);
+              if (cacheAge < CACHE_TTL_MS && parsed.teachers) {
+                logger.info('[App] Veri localStorage önbelleğinden yüklendi (Supabase atlandı), yaş:', Math.round(cacheAge / 1000) + 's');
+                if (parsed.day) setDay(parsed.day);
+                if (Array.isArray(parsed.periods) && parsed.periods.length) setPeriods(parsed.periods);
+                if (Array.isArray(parsed.teachers)) setTeachers(parsed.teachers);
+                if (Array.isArray(parsed.classes)) setClasses(parsed.classes);
+                setTeacherFree(arrayToSetMap(parsed.teacherFree || {}));
+                setClassFree(migrateClassFree(parsed.classFree || {}));
+                const migratedAbsence = migrateClassAbsence(parsed.classAbsence || {});
+                setClassAbsence(migratedAbsence);
+                setAbsentPeople(normalizeAbsentPeople(parsed.absentPeople || [], parsed.classAbsence || {}));
+                if (parsed.options && typeof parsed.options === 'object') setOptions(prev => ({ ...prev, ...parsed.options }));
+                if (parsed.locked && typeof parsed.locked === 'object') setLocked(parsed.locked);
+                if (parsed.pdfSchedule && typeof parsed.pdfSchedule === 'object') setPdfSchedule(parsed.pdfSchedule);
+                if (parsed.teacherSchedules && typeof parsed.teacherSchedules === 'object') {
+                  setTeacherSchedules(parsed.teacherSchedules);
+                  setTeacherSchedulesHydrated(true);
+                }
+                if (parsed.commonLessons && typeof parsed.commonLessons === 'object') setCommonLessons(parsed.commonLessons);
+                if (isMounted) hydratedRef.current = true;
+                return;
+              }
+            }
+          } catch (cacheError) {
+            logger.warn('[App] localStorage önbellek okuma hatası, Supabase\'e geçiliyor:', cacheError);
+          }
+        }
+
+        // Önbellek yok veya süresi dolmuş — Supabase'den veri çek
         try {
           const supabaseData = await loadInitialData()
           if (!isMounted) return

@@ -20,24 +20,26 @@ if (typeof window !== 'undefined' && !APP_ENV.isTest) {
 
 const noStoreFetch = async (input, init = {}) => {
   const method = (init.method || 'GET').toUpperCase()
-  const shouldSendJson = method !== 'GET'
+  const isWriteRequest = method !== 'GET' && method !== 'HEAD'
   const headers = new Headers(init.headers || {})
 
-  headers.set('cache-control', 'no-store')
+  if (isWriteRequest) {
+    headers.set('cache-control', 'no-store')
+  }
   if (!headers.has('apikey')) {
     headers.set('apikey', supabaseAnonKey)
   }
   if (!headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${supabaseAnonKey}`)
   }
-  if (shouldSendJson && !headers.has('Content-Type')) {
+  if (isWriteRequest && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
   const nextInit = {
     ...init,
     method,
-    cache: 'no-store',
+    ...(isWriteRequest ? { cache: 'no-store' } : {}),
     headers,
   }
   return fetch(input, nextInit)

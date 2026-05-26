@@ -104,16 +104,16 @@ export async function loadInitialData() {
   try {
     // Load all data in parallel
     const [teachersRes, classesRes, absentsRes, classFreeRes, teacherFreeRes, classAbsenceRes, lockedRes, pdfScheduleRes, teacherSchedulesRes, commonLessonsRes] = await Promise.all([
-      supabase.from('teachers').select('*').order('createdAt', { ascending: false }),
-      supabase.from('classes').select('*').order('createdAt', { ascending: false }),
-      supabase.from('absents').select('*').order('createdAt', { ascending: false }),
-      supabase.from('class_free').select('*'),
-      supabase.from('teacher_free').select('*'),
-      supabase.from('class_absence').select('*'),
-      supabase.from('locks').select('*'),
-      supabase.from('pdf_schedule').select('*').order('createdAt', { ascending: false }).limit(1),
-      supabase.from('teacher_schedules').select('*'),
-      supabase.from('common_lessons').select('*')
+      supabase.from('teachers').select('teacherId,teacherName,maxDutyPerDay,source,createdAt').order('createdAt', { ascending: false }),
+      supabase.from('classes').select('classId,className,createdAt').order('createdAt', { ascending: false }),
+      supabase.from('absents').select('absentId,teacherId,name,reason,days,createdAt').order('createdAt', { ascending: false }),
+      supabase.from('class_free').select('id,data'),
+      supabase.from('teacher_free').select('id,data'),
+      supabase.from('class_absence').select('day,period,classId,absentId'),
+      supabase.from('locks').select('day,period,classId,teacherId'),
+      supabase.from('pdf_schedule').select('schedule,createdAt').order('createdAt', { ascending: false }).limit(1),
+      supabase.from('teacher_schedules').select('teacher_name,schedule').eq('teacher_name', TEACHER_SCHEDULES_SNAPSHOT_KEY).maybeSingle(),
+      supabase.from('common_lessons').select('day,period,class_id,teacher_name')
     ])
 
     const teachers = getTableData(teachersRes, { fallback: [], tableName: 'teachers' })
@@ -124,7 +124,6 @@ export async function loadInitialData() {
     const classAbsenceRaw = getTableData(classAbsenceRes, { fallback: [], tableName: 'class_absence' })
     const lockedRaw = getTableData(lockedRes, { fallback: [], tableName: 'locks' })
     const pdfScheduleRows = getTableData(pdfScheduleRes, { fallback: [], tableName: 'pdf_schedule' })
-    const teacherSchedulesRows = getTableData(teacherSchedulesRes, { fallback: [], tableName: 'teacher_schedules' })
     const commonLessonsRaw = getTableData(commonLessonsRes, { fallback: [], tableName: 'common_lessons' })
 
     // Transform data to expected format
@@ -139,23 +138,14 @@ export async function loadInitialData() {
 
     const pdfSchedule = pdfScheduleRows.length > 0 ? pdfScheduleRows[0].schedule : {}
 
-    // Transform teacher schedules
+    // Transform teacher schedules — maybeSingle() returns object or null
     let teacherSchedules = {}
-    const snapshotRow = teacherSchedulesRows.find(item => item.teacher_name === TEACHER_SCHEDULES_SNAPSHOT_KEY)
-
+    const snapshotRow = teacherSchedulesRes?.data
     if (snapshotRow && snapshotRow.schedule && typeof snapshotRow.schedule === 'object') {
       teacherSchedules = snapshotRow.schedule
       logger.log('[loadInitialData] Teacher schedules loaded from snapshot:', Object.keys(teacherSchedules).length, 'teachers')
     } else {
-      teacherSchedulesRows.forEach(item => {
-        if (!item?.teacher_name) return
-        teacherSchedules[item.teacher_name] = item.schedule
-      })
-      if (teacherSchedulesRows.length > 0) {
-        logger.log('[loadInitialData] Teacher schedules loaded from individual rows:', Object.keys(teacherSchedules).length, 'teachers')
-      } else {
-        logger.log('[loadInitialData] No teacher schedules found in database')
-      }
+      logger.log('[loadInitialData] No teacher schedules found in database')
     }
 
     // Transform common lessons
