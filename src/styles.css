@@ -2568,7 +2568,7 @@ table {
 
 /* --- 2. BUTONLAR --- */
 /* Standart buton boyutları (hepsi aynı yükseklikte) */
-button, .btn, [class*="btn-"] {
+.btn, [class*="btn-"]:not(.btn-text) {
   min-height: 38px !important;
   padding: 0 16px !important;
   display: inline-flex !important;
@@ -2577,6 +2577,15 @@ button, .btn, [class*="btn-"] {
   box-sizing: border-box !important;
   line-height: 1 !important;
   border-radius: 6px !important; /* Standart köşe yuvarlaklığı */
+}
+
+
+/* Theme toggle ve diğer özel küçük butonlar için istisna */
+[class*="themeToggleBtn"], button.icon-only, [class*="iconBtn"] {
+  min-height: unset !important;
+  padding: 8px !important;
+  width: auto !important;
+  border-radius: 50% !important; /* Theme toggle için yuvarlak */
 }
 
 /* Sadece ikon içeren butonlar (kare standartı) */
@@ -2614,13 +2623,4 @@ textarea {
   min-height: 60px !important;
   display: flex;
   align-items: center;
-}
-
-/* Toolbar kapsayıcısının sayfada gereksiz yer kaplamasını önleme */
-.toolbar {
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  overflow: visible !important;
 }
