@@ -1,7 +1,7 @@
 // @ts-nocheck
 /* global process */
 import React, { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import Header from './containers/Header.jsx';
+import Header from './components/Header.js';
 import Icon from './components/Icon.jsx';
 import { PERIODS, DAYS, REAL_DAY_KEYS } from './constants/index.js';
 import TeachersSection from './components/TeachersSection.jsx';
@@ -1313,11 +1313,8 @@ export default function App() {
         const result = await importDutyTeachersData(data);
         // Not: Bu noktaya sadece existingTeachers.length === 0 iken gelinir
         // (existingTeachers varsa yukarıda modal açılıp return edilir)
-        if (result.removedCount > 0) {
-          addNotification(`${result.removedCount} mevcut öğretmen silindi, ${result.insertedCount} yeni öğretmen yüklendi`, "success");
-        } else {
-          addNotification(`${result.insertedCount} nöbetçi öğretmen Excel'den yüklendi`, "success");
-        }
+        
+          addNotification(`${result.insertedCount} nöbetçi öğretmen Excel\'den yüklendi`, "success");
         setActiveSection("classes");
 
       } catch (e) {
@@ -2747,18 +2744,14 @@ export default function App() {
     const classLabel = cls?.className || 'Sınıf'
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
 
-    let changed = false
     setLocked((prev) => {
       if (prev?.[key] === MANUAL_EMPTY_TEACHER_ID) {
         return prev
       }
       const next = { ...(prev || {}) }
       next[key] = MANUAL_EMPTY_TEACHER_ID
-      changed = true
       return next
     })
-
-    if (!changed) return
 
     upsertLock({ day, period, classId, teacherId: MANUAL_EMPTY_TEACHER_ID }).catch((err) =>
       logger.error('Manual empty upsert error:', err)
@@ -2776,18 +2769,14 @@ export default function App() {
     const classLabel = cls?.className || 'Sınıf'
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
 
-    let changed = false
     setLocked((prev) => {
       if (prev?.[key] === MANUAL_ADMIN_TEACHER_ID) {
         return prev
       }
       const next = { ...(prev || {}) }
       next[key] = MANUAL_ADMIN_TEACHER_ID
-      changed = true
       return next
     })
-
-    if (!changed) return
 
     upsertLock({ day, period, classId, teacherId: MANUAL_ADMIN_TEACHER_ID }).catch((err) =>
       logger.error('Manual admin upsert error:', err)
@@ -2805,18 +2794,14 @@ export default function App() {
     const classLabel = cls?.className || 'Sınıf'
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
 
-    let removedTeacherId = null
     setLocked((prev) => {
       if (!prev || !prev[key]) {
         return prev
       }
-      removedTeacherId = prev[key]
       const next = { ...prev }
       delete next[key]
       return next
     })
-
-    if (!removedTeacherId) return
 
     upsertLock({ day, period, classId, teacherId: null }).catch((err) =>
       logger.error('Manual release error:', err)
