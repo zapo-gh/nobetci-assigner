@@ -2508,3 +2508,119 @@ a:hover {
     z-index: 1000 !important;
   }
 }
+
+/* ==========================================================================
+   LAYOUT SHIFT FIXES (SABİT DÜZEN)
+   ========================================================================== */
+
+/* Her zaman dikey kaydırma çubuğunu göster (sekme geçişlerindeki yatay kaymayı önler) */
+html {
+  overflow-y: scroll !important;
+}
+
+/* Ana içerik alanının yüksekliği aniden kısalmasın (sayfa altındaki footer/boşluk zıplamasını önler) */
+.main-content {
+  min-height: calc(100vh - 150px);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Tüm sekmelerin ve içerik kartlarının standart tam genişlikte kalması */
+section, .section, .card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  animation: none !important; /* Animasyon kaynaklı yükseklik oynamalarını önler */
+}
+
+/* Tabloların kendi içinde kaydırılabilir olup, kapsayıcıyı büyütmesini önleme */
+.table-container, .table-responsive {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+table {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   UI NORMALİZASYONU (SABİT STANDARTLAR)
+   Tüm elemanlarda (buton, input, modal) ortak boyut ve görünüm standartları
+   ========================================================================== */
+
+/* --- 1. MODALLAR (Açılır Pencereler) --- */
+/* Arka plan karartması ve blur efekti her modalda kesinlikle aynı olacak */
+[class*="modalOverlay"], [class*="modal-overlay"], [class*="modalBackdrop"] {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* Modal kutularının köşeleri ve gölgeleri hep aynı standartta olacak */
+[class*="modalContent"], [class*="modal-content"], [class*="global-modal-content"] {
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid var(--border-default) !important;
+}
+
+/* --- 2. BUTONLAR --- */
+/* Standart buton boyutları (hepsi aynı yükseklikte) */
+button, .btn, [class*="btn-"] {
+  min-height: 38px !important;
+  padding: 0 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  border-radius: 6px !important; /* Standart köşe yuvarlaklığı */
+}
+
+/* Sadece ikon içeren butonlar (kare standartı) */
+.iconBtn, [class*="icon-btn"], button.icon-only {
+  padding: 8px !important;
+  min-height: 38px !important;
+  min-width: 38px !important;
+  width: auto;
+}
+
+/* --- 3. FORM ELEMANLARI (Input, Select) --- */
+/* Metin ve sayı giriş kutularının yükseklikleri butonlarla hizalı olacak */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+select {
+  min-height: 38px !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+  line-height: 1.5 !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--border-default) !important;
+}
+
+textarea {
+  padding: 12px !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--border-default) !important;
+}
+
+/* --- 4. GÖRÜNÜM KAYMALARINI ENGELLEME --- */
+/* Flex alanlarında taşmaları kesin olarak gizle */
+.header, .card-header {
+  min-height: 60px !important;
+  display: flex;
+  align-items: center;
+}
+
+/* Toolbar kapsayıcısının sayfada gereksiz yer kaplamasını önleme */
+.toolbar {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
