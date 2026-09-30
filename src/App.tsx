@@ -426,7 +426,7 @@ export default function App() {
   const autoSaveTimeoutRef = useRef(null)
   
   const alertedAbsentIdsRef = useRef(new Set())
-  const applySupabaseSnapshotRef = useRef(null)
+  const applyFirebaseSnapshotRef = useRef(null)
 
 
 
@@ -527,7 +527,7 @@ export default function App() {
   }, [normalizeCommonLessonTeacherName, validClassIdSet]);
 
 
-  const applySupabaseSnapshot = useCallback(
+  const applyFirebaseSnapshot = useCallback(
     (supabaseData, { persistLocal = true } = {}) => {
       if (!supabaseData || typeof supabaseData !== 'object') return;
 
@@ -558,7 +558,7 @@ export default function App() {
 
         // Teacher schedules'i yükle - boş olsa bile Supabase'den geldiğini işaretle
         const loadedTeacherSchedules = supabaseData.teacherSchedules || {}
-        logger.log('[applySupabaseSnapshot] Setting teacher schedules:', {
+        logger.log('[applyFirebaseSnapshot] Setting teacher schedules:', {
           count: Object.keys(loadedTeacherSchedules).length,
           keys: Object.keys(loadedTeacherSchedules).slice(0, 5)
         })
@@ -609,15 +609,15 @@ export default function App() {
     ],
   );
 
-  // applySupabaseSnapshot ref'ini her render'da güncelle (loadData effect'i stable dep ile kullanabilsin)
-  useEffect(() => { applySupabaseSnapshotRef.current = applySupabaseSnapshot; });
+  // applyFirebaseSnapshot ref'ini her render'da güncelle (loadData effect'i stable dep ile kullanabilsin)
+  useEffect(() => { applyFirebaseSnapshotRef.current = applyFirebaseSnapshot; });
 
   
 
   // İlk veri yükleme — useDataLoader hook'una taşındı
   useDataLoader({
     hydratedRef,
-    applySupabaseSnapshotRef,
+    applyFirebaseSnapshotRef,
     storageKey: STORAGE_KEY,
     migrateClassFree,
     migrateClassAbsence,
@@ -798,7 +798,7 @@ export default function App() {
 
       // 2. Supabase'den en güncel verileri çek
       const snapshot = await loadInitialData();
-      applySupabaseSnapshot(snapshot);
+      applyFirebaseSnapshot(snapshot);
 
       setAbsenceRefreshState({
         isRefreshing: false,
@@ -815,7 +815,7 @@ export default function App() {
       }));
       addNotification(`Veriler yenilenemedi: ${error?.message || error}`, 'error');
     }
-  }, [addNotification, applySupabaseSnapshot]);
+  }, [addNotification, applyFirebaseSnapshot]);
 
   const handleManualRefreshClick = useCallback(() => {
     if (absenceRefreshState.isRefreshing) return;
