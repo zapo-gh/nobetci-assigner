@@ -1,5 +1,11 @@
 // @ts-nocheck
 /* global process */
+import { useTeachers } from './contexts/useTeachers';
+import { useClasses } from './contexts/useClasses';
+import { useAssignments } from './contexts/useAssignments';
+import { useTeacherManager } from './hooks/useTeacherManager';
+import { useClassManager } from './hooks/useClassManager';
+import { useAvailabilityManager } from './hooks/useAvailabilityManager';
 import React, { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Header from './components/Header.js';
 import Icon from './components/Icon.jsx';
@@ -406,36 +412,9 @@ export default function App() {
 
   const [periods, setPeriods] = useState(PERIODS);
 
-  const [teachers, setTeachers] = useState([]); // {teacherId, teacherName, maxDutyPerDay}
-  const [classes, setClasses] = useState([]); // {classId, className}
-  const [teacherFree, setTeacherFree] = useState({}); // {period:Set(teacherId)}
-  const [classFree, setClassFree] = useState({}); // {day:{period:Set(classId)}}
-  const [absentPeople, setAbsentPeople] = useState([]); // {absentId,name,reason,days}
-  const [classAbsence, setClassAbsence] = useState({}); // {day:{period:{classId:absentId}}}
-  const [commonLessons, setCommonLessons] = useState({}); // {day:{period:{classId:teacherName}}}
-  const [lastCleanupDate, setLastCleanupDate] = useState(() => readStoredCleanupDate());
-  const [options, setOptions] = useState({
-    preventConsecutive: false,
-    maxClassesPerSlot: 1,
-    ignoreConsecutiveLimit: false, // Ardışık saat sınırını yok sayar (acil durumlar için)
-    ruleEngine: {
-      singleDutyPerDay: false,
-      blockedSlots: [],
-    },
-  });
-  const [locked, setLocked] = useState({})
-
-  const [notifications, setNotifications] = useState([]);
-  const [absenceRefreshState, setAbsenceRefreshState] = useState({
-    isRefreshing: false,
-    lastRefreshedAt: null,
-    error: null,
-  });
-
-  const hydratedRef = useRef(false);
-  const [pdfSchedule, setPdfSchedule] = useState({})
-  const [teacherSchedules, setTeacherSchedules] = useState({}) // Store individual teacher class schedules
-  const [teacherSchedulesHydrated, setTeacherSchedulesHydrated] = useState(false)
+  const { teachers, setTeachers, teacherFree, setTeacherFree, teacherSchedules, setTeacherSchedules, teacherSchedulesHydrated, setTeacherSchedulesHydrated } = useTeachers();
+  const { classes, setClasses, classFree, setClassFree, classAbsence, setClassAbsence } = useClasses();
+  const { locked, setLocked, absentPeople, setAbsentPeople, commonLessons, setCommonLessons, pdfSchedule, setPdfSchedule, options, setOptions, lastCleanupDate, setLastCleanupDate, absenceRefreshState, setAbsenceRefreshState } = useAssignments();
   const classFreeSnapshotRef = useRef('')
   const classAbsenceSnapshotRef = useRef('')
   const classAbsenceStateRef = useRef({})
@@ -925,151 +904,6 @@ export default function App() {
   const displayDate = useMemo(() => formatTRDate(dateForSelectedDay(day)), [day]);
 
   // Toggle yardımcıları
-  const ensurePeriod = useCallback((obj, p) => {
-    if (!obj[p]) obj[p] = new Set();
-  }, []);
-  const toggleTeacherFree = useCallback(
-    (p, tid) => {
-      setTeacherFree((prev) => {
-        const next = { ...prev };
-        ensurePeriod(next, p);
-        const currentSet = new Set(next[p]);
-        const willSelect = !currentSet.has(tid);
-        if (willSelect) currentSet.add(tid);
-        else currentSet.delete(tid);
-        next[p] = currentSet;
-        upsertTeacherFree({ period: p, teacherId: tid, isSelected: willSelect }).catch((err) => {
-          logger.error('Teacher free toggle error:', err);
-        });
-        return next;
-      });
-    },
-    [ensurePeriod]
-  );
-  const toggleClassFree = useCallback((day, p, cid) => {
-    let wasSelected = false;
-
-    // Check if it's selected in classFree
-    const isFree = classFree?.[day]?.[p] instanceof Set
-      ? classFree[day][p].has(cid)
-      : Array.isArray(classFree?.[day]?.[p])
-        ? classFree[day][p].includes(cid)
-        : false;
-
-    // Check if it's selected in classAbsence
-    const isAbsent = !!classAbsence?.[day]?.[p]?.[cid];
-
-    // Consider it selected if EITHER is true
-    wasSelected = isFree || isAbsent;
-
-    setClassFree((prev) => {
-      // Mevcut Set'i al veya boş bir Set oluştur
-      const prevSet = prev[day]?.[p] || new Set();
-
-      // Değişiklik yapmak için mevcut Set'in bir kopyasını oluştur
-      const nextSet = new Set(prevSet);
-
-      // Kopyalanan Set üzerinde değişiklik yap
-      if (wasSelected) {
-        nextSet.delete(cid);
-      } else {
-        nextSet.add(cid);
-      }
-
-      // Spread operatörleri ile her katmanı kopyalayarak yeni state'i oluştur
-      return {
-        ...prev, // En dış katmanı kopyala
-        [day]: {
-          ...(prev[day] || {}), // O güne ait objeyi kopyala (veya boş obje)
-          [p]: nextSet, // Güncellenmiş yeni Set'i ata
-        },
-      };
-    });
-
-    const isSelectedNow = !wasSelected;
-    upsertClassFree({ day, period: p, classId: cid, isSelected: isSelectedNow }).catch((err) => {
-      logger.error('Class free toggle error:', err);
-    });
-
-    // Sadece checkbox kaldırıldığında mazeret bilgilerini temizle
-    if (wasSelected) {
-      setClassAbsence((prevAbs) => {
-        const out = { ...prevAbs };
-        if (out[day]?.[p]?.[cid]) {
-          out[day][p] = { ...(out[day][p] || {}) };
-          delete out[day][p][cid];
-          if (Object.keys(out[day][p]).length === 0) delete out[day][p];
-          if (Object.keys(out[day]).length === 0) delete out[day];
-        }
-        return out;
-      });
-      upsertClassAbsence({ day, period: p, classId: cid, absentId: null }).catch((err) => {
-        logger.error('Class absence cleanup error:', err);
-      });
-
-      setCommonLessons((prevCommon) => {
-        const out = { ...prevCommon };
-        if (out[day]?.[p]?.[cid]) {
-          out[day][p] = { ...(out[day][p] || {}) };
-          delete out[day][p][cid];
-          if (Object.keys(out[day][p]).length === 0) delete out[day][p];
-          if (Object.keys(out[day]).length === 0) delete out[day];
-        }
-        return out;
-      });
-    }
-  },
-    [classFree, classAbsence]
-  );
-  const setAllTeachersFree = useCallback(
-    (p, on) => {
-      const allTeacherIds = teachers.map((t) => t.teacherId);
-      const previous = Array.from(teacherFree[p] || []);
-      setTeacherFree((prev) => ({ ...prev, [p]: on ? new Set(allTeacherIds) : new Set() }));
-      const operations = on
-        ? allTeacherIds.map((tid) => upsertTeacherFree({ period: p, teacherId: tid, isSelected: true }))
-        : previous.map((tid) => upsertTeacherFree({ period: p, teacherId: tid, isSelected: false }));
-      Promise.all(operations).catch((err) => logger.error('setAllTeachersFree error:', err));
-    },
-    [teachers, teacherFree]
-  );
-  const setAllClassesFree = useCallback(
-    (day, p, on) => {
-      setClassFree((prev) => {
-        const next = { ...prev };
-        if (!next[day]) next[day] = {};
-        next[day][p] = on ? new Set(classes.map((c) => c.classId)) : new Set();
-        return next;
-      });
-      const classIds = classes.map((c) => c.classId);
-      const previous = Array.from(classFree[day]?.[p] || []);
-      const ops = on
-        ? classIds.map((cid) => upsertClassFree({ day, period: p, classId: cid, isSelected: true }))
-        : previous.map((cid) => upsertClassFree({ day, period: p, classId: cid, isSelected: false }));
-      Promise.all(ops).catch((err) => logger.error('setAllClassesFree error:', err));
-    },
-    [classes, classFree]
-  );
-  const handleSelectAbsence = useCallback((day, period, classId, absentId) => {
-    setClassAbsence((prev) => {
-      const next = { ...prev };
-      if (!next[day]) next[day] = {};
-      if (!next[day][period]) next[day][period] = {};
-      if (absentId) {
-        const storedValue = encodeClassAbsenceValue(absentId, true);
-        next[day][period][classId] = storedValue;
-        upsertClassAbsence({ day, period, classId, absentId: storedValue }).catch((err) => {
-          logger.error('Class absence upsert error:', err);
-        });
-      } else {
-        delete next[day][period][classId];
-        upsertClassAbsence({ day, period, classId, absentId: null }).catch((err) => {
-          logger.error('Class absence cleanup error:', err);
-        });
-      }
-      return next;
-    });
-  }, []);
 
   const updateClassAbsenceForCommonLesson = useCallback((day, period, classId, hasCommonLesson) => {
     setClassAbsence(prev => {
@@ -1158,76 +992,7 @@ export default function App() {
     setModals(m => ({ ...m, dutyTeacherExcel: false }));
   }, [setModals]);
 
-  const importDutyTeachersData = useCallback(async ({ dutyTeachers, dayTeachers }) => {
-    const validTeachers = dutyTeachers.filter(teacher => teacher.teacherName && teacher.teacherName.trim().length > 0);
-    if (validTeachers.length === 0) {
-      throw new Error('Geçerli öğretmen verisi bulunamadı');
-    }
-
-    const existingDutyTeachers = teachers.filter(t => t.source === 'duty_schedule');
-
-    if (existingDutyTeachers.length > 0) {
-      await Promise.all(existingDutyTeachers.map(t => deleteTeacherById(t.teacherId)));
-      setTeachers(prev => prev.filter(t => t.source !== 'duty_schedule'));
-      const removeIds = new Set(existingDutyTeachers.map(t => t.teacherId));
-      setTeacherFree(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(period => {
-          const set = new Set(next[period] || []);
-          let changed = false;
-          removeIds.forEach(id => {
-            if (set.delete(id)) changed = true;
-          });
-          if (changed) next[period] = set;
-        });
-        return next;
-      });
-    }
-
-    const insertedTeachers = await Promise.all(validTeachers.map(teacher =>
-      insertTeacher({
-        teacherName: teacher.teacherName,
-        maxDutyPerDay: teacher.maxDutyPerDay ?? 6,
-        source: 'duty_schedule'
-      })
-    ));
-
-    setTeachers(prev => [...prev, ...insertedTeachers]);
-    setTeacherFree((prev) => {
-      const next = { ...prev };
-      for (const p of periods) {
-        if (!next[p]) next[p] = new Set();
-      }
-      return next;
-    });
-
-    let newPdfSchedule = {};
-    if (dayTeachers && dayTeachers.size > 0) {
-      const dayMapping = {
-        'PAZARTESİ': 'monday',
-        'SALI': 'tuesday',
-        'ÇARŞAMBA': 'wednesday',
-        'PERŞEMBE': 'thursday',
-        'CUMA': 'friday'
-      };
-      dayTeachers.forEach((list, day) => {
-        const systemDay = dayMapping[day.toUpperCase()];
-        if (systemDay) {
-          newPdfSchedule[systemDay] = {};
-          for (const period of periods) {
-            newPdfSchedule[systemDay][period] = [...list];
-          }
-        }
-      });
-      await replacePdfSchedule(newPdfSchedule);
-      setPdfSchedule(newPdfSchedule);
-    } else {
-      await replacePdfSchedule({});
-      setPdfSchedule({});
-    }
-
-    return { insertedCount: insertedTeachers.length, removedCount: existingDutyTeachers.length };
-  }, [teachers, periods, setPdfSchedule]);
+  
 
   const handleExcelReplaceConfirm = useCallback(async () => {
     const { data, existingCount } = excelReplaceModal;
@@ -1295,37 +1060,7 @@ export default function App() {
   };
 
 
-  const loadDutyTeachersFromExcel = useCallback(
-    async (data) => {
-      if (!data || !data.dutyTeachers || data.dutyTeachers.length === 0) {
-        addNotification("Yüklenecek öğretmen verisi bulunamadı", "warning");
-        return;
-      }
-
-      // Mevcut öğretmenleri kontrol et
-      const existingTeachers = teachers.filter(t => t.source === 'duty_schedule');
-      if (existingTeachers.length > 0) {
-        setExcelReplaceModal({ isOpen: true, data, existingCount: existingTeachers.length });
-        return;
-      }
-
-      try {
-        const result = await importDutyTeachersData(data);
-        // Not: Bu noktaya sadece existingTeachers.length === 0 iken gelinir
-        // (existingTeachers varsa yukarıda modal açılıp return edilir)
-        
-          addNotification(`${result.insertedCount} nöbetçi öğretmen Excel\'den yüklendi`, "success");
-        setActiveSection("classes");
-
-      } catch (e) {
-        logger.error(e);
-        addNotification(`Excel yükleme hatası: ${e.message}`, "error");
-      } finally {
-        // no-op
-      }
-    },
-    [addNotification, teachers, importDutyTeachersData, setActiveSection, setExcelReplaceModal]
-  );
+  
 
 
 
@@ -1521,43 +1256,7 @@ export default function App() {
 
   /* ===================== Manuel ekleme/silme işlemleri ===================== */
 
-  const addTeacher = async (data) => {
-    data.teacherName = sanitizeInputAdvanced(data.teacherName, { maxLength: 100 });
-    const errs = validateTeacherData({ teacherId: 'temp', teacherName: data.teacherName, maxDutyPerDay: data.maxDutyPerDay });
-    if (errs.length) {
-      addNotification(errs.join(", "), "error");
-      return;
-    }
-    try {
-      const created = await insertTeacher({ teacherName: data.teacherName, maxDutyPerDay: data.maxDutyPerDay });
-      setTeachers((prev) => [...prev, created]);
-      addNotification(`${data.teacherName} eklendi`, "success");
-    } catch (error) {
-      logger.error('Teacher insert error:', error);
-      addNotification("Öğretmen eklenemedi", "error");
-    }
-  };
-  const addClass = async (data) => {
-    data.className = sanitizeInputAdvanced(data.className, { maxLength: 50 });
-    const errs = validateClassData({ classId: 'temp', className: data.className });
-    if (errs.length) {
-      addNotification(errs.join(", "), "error");
-      return;
-    }
-    const normalizedInput = normalizeClassLabel(data.className);
-    if (normalizedClassNames.has(normalizedInput)) {
-      addNotification("Bu sınıf zaten mevcut", "warning");
-      return;
-    }
-    try {
-      const created = await insertClass({ className: data.className });
-      setClasses((prev) => [...prev, created]);
-      addNotification(`${data.className} eklendi`, "success");
-    } catch (error) {
-      logger.error('Class insert error:', error);
-      addNotification("Sınıf eklenemedi", "error");
-    }
-  };
+  
 
   const absentPeopleForCurrentDay = useMemo(() => {
     if (!Array.isArray(absentPeople)) return [];
@@ -1589,6 +1288,38 @@ export default function App() {
     addNotification,
     logger,
   });
+
+  
+  
+  const {
+    toggleTeacherFree,
+    toggleClassFree,
+    setAllTeachersFree,
+    setAllClassesFree,
+    handleSelectAbsence
+  } = useAvailabilityManager();
+
+  const {
+    addClass,
+    deleteClass
+  } = useClassManager({
+    addNotification
+  });
+
+  const {
+    addTeacher,
+    deleteTeacher,
+    deleteAllPdfTeachers,
+    importDutyTeachersData,
+    loadDutyTeachersFromExcel
+  } = useTeacherManager({
+    addNotification,
+    setActiveSection,
+    setExcelReplaceModal,
+    periods,
+    replacePdfSchedule
+  });
+
 
   const {
     deleteAllTeachers,
@@ -1872,145 +1603,10 @@ export default function App() {
     persistCleanupDate(currentDateString);
   }, [absentPeople, deleteAbsent, lastCleanupDate]);
 
-  const deleteTeacher = async (teacherIdToDelete) => {
-    try {
-      // Delete related locks first
-      await deleteLocksByTeacher(teacherIdToDelete)
-      // Then delete the teacher
-      await deleteTeacherById(teacherIdToDelete)
-      setTeachers(prev => prev.filter(t => t.teacherId !== teacherIdToDelete));
-      setTeacherFree(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(period => {
-          const set = new Set(next[period] || []);
-          if (set.delete(teacherIdToDelete)) {
-            next[period] = set;
-          }
-        });
-        return next;
-      });
-      // Clean up locks from local state
-      setLocked(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(key => {
-          if (next[key] === teacherIdToDelete) {
-            delete next[key];
-          }
-        });
-        return next;
-      });
-      addNotification("Öğretmen silindi", "info");
-    } catch (error) {
-      logger.error('Teacher delete error:', error)
-      addNotification('Öğretmen silinemedi', 'error')
-    }
-  };
+  
 
-  const deleteAllPdfTeachers = async () => {
-    const pdfTeachers = teachers.filter(t => t.source === 'duty_schedule');
-    if (pdfTeachers.length === 0) {
-      addNotification("Silinecek PDF öğretmeni bulunamadı", "warning");
-      return;
-    }
+  
 
-    try {
-      await Promise.all(pdfTeachers.map(t => deleteTeacherById(t.teacherId)));
-      setTeachers(prev => prev.filter(t => t.source !== 'duty_schedule'));
-      setTeacherFree(prev => {
-        const next = { ...prev };
-        const removeIds = new Set(pdfTeachers.map(t => t.teacherId));
-        Object.keys(next).forEach(period => {
-          const set = new Set(next[period] || []);
-          let changed = false;
-          removeIds.forEach(id => {
-            if (set.delete(id)) changed = true;
-          });
-          if (changed) next[period] = set;
-        });
-        return next;
-      });
-      addNotification(`${pdfTeachers.length} PDF öğretmeni silindi`, "success");
-    } catch (error) {
-      logger.error('PDF teachers bulk delete error:', error);
-      addNotification('PDF öğretmenler silinemedi', 'error');
-    }
-  };
-
-  const deleteClass = async (classIdToDelete) => {
-    try {
-      // Delete related records first (class_absence, common_lessons, locks)
-      await Promise.all([
-        deleteClassAbsenceByClass(classIdToDelete),
-        deleteCommonLessonsByClass(classIdToDelete),
-        deleteLocksByClass(classIdToDelete)
-      ])
-      // Then delete the class itself
-      await deleteClassById(classIdToDelete)
-      setClasses(prev => prev.filter(c => c.classId !== classIdToDelete));
-      setClassFree(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(dayKey => {
-          const perMap = { ...(next[dayKey] || {}) };
-          let changed = false;
-          Object.keys(perMap).forEach(period => {
-            const set = new Set(perMap[period] || []);
-            if (set.delete(classIdToDelete)) {
-              perMap[period] = set;
-              changed = true;
-            }
-          });
-          if (changed) next[dayKey] = perMap;
-        });
-        return next;
-      });
-      // Clean up class_absence and common_lessons from local state
-      setClassAbsence(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(dayKey => {
-          const perMap = { ...(next[dayKey] || {}) };
-          Object.keys(perMap).forEach(period => {
-            const byClass = { ...(perMap[period] || {}) };
-            if (byClass[classIdToDelete]) {
-              delete byClass[classIdToDelete];
-              perMap[period] = byClass;
-            }
-          });
-          next[dayKey] = perMap;
-        });
-        return next;
-      });
-      setCommonLessons(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(dayKey => {
-          const perMap = { ...(next[dayKey] || {}) };
-          Object.keys(perMap).forEach(period => {
-            const byClass = { ...(perMap[period] || {}) };
-            if (byClass[classIdToDelete]) {
-              delete byClass[classIdToDelete];
-              perMap[period] = byClass;
-            }
-          });
-          next[dayKey] = perMap;
-        });
-        return next;
-      });
-      // Clean up locks from local state
-      setLocked(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(key => {
-          const [, , classId] = key.split('|');
-          if (classId === classIdToDelete) {
-            delete next[key];
-          }
-        });
-        return next;
-      });
-      addNotification("Sınıf silindi", "info");
-    } catch (error) {
-      logger.error('Class delete error:', error)
-      addNotification('Sınıf silinemedi', 'error')
-    }
-  };
 
   /* ======================= Atama verilerini hazırlama ======================= */
 

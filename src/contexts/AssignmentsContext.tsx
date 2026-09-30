@@ -15,7 +15,13 @@ export function AssignmentsProvider({ children }) {
     });
 
     // Cleanup tracking
-    const [lastCleanupDate, setLastCleanupDate] = useState(null);
+    const [lastCleanupDate, setLastCleanupDate] = useState(() => {
+        try {
+            return window.localStorage.getItem('nobetci_last_cleanup') || null;
+        } catch {
+            return null;
+        }
+    });
 
     // Refresh state
     const [absenceRefreshState, setAbsenceRefreshState] = useState({

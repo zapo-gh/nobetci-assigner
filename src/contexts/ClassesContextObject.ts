@@ -1,3 +1,3 @@
 import { createContext } from 'react';
 
-export const ClassesContext = createContext(null);
+export const ClassesContext = createContext<any>(null);
