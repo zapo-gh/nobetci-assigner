@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 /* global process */
 import { useTeachers } from './contexts/useTeachers';
 import { useClasses } from './contexts/useClasses';
@@ -2696,4 +2696,3 @@ export default function App() {
     </div>
   );
 }
-
