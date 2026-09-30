@@ -182,7 +182,7 @@ const DutyTeacherExcelImportModal = ({ isOpen, onClose, onImport }) => {
                   <div className="teacher-max-duty">
                     <label className="max-duty-label">Günlük Max:</label>
                     <input
-                      type="number"
+                      type="number" inputMode="numeric" pattern="[0-9]*"
                       min="1"
                       max="9"
                       value={maxDutyValues[teacher.teacherId] || teacher.maxDutyPerDay || 6}

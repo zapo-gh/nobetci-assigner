@@ -10,7 +10,7 @@ import {
   clearTeacherSchedules,
   clearLocksData,
   replacePdfSchedule,
-} from '../services/supabaseDataService.js';
+} from '../services/firebaseDataService.js';
 import { PERIODS } from '../constants/index.js';
 
 export function useBulkDeleteActions({

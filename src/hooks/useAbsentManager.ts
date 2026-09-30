@@ -7,7 +7,7 @@ import {
   upsertClassFree,
   upsertClassAbsence,
   deleteAbsentById,
-} from '../services/supabaseDataService.js';
+} from '../services/firebaseDataService.js';
 import { normalizeForComparison } from '../utils/nameNormalization.js';
 import { sanitizeInputAdvanced } from '../utils/security.js';
 import {

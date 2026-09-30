@@ -15,7 +15,7 @@ import {
   bulkSaveClassAbsence,
   saveCommonLessons,
   bulkSaveLocks,
-} from '../services/supabaseDataService.js';
+} from '../services/firebaseDataService.js';
 
 const DEBOUNCE_MS = 1000;
 

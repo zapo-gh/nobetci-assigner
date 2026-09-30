@@ -21,7 +21,7 @@ export interface Absent {
   createdAt?: string;
 }
 
-// Data structures as transformed in supabaseDataService.js
+// Data structures as transformed in firebaseDataService.js
 export interface ClassFree {
   [day: string]: {
     [period: number]: string[]; // Array of classIds

@@ -1,6 +1,6 @@
 import { useClasses } from '../contexts/useClasses';
 import { useAssignments } from '../contexts/useAssignments';
-import { insertClass, deleteClassById, deleteClassAbsenceByClass, deleteCommonLessonsByClass, deleteLocksByClass } from '../services/supabaseDataService';
+import { insertClass, deleteClassById, deleteClassAbsenceByClass, deleteCommonLessonsByClass, deleteLocksByClass } from '../services/firebaseDataService';
 import { sanitizeInputAdvanced } from '../utils/security';
 import { validateClassData, normalizeClassLabel } from '../utils/helpers';
 import { logger } from '../utils/logger';

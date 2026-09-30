@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTeachers } from '../contexts/useTeachers';
 import { useAssignments } from '../contexts/useAssignments';
-import { insertTeacher, deleteTeacherById, deleteLocksByTeacher } from '../services/supabaseDataService';
+import { insertTeacher, deleteTeacherById, deleteLocksByTeacher } from '../services/firebaseDataService';
 import { sanitizeInputAdvanced } from '../utils/security';
 import { validateTeacherData } from '../utils/helpers';
 import { logger } from '../utils/logger';

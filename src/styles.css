@@ -2303,3 +2303,208 @@ a:hover {
     font-size: 0.8125rem;
   }
 }
+
+/* ==========================================================================
+   MOBILE RESPONSIVE OVERRIDES (max-width: 768px)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* 1. Kapsayıcı (Wrap) ve Boşluklar */
+  .wrap {
+    padding: var(--space-2);
+    width: 100%;
+  }
+
+  /* 2. Header (Üst Menü) ve Tablar */
+  header, .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  
+  .day-tabs {
+    display: flex;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 5px; /* Kaydırma çubuğu için boşluk */
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    scrollbar-width: thin; /* Firefox */
+  }
+
+  .day-tabs::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  .day-tabs button {
+    flex: 0 0 auto;
+  }
+
+  /* 3. Toolbar (Yan Menü) */
+  .toolbar {
+    position: fixed;
+    top: 0;
+    left: -280px; /* Varsayılan olarak kapalı */
+    width: 280px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    background: var(--surface);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  }
+
+  .toolbarExpanded .toolbar {
+    left: 0; /* Menü açık */
+  }
+
+  .toolbar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+
+  /* 4. Tablolar ve Veri Gösterimi (Yatay Kaydırma) */
+  .table-container,
+  .schedule-grid-container,
+  .table-responsive,
+  .duty-teachers-section,
+  .data-grid {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: block;
+    border-radius: var(--radius-md);
+  }
+
+  /* Tablo Satırları (Mobilde Dikey Yığın - Opsiyonel) */
+  /* Geniş tabloları kaydırmak daha iyi bir UX sunduğu için gridleri yığmıyoruz,
+     ancak scroll-snap ve sticky ekliyoruz. */
+  th:first-child,
+  td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: var(--surface);
+    z-index: 1;
+    border-right: 2px solid var(--border-default);
+  }
+
+  /* 5. Butonlar (Touch Targets) */
+  button, 
+  .btn,
+  .iconBtn,
+  input[type="number"],
+  input[type="text"],
+  select {
+    min-height: 44px; /* Dokunmatik ekran standardı */
+  }
+
+  /* 6. Modallar (Tam Ekran) */
+  .modal,
+  .modal-content,
+  .global-modal-content {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    margin: 0;
+    top: 0;
+    left: 0;
+    transform: none;
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .modal-body {
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+
+  /* 7. Alt-Üst Alanlar (Stacked) */
+  .flex-row,
+  .flex-between {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  
+  .flex-row > * {
+    width: 100%;
+  }
+
+  /* 8. Modern İnce Kaydırma Çubuğu Her Yere */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+  }
+}
+
+/* ==========================================================================
+   HEADER MENU TOGGLE (HAMBURGER)
+   ========================================================================== */
+.header-menu-toggle {
+  display: none; /* Hide on desktop by default */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+}
+
+.header-menu-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.menu-icon {
+  width: 24px;
+  height: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.menu-icon span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: var(--text-primary);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .header-menu-toggle {
+    display: flex; /* Show on mobile */
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-content,
+  .global-modal-content {
+    padding-top: max(20px, env(safe-area-inset-top, 20px)) !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)) !important;
+  }
+  
+  .closeBtn, .close-btn {
+    top: max(10px, env(safe-area-inset-top, 10px)) !important;
+    right: max(10px, env(safe-area-inset-right, 10px)) !important;
+    width: 44px !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--bg-elevated) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    z-index: 1000 !important;
+  }
+}

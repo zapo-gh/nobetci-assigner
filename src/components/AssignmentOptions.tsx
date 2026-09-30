@@ -39,7 +39,7 @@ export default function AssignmentOptions({
                 <div className="option-card narrow">
                     <div className="control-label-with-input">
                         <input
-                            type="number"
+                            type="number" inputMode="numeric" pattern="[0-9]*"
                             id="maxClassesPerSlot"
                             name="maxClassesPerSlot"
                             value={options.maxClassesPerSlot}
@@ -60,7 +60,7 @@ export default function AssignmentOptions({
                 <div className="option-card narrow">
                     <div className="control-label-with-input">
                         <input
-                            type="number"
+                            type="number" inputMode="numeric" pattern="[0-9]*"
                             id="bulkMaxDuty"
                             name="bulkMaxDuty"
                             defaultValue={6}

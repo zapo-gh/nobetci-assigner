@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useTeachers } from '../contexts/useTeachers';
 import { useClasses } from '../contexts/useClasses';
 import { useAssignments } from '../contexts/useAssignments';
-import { upsertTeacherFree, upsertClassFree, upsertClassAbsence } from '../services/supabaseDataService';
+import { upsertTeacherFree, upsertClassFree, upsertClassAbsence } from '../services/firebaseDataService';
 import { logger } from '../utils/logger';
 import { encodeClassAbsenceValue } from '../utils/classAbsence';
 

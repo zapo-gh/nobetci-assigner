@@ -60,7 +60,7 @@ export default function ScheduleControls({
             <label htmlFor="maxClassesPerSlot" className="option-label">
               <span>Aynı Saatte Max Görev</span>
               <input
-                type="number"
+                type="number" inputMode="numeric" pattern="[0-9]*"
                 id="maxClassesPerSlot"
                 name="maxClassesPerSlot"
                 value={options.maxClassesPerSlot}

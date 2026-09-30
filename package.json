@@ -16,6 +16,7 @@
   "dependencies": {
     "@e965/xlsx": "^0.20.3",
     "@supabase/supabase-js": "^2.80.0",
+    "firebase": "^12.19.0",
     "fuzzyset.js": "^0.0.8",
     "html2canvas": "^1.4.1",
     "papaparse": "^5.5.3",

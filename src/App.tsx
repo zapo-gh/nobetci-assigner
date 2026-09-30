@@ -53,7 +53,7 @@ import {
   bulkSaveTeacherFree,
   clearAdminLocks,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
-} from './services/supabaseDataService.js';
+} from './services/firebaseDataService.js';
 
 import { useUI } from './hooks/useUI.js';
 import { useDutyTeacherFilter } from './hooks/useDutyTeacherFilter.js';
@@ -393,6 +393,7 @@ function stableStringify(value) {
 /* =========================== App Bileşeni =========================== */
 
 export default function App() {
+  const hydratedRef = useRef(false);
   const {
     day, setDay,
     theme, toggleTheme,
@@ -411,6 +412,10 @@ export default function App() {
   } = useUI();
 
   const [periods, setPeriods] = useState(PERIODS);
+  const [notifications, setNotifications] = useState([]);
+  const toggleToolbar = useCallback(() => setToolbarExpanded(prev => !prev), [setToolbarExpanded]);
+  const handleDayChange = useCallback((newDay) => setDay(newDay), [setDay]);
+
 
   const { teachers, setTeachers, teacherFree, setTeacherFree, teacherSchedules, setTeacherSchedules, teacherSchedulesHydrated, setTeacherSchedulesHydrated } = useTeachers();
   const { classes, setClasses, classFree, setClassFree, classAbsence, setClassAbsence } = useClasses();
@@ -676,6 +681,100 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
     }
   }, [])
+  /* ===================== Manuel ekleme/silme işlemleri ===================== */
+
+  
+
+  const absentPeopleForCurrentDay = useMemo(() => {
+    if (!Array.isArray(absentPeople)) return [];
+    return absentPeople.filter(person => {
+      if (!person || typeof person !== 'object') return false;
+      if (!Array.isArray(person.days) || person.days.length === 0) return true;
+      return person.days.includes(day);
+    });
+  }, [absentPeople, day]);
+  const { addAbsent } = useAbsentManager({
+    day,
+    DAYS,
+    teachers,
+    classes,
+    periods,
+    teacherSchedules,
+    teacherNameLookup,
+    teacherMap,
+    normalizeCommonLessonTeacherName,
+    absentPeople,
+    filteredAbsentPeople: absentPeopleForCurrentDay,
+    setAbsentPeople,
+    setClasses,
+    setClassFree,
+    setClassAbsence,
+    setCommonLessons,
+    classAbsenceStateRef,
+    requestConfirmation,
+    addNotification,
+    logger,
+  });
+
+  
+  
+  const {
+    toggleTeacherFree,
+    toggleClassFree,
+    setAllTeachersFree,
+    setAllClassesFree,
+    handleSelectAbsence
+  } = useAvailabilityManager();
+
+  const {
+    addClass,
+    deleteClass
+  } = useClassManager({
+    addNotification
+  });
+
+  const {
+    addTeacher,
+    deleteTeacher,
+    deleteAllPdfTeachers,
+    importDutyTeachersData,
+    loadDutyTeachersFromExcel
+  } = useTeacherManager({
+    addNotification,
+    setActiveSection,
+    setExcelReplaceModal,
+    periods,
+    replacePdfSchedule
+  });
+
+
+  const {
+    deleteAllTeachers,
+    deleteAllClasses,
+    deleteAllAbsents,
+    deleteAllTeacherSchedules,
+    clearAllData,
+  } = useBulkDeleteActions({
+    showConfirmation,
+    addNotification,
+    logger,
+    setTeachers,
+    setTeacherFree,
+    setClasses,
+    setClassFree,
+    setClassAbsence,
+    setCommonLessons,
+    setAbsentPeople,
+    setTeacherSchedules,
+    setTeacherSchedulesHydrated,
+    setDay,
+    setPeriods,
+    setOptions,
+    setLocked,
+    DAYS,
+    STORAGE_KEY,
+    LAST_ABSENT_CLEANUP_KEY,
+  });
 
   useVersionWatcher({ enabled: SHOULD_CHECK_VERSION });
 
@@ -1254,100 +1353,6 @@ export default function App() {
     setActiveSection("schedule");
   }, [teachers, classes, addNotification, setActiveSection]);
 
-  /* ===================== Manuel ekleme/silme işlemleri ===================== */
-
-  
-
-  const absentPeopleForCurrentDay = useMemo(() => {
-    if (!Array.isArray(absentPeople)) return [];
-    return absentPeople.filter(person => {
-      if (!person || typeof person !== 'object') return false;
-      if (!Array.isArray(person.days) || person.days.length === 0) return true;
-      return person.days.includes(day);
-    });
-  }, [absentPeople, day]);
-  const { addAbsent } = useAbsentManager({
-    day,
-    DAYS,
-    teachers,
-    classes,
-    periods,
-    teacherSchedules,
-    teacherNameLookup,
-    teacherMap,
-    normalizeCommonLessonTeacherName,
-    absentPeople,
-    filteredAbsentPeople: absentPeopleForCurrentDay,
-    setAbsentPeople,
-    setClasses,
-    setClassFree,
-    setClassAbsence,
-    setCommonLessons,
-    classAbsenceStateRef,
-    requestConfirmation,
-    addNotification,
-    logger,
-  });
-
-  
-  
-  const {
-    toggleTeacherFree,
-    toggleClassFree,
-    setAllTeachersFree,
-    setAllClassesFree,
-    handleSelectAbsence
-  } = useAvailabilityManager();
-
-  const {
-    addClass,
-    deleteClass
-  } = useClassManager({
-    addNotification
-  });
-
-  const {
-    addTeacher,
-    deleteTeacher,
-    deleteAllPdfTeachers,
-    importDutyTeachersData,
-    loadDutyTeachersFromExcel
-  } = useTeacherManager({
-    addNotification,
-    setActiveSection,
-    setExcelReplaceModal,
-    periods,
-    replacePdfSchedule
-  });
-
-
-  const {
-    deleteAllTeachers,
-    deleteAllClasses,
-    deleteAllAbsents,
-    deleteAllTeacherSchedules,
-    clearAllData,
-  } = useBulkDeleteActions({
-    showConfirmation,
-    addNotification,
-    logger,
-    setTeachers,
-    setTeacherFree,
-    setClasses,
-    setClassFree,
-    setClassAbsence,
-    setCommonLessons,
-    setAbsentPeople,
-    setTeacherSchedules,
-    setTeacherSchedulesHydrated,
-    setDay,
-    setPeriods,
-    setOptions,
-    setLocked,
-    DAYS,
-    STORAGE_KEY,
-    LAST_ABSENT_CLEANUP_KEY,
-  });
 
   const deleteAbsent = useCallback(async (absentIdToDelete) => {
     const targetAbsent = absentPeople.find(p => p.absentId === absentIdToDelete);

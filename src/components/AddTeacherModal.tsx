@@ -76,7 +76,7 @@ export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
             Günlük Görev Limiti <span className="required">*</span>
           </label>
           <input
-            type="number"
+            type="number" inputMode="numeric" pattern="[0-9]*"
             id="maxDutyPerDay"
             name="maxDutyPerDay"
             className={`form-input ${errors.maxDutyPerDay ? 'error' : ''}`}
