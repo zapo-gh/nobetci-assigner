@@ -84,13 +84,16 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
 
     const filteredTeachers = teachers.filter((t) => {
       if (!t?.teacherId) return false;
+      // Manuel eklenen öğretmenleri her zaman göster
+      if (t.source !== 'duty_schedule') return true;
+      
       if (dutyTeacherIds.has(t.teacherId)) return true;
       const normalizedTeacherName = normalizeForComparison(t.teacherName);
       return dutyTeacherNames.has(normalizedTeacherName);
     });
 
     if (filteredTeachers.length === 0) {
-      return teachers;
+      return teachers.filter(t => t.source !== 'duty_schedule');
     }
 
     if (IS_DEV_ENV) {
