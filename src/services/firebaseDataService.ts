@@ -96,7 +96,7 @@ export async function insertTeacher({ teacherName, maxDutyPerDay = 6, source = '
   const teacherId = createId();
   const data = { teacherId, teacherName, maxDutyPerDay, source, createdAt: Date.now() };
   await setDoc(doc(db, 'teachers', teacherId), data);
-  return [data];
+  return data;
 }
 
 export async function deleteTeacherById(teacherId: string) {
@@ -114,7 +114,7 @@ export async function insertClass({ className }: any) {
   const classId = createId();
   const data = { classId, className, createdAt: Date.now() };
   await setDoc(doc(db, 'classes', classId), data);
-  return [data];
+  return data;
 }
 
 export async function getClassByName(className: string) {
@@ -138,7 +138,7 @@ export async function insertAbsent({ name, teacherId, reason, days }: any) {
   const absentId = createId();
   const data = { absentId, name, teacherId, reason, days, createdAt: Date.now() };
   await setDoc(doc(db, 'absents', absentId), data);
-  return [data];
+  return data;
 }
 
 export async function deleteAbsentById(absentId: string) {
