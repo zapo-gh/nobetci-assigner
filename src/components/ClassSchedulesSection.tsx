@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 
 const COLORS = [
@@ -33,25 +33,29 @@ export default function ClassSchedulesSection({
     const map: any = {};
 
     // First populate from classLocations if available (PRIMARY source)
-    Object.entries(classLocations || {}).forEach(([cName, cDays]) => {
-      if (!map[cName]) map[cName] = {};
-      Object.entries((cDays as any) || {}).forEach(([day, cPeriods]) => {
-        if (!map[cName][day]) map[cName][day] = {};
-        Object.entries((cPeriods as any) || {}).forEach(([period, locData]: [string, any]) => {
-           const location = typeof locData === 'string' ? locData : locData?.location;
-           const subject = typeof locData === 'string' ? '' : locData?.subject;
-           const teacherNamesStr = typeof locData === 'string' ? '' : locData?.teacherNamesStr;
-           
-           if (!map[cName][day][period]) map[cName][day][period] = { teachers: [], subject: '', location: '', _isFallback: false, _hasShortNames: false };
-           if (location) map[cName][day][period].location = location;
-           if (subject) map[cName][day][period].subject = subject;
-           
-           if (teacherNamesStr) {
-               // Class locations gives a string like "S.YAĞAN" or "S. URBAY/C.PAYLAN". 
-               // We put these as temporary short names.
-               map[cName][day][period].teachers = teacherNamesStr.split(/[\/\-]/).map(s => s.trim()).filter(Boolean);
-               map[cName][day][period]._hasShortNames = true;
-           }
+    Object.entries(classLocations || {}).forEach(([rawCName, cDays]) => {
+      const classNames = typeof rawCName === 'string' ? rawCName.split(',').map(s => s.trim()).filter(Boolean) : [rawCName];
+      
+      classNames.forEach(cName => {
+        if (!map[cName]) map[cName] = {};
+        Object.entries((cDays as any) || {}).forEach(([day, cPeriods]) => {
+          if (!map[cName][day]) map[cName][day] = {};
+          Object.entries((cPeriods as any) || {}).forEach(([period, locData]: [string, any]) => {
+             const location = typeof locData === 'string' ? locData : locData?.location;
+             const subject = typeof locData === 'string' ? '' : locData?.subject;
+             const teacherNamesStr = typeof locData === 'string' ? '' : locData?.teacherNamesStr;
+             
+             if (!map[cName][day][period]) map[cName][day][period] = { teachers: [], subject: '', location: '', _isFallback: false, _hasShortNames: false };
+             if (location) map[cName][day][period].location = location;
+             if (subject) map[cName][day][period].subject = subject;
+             
+             if (teacherNamesStr) {
+                 // Class locations gives a string like "S.YAĞAN" or "S. URBAY/C.PAYLAN". 
+                 // We put these as temporary short names.
+                 map[cName][day][period].teachers = teacherNamesStr.split(/[\/\-]/).map(s => s.trim()).filter(Boolean);
+                 map[cName][day][period]._hasShortNames = true;
+             }
+          });
         });
       });
     });
@@ -61,26 +65,28 @@ export default function ClassSchedulesSection({
       Object.entries((tDays as any) || {}).forEach(([day, tPeriods]) => {
         Object.entries((tPeriods as any) || {}).forEach(([period, cId]: [string, string]) => {
           if (cId && typeof cId === 'string' && cId.trim()) {
-            const className = cId.trim();
-            if (!map[className]) map[className] = {};
-            if (!map[className][day]) map[className][day] = {};
-            
-            if (!map[className][day][period]) {
-                // It was NOT in classLocations! So it's a fallback
-                map[className][day][period] = { teachers: [], subject: '', location: '', _isFallback: true, _hasShortNames: false };
-            }
-            
-            // If the cell currently only has short names from the Excel cell, let's clear them 
-            // the FIRST time we add a real full name from teacherSchedules!
-            if (map[className][day][period]._hasShortNames) {
-                map[className][day][period].teachers = [];
-                map[className][day][period]._hasShortNames = false;
-            }
-            
-            // Add the teacher from teacherSchedules (it's the exact full name)
-            if (!map[className][day][period].teachers.includes(tName)) {
-                map[className][day][period].teachers.push(tName);
-            }
+            const classNames = cId.split(',').map(s => s.trim()).filter(Boolean);
+            classNames.forEach(className => {
+              if (!map[className]) map[className] = {};
+              if (!map[className][day]) map[className][day] = {};
+              
+              if (!map[className][day][period]) {
+                  // It was NOT in classLocations! So it's a fallback
+                  map[className][day][period] = { teachers: [], subject: '', location: '', _isFallback: true, _hasShortNames: false };
+              }
+              
+              // If the cell currently only has short names from the Excel cell, let's clear them 
+              // the FIRST time we add a real full name from teacherSchedules!
+              if (map[className][day][period]._hasShortNames) {
+                  map[className][day][period].teachers = [];
+                  map[className][day][period]._hasShortNames = false;
+              }
+              
+              // Add the teacher from teacherSchedules (it's the exact full name)
+              if (!map[className][day][period].teachers.includes(tName)) {
+                  map[className][day][period].teachers.push(tName);
+              }
+            });
           }
         });
       });
@@ -98,9 +104,23 @@ export default function ClassSchedulesSection({
     return Array.from(classSet).sort();
   }, [classes, classSchedulesMap]);
 
-  const filteredClasses = allClassNames.filter(cName => 
-    cName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [levelFilter, setLevelFilter] = useState('Tümü');
+  const [branchFilter, setBranchFilter] = useState('Tümü');
+
+  const filteredClasses = allClassNames.filter(cName => {
+    const matchesSearch = cName.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (levelFilter !== 'Tümü') {
+      if (!cName.includes(levelFilter)) return false;
+    }
+
+    if (branchFilter !== 'Tümü') {
+      if (!cName.toUpperCase().includes(branchFilter)) return false;
+    }
+
+    return true;
+  });
 
   const getSubjectColor = (subject: string) => {
     if (!subject) return 'transparent';
@@ -111,79 +131,121 @@ export default function ClassSchedulesSection({
 
   const hasLocations = Object.keys(classLocations || {}).length > 0;
 
+  const getClassLevelColor = (className: string) => {
+    if (className.includes('9')) return 'var(--level-9)';
+    if (className.includes('10')) return 'var(--level-10)';
+    if (className.includes('11')) return 'var(--level-11)';
+    if (className.includes('12')) return 'var(--level-12)';
+    return 'var(--level-other)';
+  };
+
   return (
     <div role="tabpanel">
-      <div className="section-toolbar">
-        <div className="toolbar-actions" style={{ marginLeft: 'auto' }}>
-          {hasLocations && (
-            <button className="btn-outline btn-sm" onClick={onDeleteAll} title="Tüm sınıf programlarını sil">
-              <IconComponent name="trash" size={14} />
-              <span>Tümünü Sil</span>
-            </button>
-          )}
-          <input
-            type="file"
-            id="sinif-programi-upload"
-            accept=".xls,.xlsx"
-            style={{ display: 'none' }}
-            onChange={onUploadSinifProgrami}
-          />
-          <label 
-            className="btn-tertiary" 
-            htmlFor="sinif-programi-upload"
-            title="Sınıf El Programı Yükle"
-            style={{ cursor: 'pointer' }}
-          >
-            <IconComponent name="upload" size={16} />
-            <span className="btn-text">Sınıf El Programı Yükle</span>
-          </label>
-        </div>
-      </div>
-      
-      <div style={{ padding: '0 24px', marginBottom: '16px' }}>
-        <h2 className="text-xl font-bold">Sınıf Programları</h2>
-        <p className="text-sm text-secondary">
-          Sınıfların haftalık ders programlarını ve ders işlenen sınıf yerlerini buradan görüntüleyebilirsiniz.
-        </p>
-      </div>
-      
-      {hasLocations && (
-        <div style={{ padding: '0 24px' }}>
-          <div className="badge badge-success" style={{ marginBottom: '20px', display: 'inline-flex' }}>
-            <IconComponent name="check" size={14} style={{ marginRight: '4px' }} />
-            <span>Sınıf yerleri sisteme yüklendi ve haritalandırıldı.</span>
-          </div>
-        </div>
-      )}
-
       <div className="card" style={{ margin: '0 24px' }}>
-        <div className="section-toolbar" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="search-box">
-            <IconComponent name="search" size={16} className="search-icon" />
+        <div className="toolbar" style={{ borderBottom: '1px solid var(--border-subtle)', borderRadius: '16px 16px 0 0' }}>
+          <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
+              <IconComponent name="search" size={16} />
+            </div>
             <input
               type="text"
+              className="input"
               placeholder="Sınıf ara..."
-              className="search-input"
+              style={{ paddingLeft: '36px' }}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {searchTerm && (
               <button
-                className="search-clear-btn"
                 onClick={() => setSearchTerm('')}
                 title="Temizle"
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  padding: '2px'
+                }}
               >
                 <IconComponent name="x" size={14} />
               </button>
             )}
           </div>
+          
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Seviye:</span>
+            {['Tümü', '9', '10', '11', '12'].map(level => (
+              <button 
+                key={level}
+                onClick={() => setLevelFilter(level)}
+                className={`chip ${levelFilter === level ? 'active' : ''}`}
+                style={levelFilter === level ? { 
+                  backgroundColor: `var(--level-${level === 'Tümü' ? 'other' : level})`, 
+                  color: 'white', 
+                  border: 'none' 
+                } : {}}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Alan:</span>
+            {['Tümü', 'AMP', 'ATP'].map(branch => (
+              <button 
+                key={branch}
+                onClick={() => setBranchFilter(branch)}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '16px',
+                  border: `1px solid ${branchFilter === branch ? 'var(--primary)' : 'var(--border-default)'}`,
+                  background: branchFilter === branch ? 'var(--primary-light)' : 'transparent',
+                  color: branchFilter === branch ? 'var(--primary-active)' : 'var(--text-secondary)',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                {branch}
+              </button>
+            ))}
+          </div>
+          
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+            <input
+              type="file"
+              id="sinif-programi-upload"
+              accept=".xls,.xlsx"
+              style={{ display: 'none' }}
+              onChange={onUploadSinifProgrami}
+            />
+            <label 
+              className="btn btn-primary" 
+              htmlFor="sinif-programi-upload"
+              title="Sınıf El Programı Yükle"
+            >
+              <IconComponent name="upload" size={16} />
+              <span className="btn-text">Sınıf El Programı Yükle</span>
+            </label>
+            {hasLocations && (
+              <button className="btn btn-danger" onClick={onDeleteAll} title="Tüm sınıf programlarını sil">
+                <IconComponent name="trash" size={14} />
+                <span>Tümünü Sil</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="teacher-schedule-list" style={{ padding: '20px' }}>
+        <div className="card-grid">
           {filteredClasses.length === 0 ? (
-            <div className="no-results" style={{ gridColumn: '1 / -1' }}>
-              <IconComponent name="search" size={20} />
-              <span>Sonuç bulunamadı</span>
+            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+              <div className="empty-state-icon">
+                <IconComponent name="search" size={32} />
+              </div>
+              <p>Sonuç bulunamadı</p>
             </div>
           ) : (
             filteredClasses.map(cName => {
@@ -196,43 +258,49 @@ export default function ClassSchedulesSection({
               }).filter(Boolean) as { key: string, label: string, count: number }[];
 
               const totalLessons = dayStats.reduce((sum, day) => sum + day.count, 0);
+              const level = cName.match(/\d+/)?.[0] || 'other';
+              const avatarContent = level !== 'other' ? level : <IconComponent name="users" size={20} />;
 
               return (
                 <div
                   key={cName}
-                  className="teacher-schedule-item clickable"
+                  className="card class-card clickable"
+                  data-level={level}
                   onClick={() => setSelectedClass(cName)}
+                  style={{ cursor: 'pointer' }}
                 >
-                  <div className="teacher-card-header">
-                    <div className="teacher-name">
-                      <IconComponent name="users" size={16} />
-                      <span>{cName}</span>
+                  <div className="card-header">
+                    <div className="avatar">
+                      {avatarContent}
                     </div>
-                    <div className="teacher-card-meta">
-                      <span className="meta-chip">
-                        <IconComponent name="calendar" size={12} />
-                        {dayStats.length || 0} gün
-                      </span>
-                      <span className="meta-chip">
-                        <IconComponent name="book" size={12} />
-                        {totalLessons} ders
-                      </span>
+                    <div className="card-title">
+                      {cName}
                     </div>
                   </div>
-                  <div className="teacher-card-body">
-                    {dayStats.length > 0 ? (
-                      dayStats.map(({ key, label, count }) => (
-                        <div key={key} className="teacher-day-row">
-                          <span className="day-label">{label}</span>
-                          <span className="day-count">{count} ders</span>
+                  
+                  <div className="card-body">
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                      <span className="chip"><IconComponent name="calendar" size={12} /> {dayStats.length || 0} gün</span>
+                      <span className="chip"><IconComponent name="book" size={12} /> {totalLessons} ders</span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {dayStats.length > 0 ? (
+                        dayStats.map(({ key, label, count }) => {
+                          const progress = (count / 10) * 100;
+                          return (
+                            <div key={key} className="day-row" style={{ '--fill': `${progress}%` } as React.CSSProperties}>
+                              <span className="day-row-name">{label}</span>
+                              <span className="day-row-count">{count} ders</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="day-row" data-empty="true">
+                          <span className="day-row-name">Ders bilgisi bulunamadı</span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="teacher-card-empty">
-                        <IconComponent name="info" size={12} />
-                        <span>Günlük ders bilgisi yok</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -248,74 +316,46 @@ export default function ClassSchedulesSection({
         size="xlarge"
       >
         <div style={{ padding: '0', overflowX: 'auto' }}>
-          <table className="tbl w-full text-sm" style={{ tableLayout: 'fixed', minWidth: '900px' }}>
+          <table className="tbl w-full text-sm" style={{ tableLayout: 'fixed', minWidth: '900px', borderCollapse: 'separate', borderSpacing: '0' }}>
             <thead>
               <tr>
-                <th className="text-left" style={{ width: '100px' }}>Gün</th>
+                <th className="text-left" style={{ width: '100px', position: 'sticky', left: 0, zIndex: 1, backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>Gün</th>
                 {periods.map(p => (
-                  <th key={p} className="text-center">{p}. Ders</th>
+                  <th key={p} className="text-center" style={{ borderBottom: '1px solid var(--border)' }}>{p}. Ders</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {days.map(day => (
                 <tr key={day.id}>
-                  <td className="font-medium text-left">{day.label}</td>
+                  <td className="font-medium text-left" style={{ position: 'sticky', left: 0, backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>{day.label}</td>
                   {periods.map(p => {
                     const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[p];
                     
                     if (!lesson || (lesson.teachers.length === 0 && !lesson.subject && !lesson.location)) {
                        return (
-                         <td key={p} className="text-center p-2 border">
-                           <span className="text-gray-300">-</span>
+                         <td key={p} className="text-center p-2 border-bottom border-right" style={{ borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}>
                          </td>
                        );
                     }
 
-                    const bgColor = getSubjectColor(lesson.subject || '');
+                    const hash = (lesson.subject || 'x').split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                    const colorIndex = (hash % 6) + 1; // 1 to 6
                     
                     return (
                       <td 
                         key={p} 
-                        className="p-1"
-                        style={{ verticalAlign: 'top', minWidth: '100px' }}
+                        style={{ padding: '4px', verticalAlign: 'top', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}
                       >
-                        <div style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: bgColor !== 'transparent' ? bgColor : 'var(--bg-elevated)',
-                          border: bgColor !== 'transparent' ? '1px solid rgba(0,0,0,0.1)' : '1px solid var(--border-subtle)',
-                          borderRadius: '6px',
-                          padding: '4px',
-                          minHeight: '60px',
-                          height: '100%',
-                          gap: '2px',
-                          boxShadow: bgColor !== 'transparent' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                        }}>
+                        <div className={`lesson-cell c${colorIndex}`} style={{ minHeight: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                           {lesson.subject && (
-                            <span style={{ 
-                              fontWeight: 'bold', 
-                              fontSize: '11px', 
-                              color: '#1a1a1a',
-                              textAlign: 'center',
-                              lineHeight: '1.2'
-                            }}>
-                              {lesson.subject}
-                            </span>
+                            <span>{lesson.subject}</span>
                           )}
                           
                           {lesson.teachers.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '100%', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center', opacity: 0.9 }}>
                               {lesson.teachers.map((tName: string, i: number) => (
-                                <span key={i} style={{ 
-                                  fontSize: '9px', 
-                                  fontWeight: 500, 
-                                  color: '#333', 
-                                  textAlign: 'center', 
-                                  lineHeight: '1.1' 
-                                }} title={tName}>
+                                <span key={i} title={tName}>
                                   {tName}
                                 </span>
                               ))}
@@ -324,13 +364,11 @@ export default function ClassSchedulesSection({
                           
                           {lesson.location && (
                             <span style={{
-                              fontSize: '9px',
-                              fontWeight: 'bold',
-                              backgroundColor: 'rgba(0,0,0,0.6)',
-                              color: 'white',
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              marginTop: '2px'
+                              fontSize: '10px',
+                              backgroundColor: 'rgba(255,255,255,0.2)',
+                              padding: '2px 6px',
+                              borderRadius: 'var(--radius-sm)',
+                              marginTop: 'auto'
                             }}>
                               {lesson.location}
                             </span>

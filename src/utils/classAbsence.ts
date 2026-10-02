@@ -54,7 +54,5 @@ const normalizeGradeCheckKey = (value: any = ''): string =>
 export const isTwelfthGradeClassName = (value: any = ''): boolean => {
   const normalized = normalizeGradeCheckKey(value);
   if (!normalized) return false;
-  const compact = normalized.replace(/[^0-9A-ZÇĞİÖŞÜ]/g, '');
-  if (!compact.startsWith('12')) return false;
-  return compact.length > 2;
+  return /\b12[-\s\/]*[A-ZÇĞİÖŞÜ]+/i.test(normalized);
 };

@@ -17,9 +17,11 @@ function Tabs({ items, active, onChange, IconComponent }) {
         width: activeTabRef.current.offsetWidth,
         left: activeTabRef.current.offsetLeft,
       });
-      activeTabRef.current.focus();
+      if (document.activeElement !== activeTabRef.current) {
+        activeTabRef.current.focus({ preventScroll: true });
+      }
     }
-  }, [active]); // active değiştiğinde yeniden hesapla
+  }, [active]);
 
   // Resize durumunda da güncelleme yap
   React.useEffect(() => {
@@ -75,31 +77,53 @@ function Tabs({ items, active, onChange, IconComponent }) {
     [focusTabAtIndex, items.length]
   );
 
+  // Gruplara ayır
+  const groupedItems = React.useMemo(() => {
+    const groups = {};
+    items.forEach(it => {
+      const g = it.group || "Diğer";
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(it);
+    });
+    return groups;
+  }, [items]);
+
   return (
-    <nav className={styles.tabsContainer}>
-      <div className={styles.tabsTopBar}>
-        <div className={styles.tabsList} role="tablist" aria-label="Ana sekmeler">
-          {items.map((it, index) => (
-            <button
-              key={it.key}
-              ref={active === it.key ? activeTabRef : null}
-              className={`${styles.tabItem} ${active === it.key ? styles.active : ""}`}
-              onClick={() => onChange(it.key)}
-              type="button"
-              role="tab"
-              aria-selected={active === it.key}
-              tabIndex={active === it.key ? 0 : -1}
-              id={`tab-${it.key}`}
-              aria-controls={`panel-${it.key}`}
-              onKeyDown={(event) => handleKeyDown(event, index)}
-            >
-              {it.icon && IconComponent && <IconComponent name={it.icon} size={18} />}
-              <span className={styles.tabLabel}>{it.label}</span>
-            </button>
-          ))}
-          <div className={styles.tabIndicator} style={indicatorStyle}></div>
-        </div>
-      </div>
+    <nav className="tabs">
+      {Object.entries(groupedItems).map(([groupName, groupItems], groupIndex, arr) => (
+        <React.Fragment key={groupName}>
+          <div role="group" aria-label={groupName} style={{ display: 'flex', gap: '8px' }}>
+            {groupItems.map((it, index) => {
+              const globalIndex = items.findIndex(i => i.key === it.key);
+              
+              let dataGroup = "data"; // Default
+              if (groupName === "Planlama") dataGroup = "plan";
+              if (groupName === "Çıktılar") dataGroup = "output";
+
+              return (
+                <button
+                  key={it.key}
+                  ref={active === it.key ? activeTabRef : null}
+                  className="tab"
+                  data-group={dataGroup}
+                  onClick={() => onChange(it.key)}
+                  type="button"
+                  role="tab"
+                  aria-selected={active === it.key}
+                  tabIndex={active === it.key ? 0 : -1}
+                  id={`tab-${it.key}`}
+                  aria-controls={`panel-${it.key}`}
+                  onKeyDown={(event) => handleKeyDown(event, globalIndex)}
+                >
+                  {it.icon && IconComponent && <IconComponent name={it.icon} size={16} />}
+                  <span>{it.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {groupIndex < arr.length - 1 && <div className="tab-group-sep"></div>}
+        </React.Fragment>
+      ))}
     </nav>
   );
 }

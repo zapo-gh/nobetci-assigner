@@ -433,11 +433,13 @@ function extractClassFromCell(cell) {
   if (!cell) return null;
   const text = String(cell).toUpperCase().replace(/\s+/g, ' ').trim();
   
-  // Detect program prefix
-  let prefix = '';
-  if (text.includes('AMP')) prefix = 'AMP ';
-  else if (text.includes('ATP')) prefix = 'ATP ';
-  else if (text.includes('MESEM')) prefix = 'MESEM ';
+  // Detect program prefixes
+  const prefixes = [];
+  if (text.includes('AMP')) prefixes.push('AMP ');
+  if (text.includes('ATP')) prefixes.push('ATP ');
+  if (text.includes('MESEM')) prefixes.push('MESEM ');
+  
+  if (prefixes.length === 0) prefixes.push('');
   
   // First, try to match grade and branch/field
   // e.g. "9-A", "AMP9K", "11/G", "10 MUHASEB", "11/I PAZAR"
@@ -445,11 +447,8 @@ function extractClassFromCell(cell) {
   if (m) {
     const grade = m[1];
     const branch = m[2];
-    if (branch.length === 1) {
-      return `${prefix}${grade}-${branch}`;
-    } else {
-      return `${prefix}${grade} ${branch}`;
-    }
+    const baseClass = branch.length === 1 ? `${grade}-${branch}` : `${grade} ${branch}`;
+    return prefixes.map(p => `${p}${baseClass}`).join(', ');
   }
 
   // Check for specific known non-standard class names

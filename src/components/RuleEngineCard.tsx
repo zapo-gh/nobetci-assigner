@@ -217,89 +217,107 @@ export default function RuleEngineCard({
 
       <style>{`
         .rule-engine-card {
-          margin-top: 12px;
-          padding: var(--space-3);
-          border: 1px solid var(--border-default);
+          margin-top: 24px;
+          padding: var(--space-4);
+          border: 1px solid var(--border);
           border-radius: var(--radius-lg);
-          background: var(--bg-elevated);
+          background: var(--surface);
+          box-shadow: var(--shadow-sm);
         }
         .rule-engine-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: var(--space-2);
+          margin-bottom: var(--space-4);
         }
         .rule-engine-title {
           display: inline-flex;
           align-items: center;
           gap: var(--space-2);
-          font-weight: var(--font-weight-semibold, 600);
-          color: var(--text-primary);
-          font-size: 0.92rem;
+          font-weight: 700;
+          color: var(--text);
+          font-size: 1.1rem;
         }
         .rule-engine-toggle {
-          margin-bottom: var(--space-2);
-          padding: var(--space-2);
-          border: 1px solid var(--border-default);
+          margin-bottom: var(--space-3);
+          padding: var(--space-3);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
-          background: color-mix(in srgb, var(--bg-default) 92%, transparent);
+          background: var(--surface-2);
         }
         .rule-engine-check {
           display: inline-flex;
           align-items: center;
           gap: var(--space-2);
-          color: var(--text-secondary);
-          font-weight: var(--font-weight-medium);
+          color: var(--text);
+          font-weight: 500;
           cursor: pointer;
         }
         .rule-engine-form {
           display: grid;
           grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) minmax(110px, 1fr) auto;
-          gap: var(--space-2);
+          gap: var(--space-3);
           align-items: center;
-          margin-bottom: var(--space-2);
+          margin-bottom: var(--space-4);
         }
         .rule-engine-select {
           width: 100%;
-          min-height: 34px;
-          border: 1px solid var(--border-default);
+          min-height: 38px;
+          border: 1px solid var(--border);
           border-radius: var(--radius-md);
-          background: var(--bg-default);
-          color: var(--text-primary);
-          padding: 0 var(--space-2);
+          background: var(--bg);
+          color: var(--text);
+          padding: 0 var(--space-3);
+          font-family: inherit;
+        }
+        .rule-engine-select:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px var(--primary-light);
         }
         .rule-engine-add {
-          min-height: 34px;
+          min-height: 38px;
           white-space: nowrap;
         }
         .rule-engine-list {
           display: flex;
           flex-direction: column;
-          gap: var(--space-1);
+          gap: var(--space-2);
         }
         .rule-engine-item {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: var(--space-2);
-          border: 1px solid var(--border-default);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
-          background: color-mix(in srgb, var(--bg-default) 90%, transparent);
-          padding: 6px 10px;
+          background: var(--surface-2);
+          padding: 8px 12px;
         }
         .rule-engine-item-text {
-          font-size: 0.82rem;
-          color: var(--text-secondary);
+          font-size: 0.9rem;
+          color: var(--text-muted);
         }
         .rule-engine-remove {
-          width: 26px;
-          height: 26px;
-          min-width: 26px;
+          width: 28px;
+          height: 28px;
+          min-width: 28px;
+          border-radius: 50%;
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          display: grid;
+          place-items: center;
+        }
+        .rule-engine-remove:hover {
+          background: var(--danger-soft);
+          color: var(--danger);
         }
         .rule-engine-empty {
           color: var(--text-muted);
-          font-size: 0.78rem;
-          margin-top: 2px;
+          font-size: 0.85rem;
+          margin-top: 4px;
         }
         @media (max-width: 900px) {
           .rule-engine-form {

@@ -4,6 +4,8 @@
   flex-direction: column;
   position: relative;
   margin-top: var(--space-2);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .tabsTopBar {
@@ -11,38 +13,44 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: var(--space-4);
 }
 
 .tabsList {
   display: flex;
   width: 100%;
   min-width: 0;
-  justify-content: stretch;
+  justify-content: flex-start;
   position: relative;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.tabGroup {
+  display: flex;
   gap: var(--space-1);
-  /* Daha küçük gap başlangıçta */
+}
+
+.tabDivider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-default);
+  margin: 0 var(--space-2);
 }
 
 .tabItem {
-  flex: 1 1 0;
-  min-width: 80px;
-  /* Minimum tab genişliği */
-  max-width: 100%;
-  text-align: center;
-  /* İçeriği ortala */
-  background: var(--tab-bg, var(--bg-elevated));
-  border: 1px solid var(--border-default);
-  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--space-3) var(--space-3);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-  transition: all var(--transition-default) ease;
+  color: var(--text-muted);
+  transition: all var(--transition-fast) ease;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: 0; /* Segment style has no border radius */
   box-shadow: none;
 }
 
@@ -53,50 +61,39 @@
 
 .tabItem:hover:not(.active) {
   color: var(--text-primary);
-  background-color: var(--tab-bg-hover, var(--bg-hover));
-  border-color: var(--primary);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.tabItem.active:hover {
-  background-color: var(--tab-bg-active, var(--primary));
-  box-shadow: none;
+  background-color: var(--bg-hover);
+  border-bottom-color: var(--border-default);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   transform: none;
 }
 
 .tabItem.active {
-  color: var(--tab-text-active, #fff);
+  color: var(--primary);
   font-weight: var(--font-weight-semibold);
-  background-color: var(--tab-bg-active, var(--primary));
-  border-color: var(--tab-bg-active, var(--primary));
+  border-bottom-color: var(--primary);
   position: relative;
-  border-radius: var(--radius-md);
   box-shadow: none;
   transform: none;
-}
-
-.tabItem:focus {
-  outline: none;
-  box-shadow: none;
 }
 
 .tabItem:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .tabIndicator {
-  display: none;
+  display: none; /* Segmented layout doesn't use absolute indicator */
 }
 
 .tabIcon {
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
 .tabLabel {
   display: inline-block;
+  white-space: nowrap;
 }
 
 /* Responsive */

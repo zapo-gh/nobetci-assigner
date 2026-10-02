@@ -65,115 +65,127 @@ export default function CourseScheduleSection({
 
   return (
     <div role="tabpanel" id="panel-courseSchedule" aria-labelledby="tab-courseSchedule">
-      <div className="section-toolbar">
-        <div className="toolbar-actions">
-          <input type="file" accept=".pdf,.xlsx,.xls" onChange={onUpload} style={{ display: 'none' }} id={uploadInputId} />
-          <label htmlFor={uploadInputId} className="btn-tertiary" title="Excel'den Ders Programı Yükle">
-            <IconComponent name="upload" size={16} />
-            <span className="btn-text">Excel Yükle</span>
-          </label>
-        </div>
-      </div>
-
-      <div className="course-schedule-content">
+      <div>
         {teacherSchedulesList.length === 0 && (
-          <EmptyState
-            IconComponent={IconComponent}
-            icon="calendar"
-            title="Henüz Ders Programı Eklenmedi"
-            size={44}
-            className="empty-state-card"
-          />
+          <div className="empty-state">
+            <div className="empty-state-icon">
+               <IconComponent name="calendar" size={32} />
+            </div>
+            <h3>Henüz Ders Programı Eklenmedi</h3>
+            <p>Excel dosyasını yükleyerek öğretmen ders programlarını oluşturabilirsiniz.</p>
+          </div>
         )}
 
         {teacherSchedulesList.length > 0 && (
-          <div className="schedule-preview">
-            <div className="schedule-preview-header">
-              <h3>Yüklenen Ders Programları</h3>
-              <div className="schedule-preview-header-actions">
-                <div className="search-input-wrapper">
+          <div>
+            <div className="toolbar">
+              <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
+                <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
                   <IconComponent name="search" size={16} />
-                  <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Öğretmen ara..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  {searchTerm && (
-                    <button
-                      className="search-clear-btn"
-                      onClick={() => setSearchTerm('')}
-                      title="Temizle"
-                    >
-                      <IconComponent name="x" size={14} />
-                    </button>
-                  )}
                 </div>
-                <button className="btn-outline btn-sm" onClick={onDeleteAllSchedules} title="Tüm ders programlarını sil">
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Öğretmen ara..."
+                  style={{ paddingLeft: '36px' }}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    title="Temizle"
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      padding: '2px'
+                    }}
+                  >
+                    <IconComponent name="x" size={14} />
+                  </button>
+                )}
+              </div>
+              
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                <input type="file" accept=".pdf,.xlsx,.xls" onChange={onUpload} style={{ display: 'none' }} id={uploadInputId} />
+                <label htmlFor={uploadInputId} className="btn btn-primary" title="Excel'den Ders Programı Yükle">
+                  <IconComponent name="upload" size={16} />
+                  <span>Excel Yükle</span>
+                </label>
+                <button className="btn btn-danger" onClick={onDeleteAllSchedules} title="Tüm ders programlarını sil">
                   <IconComponent name="trash" size={14} />
                   <span>Tümünü Sil</span>
                 </button>
               </div>
             </div>
-            <div className="teacher-schedule-list">
+            
+            <div className="card-grid">
               {filteredTeacherSchedules.length === 0 ? (
-                <div className="no-results">
-                  <IconComponent name="search" size={20} />
-                  <span>Sonuç bulunamadı</span>
+                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                  <div className="empty-state-icon">
+                    <IconComponent name="search" size={32} />
+                  </div>
+                  <p>Sonuç bulunamadı</p>
                 </div>
               ) : (
-                filteredTeacherSchedules.map(([teacherName, schedule]) => {
+                filteredTeacherSchedules.map(([teacherName, schedule], index) => {
                 const dayStats = dayDefinitions
                   .map(({ key, label }) => {
                     const count = Object.keys(schedule?.[key] || {}).length;
                     if (!count) return null;
                     return { key, label, count };
                   })
-                  .filter(Boolean);
+                  .filter(Boolean) as { key: string, label: string, count: number }[];
 
                 const totalLessons = dayStats.reduce((sum, day) => sum + day.count, 0);
+                const initials = teacherName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+                const tone = (index % 6) + 1;
 
                 return (
                   <div
                     key={teacherName}
-                    className="teacher-schedule-item clickable"
+                    className="card teacher-card clickable"
+                    data-tone={tone}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       onOpenTeacherSchedule(teacherName, schedule);
                     }}
                   >
-                    <div className="teacher-card-header">
-                      <div className="teacher-name">
-                        <IconComponent name="user" size={16} />
-                        <span>{teacherName}</span>
+                    <div className="card-header">
+                      <div className="avatar">
+                         {initials}
                       </div>
-                      <div className="teacher-card-meta">
-                        <span className="meta-chip">
-                          <IconComponent name="calendar" size={12} />
-                          {dayStats.length || 0} gün
-                        </span>
-                        <span className="meta-chip">
-                          <IconComponent name="book" size={12} />
-                          {totalLessons} ders
-                        </span>
+                      <div className="card-title">
+                        {teacherName}
                       </div>
                     </div>
-                    <div className="teacher-card-body">
-                      {dayStats.length > 0 ? (
-                        dayStats.map(({ key, label, count }) => (
-                          <div key={key} className="teacher-day-row">
-                            <span className="day-label">{label}</span>
-                            <span className="day-count">{count} ders</span>
+                    
+                    <div className="card-body">
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                        <span className="chip"><IconComponent name="calendar" size={12} /> {dayStats.length || 0} gün</span>
+                        <span className="chip"><IconComponent name="book" size={12} /> {totalLessons} ders</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {dayStats.length > 0 ? (
+                          dayStats.map(({ key, label, count }) => (
+                            <div key={key} className="day-row" style={{ '--fill': `${(count / 10) * 100}%` } as React.CSSProperties}>
+                              <span className="day-row-name">{label}</span>
+                              <span className="day-row-count">{count} ders</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="day-row" data-empty="true">
+                            <span className="day-row-name">Günlük ders bilgisi yok</span>
                           </div>
-                        ))
-                      ) : (
-                        <div className="teacher-card-empty">
-                          <IconComponent name="info" size={12} />
-                          <span>Günlük ders bilgisi yok</span>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

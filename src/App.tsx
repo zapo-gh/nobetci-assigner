@@ -25,7 +25,7 @@ import {
   arrayToSetMap,
   normalizeClassLabel,
 } from "./utils/helpers.js";
-import "./styles.css";
+import "./styles/theme.css";
 
 import { APP_ENV } from './config/index.js';
 import {
@@ -2513,94 +2513,31 @@ export default function App() {
     selectedTeacher !== null
 
   return (
-    <div className={`wrap ${toolbarExpanded ? 'toolbarExpanded' : ''}`}>
+    <div className="wrap">
       <ModernNotificationSystem notifications={notifications} onRemove={removeNotification} onAction={onNotificationAction} />
 
       <Header
-        toolbarExpanded={toolbarExpanded}
-        toggleToolbar={toggleToolbar}
         theme={theme}
         toggleTheme={toggleTheme}
         day={day}
         handleDayChange={handleDayChange}
       />
 
-      {/* Toolbar */}
-      <div className="toolbar">
-        {/* Overlay - Menü dışına tıklayınca kapanır */}
-        {toolbarExpanded && (
-          <div className="toolbar-overlay" onClick={toggleToolbar}></div>
-        )}
-
-        {/* Toolbar İçeriği */}
-        <div className={`toolbar-content ${toolbarExpanded ? 'expanded' : 'collapsed'}`} onClick={(e) => e.stopPropagation()}>
-          {/* Tehlikeli Alan Grubu */}
-          <div className="toolbar-group toolbar-group-danger">
-            <div className="toolbar-group-header">
-              <h3>⚠️ Tehlikeli İşlemler</h3>
-              <p>Dikkatli kullanın - geri alınamaz işlemler</p>
-            </div>
-            <div className="toolbar-group-content">
-              <button className="btn-danger" onClick={clearAllData} title="Tüm uygulama verilerini temizle">
-                <Icon name="trash" size={16} /><span className="btn-text">Her Şeyi Sıfırla</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="toolbar-group">
-            <div className="toolbar-group-header">
-              <h3>🔄 Veri Senkronizasyonu</h3>
-              <p>Supabase ile manuel olarak eşitle</p>
-            </div>
-            <div className="toolbar-group-content">
-              <button
-                className="btn"
-                onClick={handleManualRefreshClick}
-                disabled={absenceRefreshState.isRefreshing}
-              >
-                <Icon name="refreshCw" size={16} />
-                <span className="btn-text">
-                  {absenceRefreshState.isRefreshing ? 'Yenileniyor...' : 'Verileri Güncelle'}
-                </span>
-              </button>
-              <small
-                style={{
-                  display: 'block',
-                  marginTop: '8px',
-                  color: 'var(--text-muted, #8b9dc3)',
-                }}
-              >
-                Son yenileme: {lastAbsenceRefreshLabel}
-              </small>
-              {absenceRefreshState.error && (
-                <small
-                  style={{
-                    display: 'block',
-                    marginTop: '4px',
-                    color: 'var(--danger, #ff6b6b)',
-                  }}
-                >
-                  {absenceRefreshState.error}
-                </small>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Sekmeler */}
       <Tabs
         active={activeSection}
         onChange={setActiveSection}
         items={[
-          { key: "courseSchedule", label: "Ders Programı", icon: "bookOpen" },
-          { key: "classSchedules", label: "Sınıf Programları", icon: "bookOpen" },
-          { key: "teachers", label: "Nöbetçi Öğretmenler", icon: "users" },
-          { key: "dutyZones", label: "Nöbet Yerleri", icon: "mapPin" },
-          { key: "absents", label: "Okula Gelemeyenler", icon: "userX" },
-          { key: "classes", label: "Sınıflar", icon: "home" },
-          { key: "schedule", label: "Planlama", icon: "calendar" },
-          { key: "outputs", label: "Çıktılar", icon: "printer" }
+          { key: "courseSchedule", label: "Ders Programı", icon: "bookOpen", group: "Veri" },
+          { key: "classSchedules", label: "Sınıf Programları", icon: "bookOpen", group: "Veri" },
+          { key: "teachers", label: "Nöbetçi Öğretmenler", icon: "users", group: "Veri" },
+          { key: "classes", label: "Sınıflar", icon: "home", group: "Veri" },
+          
+          { key: "dutyZones", label: "Nöbet Yerleri", icon: "mapPin", group: "Planlama" },
+          { key: "absents", label: "Okula Gelemeyenler", icon: "userX", group: "Planlama" },
+          { key: "schedule", label: "Planlama", icon: "calendar", group: "Planlama" },
+          
+          { key: "outputs", label: "Çıktılar", icon: "printer", group: "Çıktı" }
         ]}
         IconComponent={Icon}
       />

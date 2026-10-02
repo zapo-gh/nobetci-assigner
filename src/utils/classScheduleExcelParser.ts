@@ -99,19 +99,42 @@ export async function parseClassLocationsFromExcel(file, teacherSchedules, teach
                     }
                     
                     if (!detectedClassId) {
-                      const possibleTeacherNames = teacherNamesStr.split(/[\/\-]/);
-                      for (const tName of possibleTeacherNames) {
-                        const cleanTName = tName.trim().toUpperCase();
-                        if (cleanTName.length > 2) {
-                          const teacher = teachersList?.find(t => t.teacherName.toUpperCase().includes(cleanTName) || cleanTName.includes(t.teacherName.split(' ').pop().toUpperCase()));
-                          if (teacher && teacherSchedules[teacher.teacherName] && teacherSchedules[teacher.teacherName][dayKey] && teacherSchedules[teacher.teacherName][dayKey][periodNum]) {
-                            detectedClassId = teacherSchedules[teacher.teacherName][dayKey][periodNum];
-                            break;
-                          } else {
-                            const exactKey = Object.keys(teacherSchedules || {}).find(k => k.toUpperCase().includes(cleanTName) || cleanTName.includes(k.split(' ').pop().toUpperCase()));
-                            if (exactKey && teacherSchedules[exactKey][dayKey] && teacherSchedules[exactKey][dayKey][periodNum]) {
-                              detectedClassId = teacherSchedules[exactKey][dayKey][periodNum];
+                      // Let's try to extract from the header above the table FIRST!
+                      for (let i = Math.max(0, gunlerRowIndex - 5); i < gunlerRowIndex; i++) {
+                         const hRow = jsonData[i];
+                         if (hRow && Array.isArray(hRow)) {
+                            for (let j = 0; j < hRow.length; j++) {
+                               const cellVal = String(hRow[j] || '').trim();
+                               if (cellVal.includes('Sınıf :') || cellVal.includes('Sınıf:')) {
+                                  detectedClassId = cellVal.split(':')[1].trim();
+                                  break;
+                               }
+                               // Or if the cell just contains the class name (like AMP 9-A)
+                               if (cellVal.match(/(AMP|ATP|MESEM)\s*\d{1,2}[-\s\/]?[A-ZÇĞİÖŞÜ]+/i)) {
+                                  detectedClassId = cellVal;
+                                  break;
+                               }
+                            }
+                         }
+                         if (detectedClassId) break;
+                      }
+
+                      // Fallback to deducing from teacher schedules
+                      if (!detectedClassId) {
+                        const possibleTeacherNames = teacherNamesStr.split(/[\/\-]/);
+                        for (const tName of possibleTeacherNames) {
+                          const cleanTName = tName.trim().toUpperCase();
+                          if (cleanTName.length > 2) {
+                            const teacher = teachersList?.find(t => t.teacherName.toUpperCase().includes(cleanTName) || cleanTName.includes(t.teacherName.split(' ').pop().toUpperCase()));
+                            if (teacher && teacherSchedules[teacher.teacherName] && teacherSchedules[teacher.teacherName][dayKey] && teacherSchedules[teacher.teacherName][dayKey][periodNum]) {
+                              detectedClassId = teacherSchedules[teacher.teacherName][dayKey][periodNum];
                               break;
+                            } else {
+                              const exactKey = Object.keys(teacherSchedules || {}).find(k => k.toUpperCase().includes(cleanTName) || cleanTName.includes(k.split(' ').pop().toUpperCase()));
+                              if (exactKey && teacherSchedules[exactKey][dayKey] && teacherSchedules[exactKey][dayKey][periodNum]) {
+                                detectedClassId = teacherSchedules[exactKey][dayKey][periodNum];
+                                break;
+                              }
                             }
                           }
                         }

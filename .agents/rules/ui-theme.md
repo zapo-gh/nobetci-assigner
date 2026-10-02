@@ -9,11 +9,7 @@ Bu projede arayüz **yalnızca açık, canlı ve ferah** temayı kullanır. Tek 
 - Metin kontrastı en az 4.5:1 olmalı. Soluk metin için `--text-muted`.
 
 ## Görünüm ilkeleri
-- Genel his: canlı, belirgin, yüksek kontrastlı. Soluk/pastel yüzey ve ince gri çerçeve kullanma; kenarlıklar 2px, gölgeler belirgin.
-- Üst başlık: tam genişlikte `--header-gradient` şerit, beyaz yazı; gün seçici cam efektli, aktif gün beyaz.
-- Zemin: `--bg-gradient` (lavanta/pembe/nane geçişi), kartlar beyaz (`--surface`) ve derin gölgeli.
-- Kart başlığı kendi tonunda dolgulu: sınıf kartı seviye rengiyle (`data-level`), öğretmen kartı `data-tone="1..6"` ile dönüşümlü renkte.
-- Sekmeler dolu hap butonlar; aktif sekme grubunun renginde dolgulu (`data-group="data|plan|output"`).
+- Zemin: `--bg-gradient` (çok hafif lavanta/pembe geçiş), kartlar beyaz (`--surface`) ve yumuşak gölgeli.
 - Cömert boşluk: kart aralığı `--card-gap`, kart içi `--card-padding`, bölümler arası `--section-gap`.
 - Yuvarlak hatlar: kartlar `--radius-md`, paneller `--radius-lg`, butonlar `--radius-sm`, gün seçici ve rozetler `--radius-pill`.
 - Ana eylemler ve aktif öğeler `--primary-gradient` ile; sıradan butonlar beyaz zeminli çerçeveli.
@@ -29,10 +25,7 @@ Bu projede arayüz **yalnızca açık, canlı ve ferah** temayı kullanır. Tek 
 ## Bileşen kalıpları (theme.css'te hazır)
 - Başlık: `.app-header`, `.app-logo`, `.app-title`, `.app-subtitle`
 - Gün seçici: `.day-switcher` + `.day-pill[aria-selected]`
-- Sekmeler: `.tabs` + `.tab[aria-selected][data-group]`; tüm sekmelerde ikon, tek satır etiket, gruplar arası `.tab-group-sep`
-- Filtre çipleri: `.filter-chip[aria-pressed]` (seviye çiplerinde `data-level`)
-- Avatar boş daire olarak bırakılmaz; baş harf veya ikon göster
-- Panel üst şeridi `.panel-accent` yalnızca üst kenarda olur, yan kenarlara taşmaz
+- Sekmeler: `.tabs` + `.tab[aria-selected]`; tüm sekmelerde ikon, tek satır etiket, gruplar arası `.tab-group-sep`
 - Sekme şeridi ile altındaki panel arasında her zaman `--space-6` boşluk bırak (`.tabs` margin-bottom).
 - Araç çubuğu: `.toolbar`; içerik paneli: `.panel`
 - Kartlar: `.card-grid` içinde `.card`; sınıf kartı `.card.class-card[data-level]`; öğretmen kartında `.avatar`

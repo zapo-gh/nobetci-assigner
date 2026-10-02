@@ -27,19 +27,21 @@ export default function ClassesSection({
 
   return (
     <div role="tabpanel" id="panel-classes" aria-labelledby="tab-classes">
-      <div className="section-toolbar">
-        <button className="btn-secondary" onClick={onAddClass}>
+      <div className="toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <button className="btn btn-primary" onClick={onAddClass}>
           <span style={{ marginRight: '4px', fontWeight: 'bold' }}>+</span>
           <IconComponent name="home" size={16} />
           <span className="btn-text">Yeni Sınıf Ekle</span>
         </button>
-        <div className="toolbar-spacer"></div>
-        {classes.length > 0 && (
-          <button className="btn-outline btn-sm" onClick={onDeleteAllClasses} title="Tüm sınıfları sil">
-            <IconComponent name="trash" size={14} />
-            <span>Tümünü Sil</span>
-          </button>
-        )}
+        
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+          {classes.length > 0 && (
+            <button className="btn btn-danger" onClick={onDeleteAllClasses} title="Tüm sınıfları sil">
+              <IconComponent name="trash" size={14} />
+              <span>Tümünü Sil</span>
+            </button>
+          )}
+        </div>
       </div>
       <ModernClassAvailabilityGrid
         classes={classesForCurrentDay}

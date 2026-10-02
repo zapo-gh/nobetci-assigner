@@ -248,7 +248,11 @@ export function useAbsentManager({
               const daySchedule = resolveDaySchedule(entry.schedule, scheduleDayKey);
               const otherClassName = daySchedule?.[period];
               if (!otherClassName) return null;
-              if (normalizeClassKey(otherClassName) !== normalizedClassKey) return null;
+              
+              const classNames = typeof otherClassName === 'string' ? otherClassName.split(',').map(s => s.trim()) : [otherClassName];
+              const isMatch = classNames.some(cName => normalizeClassKey(cName) === normalizedClassKey);
+              
+              if (!isMatch) return null;
               return {
                 teacherId: entry.teacherId,
                 displayName: entry.displayName,
@@ -312,13 +316,16 @@ export function useAbsentManager({
 
           const classListForDay = Array.from(new Set(Object.values(scheduleForDay).filter(Boolean)));
           logger.log(`[addAbsent] classListForDay for ${uiDay}:`, classListForDay);
-          classListForDay.forEach((className) => {
-            const canonicalLabel = String(className).trim();
-            if (!canonicalLabel) return;
-            const key = normalizeClassKey(canonicalLabel);
-            if (!classNamesToResolve.has(key)) {
-              classNamesToResolve.set(key, canonicalLabel);
-            }
+          classListForDay.forEach((rawClassName) => {
+            const classNames = typeof rawClassName === 'string' ? rawClassName.split(',').map(s => s.trim()) : [rawClassName];
+            classNames.forEach((className) => {
+              const canonicalLabel = String(className).trim();
+              if (!canonicalLabel) return;
+              const key = normalizeClassKey(canonicalLabel);
+              if (!classNamesToResolve.has(key)) {
+                classNamesToResolve.set(key, canonicalLabel);
+              }
+            });
           });
         });
 
@@ -471,32 +478,35 @@ export function useAbsentManager({
               logger.log(`[addAbsent] Skipping: className="${effectiveClassName}", period=${period}`);
               return;
             }
-            const normalizedKey = normalizeClassKey(effectiveClassName);
-            const id = classNameToId.get(normalizedKey);
-            logger.log(`[addAbsent] className="${effectiveClassName}", normalizedKey="${normalizedKey}", id=${id}`);
-            if (!id) {
-              logger.warn(
-                `[addAbsent] Sınıf ID bulunamadı: "${effectiveClassName}" (normalized: "${normalizedKey}")`,
+            
+            const classNames = typeof effectiveClassName === 'string' ? effectiveClassName.split(',').map(s => s.trim()) : [effectiveClassName];
+            
+            classNames.forEach((cName) => {
+              const normalizedKey = normalizeClassKey(cName);
+              const id = classNameToId.get(normalizedKey);
+              logger.log(`[addAbsent] className="${cName}", normalizedKey="${normalizedKey}", id=${id}`);
+              if (!id) {
+                logger.warn(
+                  `[addAbsent] Sınıf ID bulunamadı: "${cName}" (normalized: "${normalizedKey}")`,
+                );
+                return;
+              }
+              const baseFreeOp = { day: uiDay, period, classId: id };
+              const baseAbsenceOp = { day: uiDay, period, classId: id, absentId, allowDuty: true };
+              const overlaps = findOverlappingTeachers(scheduleDayKey, period, normalizedKey);
+              pendingAssignments.push({
+                baseFreeOp,
+                baseAbsenceOp,
+                className: String(cName).trim(),
+                isTwelfthGrade: isTwelfthGradeClassName(cName),
+                overlaps,
+                dayLabel: dayLabelMap.get(uiDay) || uiDay,
+              });
+              logger.log(
+                `[addAbsent] Pending ops for day ${uiDay}, period ${period}, classId ${id}, overlaps:`,
+                overlaps,
               );
-              logger.warn(`[addAbsent] classNameToId keys:`, Array.from(classNameToId.keys()));
-              logger.warn(`[addAbsent] classNameToId entries:`, Array.from(classNameToId.entries()));
-              return;
-            }
-            const baseFreeOp = { day: uiDay, period, classId: id };
-            const baseAbsenceOp = { day: uiDay, period, classId: id, absentId, allowDuty: true };
-            const overlaps = findOverlappingTeachers(scheduleDayKey, period, normalizedKey);
-            pendingAssignments.push({
-              baseFreeOp,
-              baseAbsenceOp,
-              className: String(effectiveClassName).trim(),
-              isTwelfthGrade: isTwelfthGradeClassName(effectiveClassName),
-              overlaps,
-              dayLabel: dayLabelMap.get(uiDay) || uiDay,
             });
-            logger.log(
-              `[addAbsent] Pending ops for day ${uiDay}, period ${period}, classId ${id}, overlaps:`,
-              overlaps,
-            );
           });
         });
 

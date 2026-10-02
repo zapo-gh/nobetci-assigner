@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import AbsenteeList from './AbsenteeList.jsx';
+import AbsenteeList from './AbsenteeList';
 
 export default function AbsentsSection({
   absentPeople,
@@ -16,21 +16,34 @@ export default function AbsentsSection({
 
   return (
     <div role="tabpanel" id="panel-absents" aria-labelledby="tab-absents">
-      <div className="section-toolbar">
-        <button className="btn-secondary" onClick={onAddAbsent}>
-          <span style={{ marginRight: '4px', fontWeight: 'bold' }}>+</span>
+      <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <button className="btn btn-primary" onClick={onAddAbsent}>
           <IconComponent name="userX" size={16} />
-          <span className="btn-text">Yeni Mazeretli Ekle</span>
+          <span>Yeni Mazeretli Ekle</span>
         </button>
-        <div className="toolbar-spacer"></div>
         {absentPeople.length > 0 && (
-          <button className="btn-outline btn-sm" onClick={onDeleteAllAbsents} title="Tüm mazeretleri sil">
+          <button className="btn btn-danger" onClick={onDeleteAllAbsents} title="Tüm mazeretleri sil">
             <IconComponent name="trash" size={14} />
             <span>Tümünü Sil</span>
           </button>
         )}
       </div>
-      <AbsenteeList absentPeople={absentPeopleForCurrentDay} onDelete={onDeleteAbsent} IconComponent={IconComponent} />
+
+      {(!absentPeopleForCurrentDay || absentPeopleForCurrentDay.length === 0) ? (
+        <div className="empty-state">
+           <div className="empty-state-icon">
+             <IconComponent name="userX" size={42} />
+           </div>
+           <h3>Henüz Mazeret Eklenmedi</h3>
+           <p>Bugün için sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor.</p>
+           <button className="btn btn-primary" onClick={onAddAbsent}>
+             <IconComponent name="userX" size={16} />
+             <span>Yeni Mazeretli Ekle</span>
+           </button>
+        </div>
+      ) : (
+        <AbsenteeList absentPeople={absentPeopleForCurrentDay} onDelete={onDeleteAbsent} IconComponent={IconComponent} />
+      )}
     </div>
   );
 }
