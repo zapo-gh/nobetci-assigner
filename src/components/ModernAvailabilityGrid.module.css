@@ -1,0 +1,3 @@
+.bgError { background-color: var(--error); }
+.bgWarning { background-color: var(--warning); }
+.bgSuccess { background-color: var(--success); }

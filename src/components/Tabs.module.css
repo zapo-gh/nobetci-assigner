@@ -1,0 +1,336 @@
+.tabsContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-top: var(--space-2);
+}
+
+.tabsTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: var(--space-4);
+}
+
+.tabsList {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  justify-content: stretch;
+  position: relative;
+  gap: var(--space-1);
+  /* Daha küçük gap başlangıçta */
+}
+
+.tabItem {
+  flex: 1 1 0;
+  min-width: 80px;
+  /* Minimum tab genişliği */
+  max-width: 100%;
+  text-align: center;
+  /* İçeriği ortala */
+  background: var(--tab-bg, var(--bg-elevated));
+  border: 1px solid var(--border-default);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  transition: all var(--transition-default) ease;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.tabItem:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tabItem:hover:not(.active) {
+  color: var(--text-primary);
+  background-color: var(--tab-bg-hover, var(--bg-hover));
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.tabItem.active:hover {
+  background-color: var(--tab-bg-active, var(--primary));
+  box-shadow: none;
+  transform: none;
+}
+
+.tabItem.active {
+  color: var(--tab-text-active, #fff);
+  font-weight: var(--font-weight-semibold);
+  background-color: var(--tab-bg-active, var(--primary));
+  border-color: var(--tab-bg-active, var(--primary));
+  position: relative;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  transform: none;
+}
+
+.tabItem:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tabItem:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.tabIndicator {
+  display: none;
+}
+
+.tabIcon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.tabLabel {
+  display: inline-block;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .tabsContainer {
+    padding: 0 var(--space-1);
+    margin-top: var(--space-3);
+  }
+
+  .tabsList {
+    gap: var(--space-1);
+  }
+
+  .tabItem {
+    min-width: 85px;
+    padding: var(--space-3) var(--space-3);
+  }
+}
+
+@media (max-width: 900px) {
+  .tabsContainer {
+    padding: 0 var(--space-1);
+    margin-top: var(--space-3);
+  }
+
+  .tabsList {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    scrollbar-width: thin;
+    gap: var(--space-1);
+  }
+
+  .tabsList::-webkit-scrollbar {
+    height: 2px;
+  }
+
+  .tabsList::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 1px;
+  }
+
+  .tabItem {
+    flex-shrink: 0;
+    min-width: 75px;
+    padding: var(--space-2) var(--space-2);
+  }
+}
+
+@media (max-width: 768px) {
+  .tabsContainer {
+    padding: 0;
+    margin-top: var(--space-3);
+  }
+
+  .tabsList {
+    gap: 2px;
+  }
+
+  .tabItem {
+    min-width: 65px;
+    padding: var(--space-2) var(--space-1);
+    font-size: 0.9rem;
+  }
+
+  .tabItem:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .tabItem.active {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .tabIcon {
+    font-size: 1.05rem;
+  }
+
+  .tabLabel {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .tabsContainer {
+    margin-top: var(--space-2);
+  }
+
+  .tabItem {
+    min-width: 55px;
+    padding: var(--space-1);
+    gap: 2px;
+  }
+
+  .tabItem:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .tabItem.active {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .tabIndicator {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabsContainer {
+    padding: 0;
+    margin-top: var(--space-2);
+  }
+
+  .tabItem {
+    min-width: 50px;
+    font-size: 0.8rem;
+    padding: var(--space-1);
+    justify-content: center;
+    /* İkonları ortaya hizala */
+  }
+
+  .tabItem:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .tabItem.active {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .tabIcon {
+    font-size: 0.95rem;
+  }
+
+  .tabLabel {
+    display: none;
+  }
+
+  .tabIndicator {
+    display: none;
+  }
+}
+
+.themeToggleBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  padding: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.themeToggleBtn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(var(--primary-rgb, 0), 0.05);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.themeToggleBtn:hover::before {
+  opacity: 1;
+}
+
+.themeToggleBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.themeToggleBtn:active {
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.themeToggleBtn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.themeToggleBtn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.themeToggleBtn:hover svg {
+  transform: scale(1.1);
+}
+
+/* Mobil uyumlu header butonları */
+@media (max-width: 1024px) {
+  .themeToggleBtn {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 6px !important;
+  }
+
+  .themeToggleBtn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .themeToggleBtn {
+    width: 28px !important;
+    height: 28px !important;
+    padding: 4px !important;
+  }
+
+  .themeToggleBtn svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+}
