@@ -3,6 +3,7 @@ import React from 'react';
 import AddTeacherModal from "./AddTeacherModal.jsx";
 import AddClassModal from "./AddClassModal.jsx";
 import AddAbsentModal from "./AddAbsentModal.jsx";
+import AddZoneModal from "./AddZoneModal.jsx";
 import CommonLessonModal from "./CommonLessonModal.jsx";
 import ConfirmationModal from "./ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./PdfScheduleImportModal.jsx";
@@ -15,6 +16,7 @@ export default function GlobalModals({
     addTeacher,
     addClass,
     addAbsent,
+    addZone,
     day,
     DAYS,
     scheduledTeacherOptions,
@@ -48,6 +50,14 @@ export default function GlobalModals({
 
     return (
         <>
+            {modals.zone && (
+                <AddZoneModal
+                    isOpen={modals.zone}
+                    onClose={() => setModals(m => ({ ...m, zone: false }))}
+                    onSubmit={addZone}
+                />
+            )}
+
             {modals.teacher && (
                 <AddTeacherModal
                     isOpen={modals.teacher}

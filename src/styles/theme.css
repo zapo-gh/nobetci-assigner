@@ -112,12 +112,16 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
   box-shadow: 0 8px 24px rgba(79, 70, 229, .25);
 }
 .app-logo {
-  width: 44px; height: 44px; border-radius: var(--radius-md);
+  width: 64px; height: 64px; border-radius: var(--radius-md);
   display: grid; place-items: center; color: var(--primary);
   background: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
+  overflow: hidden;
 }
-.app-title { font-size: 1.7rem; line-height: 1.2; color: #fff; }
-.app-subtitle { color: rgba(255, 255, 255, .85); font-size: .92rem; margin-top: 2px; font-weight: 500; }
+.app-logo img {
+  width: 100%; height: 100%; object-fit: contain;
+}
+.app-title { font-size: 1.7rem; line-height: 1; color: #fff; margin: 0; }
+.app-subtitle { color: rgba(255, 255, 255, .85); font-size: 0.95rem; font-weight: 500; margin: 0; line-height: 1; }
 
 /* ================= GÃƒÂ¼n seÃƒÂ§ici (cam efekti, beyaz aktif) ================= */
 .day-switcher {
@@ -126,12 +130,25 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
   border-radius: var(--radius-pill); backdrop-filter: blur(8px);
 }
 .day-pill {
+  position: relative;
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill);
   color: #fff; font-weight: 700; background: transparent; border: 0;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .day-pill:hover { background: rgba(255, 255, 255, .25); }
 .day-pill[aria-selected="true"] { background: #fff; color: var(--primary); box-shadow: 0 6px 16px rgba(0, 0, 0, .22); }
+.day-pill.is-today::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+}
 .day-pill .day-num { opacity: .75; font-weight: 600; margin-left: 4px; font-size: .8em; }
 
 /* ================= Sekmeler (dolu hap butonlar, gruba gÃ¶re renk) ================= */
@@ -193,7 +210,7 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 
 /* ================= Form elemanlarÄ± (tek kenarlÄ±k) ================= */
 .input {
-  width: 100%; padding: 8px 14px; min-width: 220px;
+  width: 100%; padding: 10px 14px; min-width: 220px;
   background: #fff; color: var(--text); font-size: 0.95rem;
   border: 2px solid var(--border-strong); border-radius: var(--radius-sm); outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
@@ -322,7 +339,7 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 .empty-state p { color: var(--text-muted); max-width: 420px; margin: 0 auto var(--space-5); }
 
 /* ================= EriÃ…Å¸ilebilirlik ================= */
-:focus-visible { outline: 3px solid rgba(79, 70, 229, .6); outline-offset: 2px; border-radius: var(--radius-sm); }
+:focus-visible { outline: none; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* ================= Teacher Schedule Modal ================= */

@@ -75,6 +75,65 @@ const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComp
     return colors[index % colors.length] || '#6b7280';
   };
 
+  const shortenSubjectName = (subject) => {
+    if (!subject) return '';
+    
+    const mappings = {
+      'TÜRK DİLİ VE EDEBİYATI': 'TDE',
+      'MESLEKİ GELİŞİM ATÖLYESİ': 'MGA',
+      'TARİH': 'Trh',
+      'KİMYA': 'Kmy',
+      'COĞRAFYA': 'Coğr',
+      'BİYOLOJİ': 'Biy',
+      'MATEMATİK': 'Mat',
+      'FİZİK': 'Fiz',
+      'İNGİLİZCE': 'İng',
+      'BEDEN EĞİTİMİ VE SPOR': 'BES',
+      'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 'DKAB',
+      'FELSEFE': 'Fel',
+      'GÖRSEL SANATLAR': 'GS',
+      'MÜZİK': 'Müz',
+      'REHBERLİK': 'Reh',
+      'SAĞLIK BİLGİSİ VE TRAFİK KÜLTÜRÜ': 'SBTK',
+      'BİLİŞİM TEKNOLOJİLERİNİN TEMELLERİ': 'BTT',
+      'PROGRAMLAMA TEMELLERİ': 'PT',
+      'BİLGİSAYARLI TASARIM UYGULAMALARI': 'BTU',
+      'SEÇMELİ': 'S.'
+    };
+
+    let upperSubject = subject.toLocaleUpperCase('tr-TR').trim();
+
+    for (const [key, value] of Object.entries(mappings)) {
+      if (upperSubject.includes(key) && key !== 'SEÇMELİ') {
+        if (upperSubject.includes('SEÇMELİ')) {
+          return 'S.' + value;
+        }
+        return value;
+      }
+    }
+
+    const words = subject.split(/[\s-]+/).filter(w => w.toLowerCase('tr-TR') !== 've' && w.length > 0);
+    
+    if (words.length > 1) {
+      return words.map(w => w.charAt(0).toLocaleUpperCase('tr-TR')).join('');
+    } else {
+      if (subject.length <= 4) return subject;
+      let firstPart = subject.substring(0, 3);
+      return firstPart.charAt(0).toLocaleUpperCase('tr-TR') + firstPart.substring(1).toLocaleLowerCase('tr-TR');
+    }
+  };
+
+  const extractSubjectName = (fullClassName) => {
+    if (!fullClassName || !fullClassName.trim()) return '';
+    const text = String(fullClassName).trim();
+    const classCode = extractClassCode(text);
+    if (!classCode) return '';
+    
+    let subject = text.substring(classCode.length).trim();
+    subject = subject.replace(/^[\s\-\/\:]+/, '').trim();
+    return subject;
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${teacherName} - Ders Programı`} size="large">
       <div className="teacher-schedule-modal">
@@ -98,6 +157,8 @@ const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComp
                   {periods.map(period => {
                     const fullClassName = schedule[dayKey]?.[period];
                     const classCode = extractClassCode(fullClassName);
+                    const subjectText = extractSubjectName(fullClassName);
+                    const shortSubject = shortenSubjectName(subjectText);
                     const isEmpty = !classCode || classCode.trim() === '';
                     
                     return (
@@ -105,12 +166,23 @@ const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComp
                         {isEmpty ? (
                           <span className="empty-indicator">-</span>
                         ) : (
-                          <span 
+                          <div 
                             className="class-badge"
-                            style={{ backgroundColor: getClassColor(fullClassName) }}
+                            style={{ 
+                              backgroundColor: getClassColor(fullClassName), 
+                              display: 'inline-flex', 
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              whiteSpace: 'nowrap'
+                            }}
                           >
-                            {classCode}
-                          </span>
+                            <span style={{ fontWeight: 'bold' }}>{classCode}</span>
+                            {shortSubject && (
+                              <span style={{ fontSize: '0.85em', opacity: 0.9, marginTop: '2px' }}>
+                                {shortSubject}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                     );

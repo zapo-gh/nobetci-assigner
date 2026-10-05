@@ -448,7 +448,18 @@ function extractClassFromCell(cell) {
     const grade = m[1];
     const branch = m[2];
     const baseClass = branch.length === 1 ? `${grade}-${branch}` : `${grade} ${branch}`;
-    return prefixes.map(p => `${p}${baseClass}`).join(', ');
+    const classCode = prefixes.map(p => `${p}${baseClass}`).join(', ');
+    
+    // Attempt to extract the subject
+    const matchIndex = text.indexOf(m[0]);
+    let subject = text.substring(0, matchIndex) + text.substring(matchIndex + m[0].length);
+    subject = subject.replace(/AMP/g, '').replace(/ATP/g, '').replace(/MESEM/g, '');
+    subject = subject.replace(/^[-\s\/]+/, '').replace(/[-\s\/]+$/, '').trim();
+    
+    if (subject.length > 0) {
+      return `${classCode} - ${subject}`;
+    }
+    return classCode;
   }
 
   // Check for specific known non-standard class names

@@ -13,12 +13,12 @@ const DAY_LABELS = {
 export default function AbsenteeList({ absentPeople, onDelete, IconComponent }) {
   if (!absentPeople || absentPeople.length === 0) {
     return (
-      <div className="empty-state">
-         <div className="empty-state-icon">
-           <IconComponent name="userX" size={42} />
-         </div>
-         <h3>Henüz Mazeret Eklenmedi</h3>
-      </div>
+      <EmptyState
+        IconComponent={IconComponent}
+        icon="userX"
+        title="Henüz Mazeret Eklenmedi"
+        description="Bugün için sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor."
+      />
     );
   }
 

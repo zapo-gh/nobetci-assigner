@@ -172,7 +172,7 @@ export default function AssignmentText({
           rows={Math.max(5, text.length)}
           className={styles.textarea}
         />
-        <div className={styles.toolbar}>
+        <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', paddingBottom: '4px', clear: 'both', width: '100%' }}>
           <button onClick={copy} className="btn">Metni Kopyala</button>
         </div>
       </div>

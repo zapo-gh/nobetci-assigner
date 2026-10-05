@@ -65,54 +65,53 @@ export default function CourseScheduleSection({
 
   return (
     <div role="tabpanel" id="panel-courseSchedule" aria-labelledby="tab-courseSchedule">
-      <div className="card" style={{ margin: '0 24px' }}>
-        <div className="toolbar" style={{ borderBottom: '1px solid var(--border-subtle)', borderRadius: '16px 16px 0 0' }}>
-              <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
-                <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
-                  <IconComponent name="search" size={16} />
-                </div>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Öğretmen ara..."
-                  style={{ paddingLeft: '36px' }}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    title="Temizle"
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      padding: '2px'
-                    }}
-                  >
-                    <IconComponent name="x" size={14} />
-                  </button>
-                )}
-              </div>
-              
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                <input type="file" accept=".pdf,.xlsx,.xls" onChange={onUpload} style={{ display: 'none' }} id={uploadInputId} />
-                <label htmlFor={uploadInputId} className="btn btn-primary" title="Öğretmen El Programı Yükle">
-                  <IconComponent name="upload" size={16} />
-                  <span className="btn-text">Öğretmen El Programı Yükle</span>
-                </label>
-                {teacherSchedulesList.length > 0 && (
-                  <button className="btn btn-danger" onClick={onDeleteAllSchedules} title="Tüm ders programlarını sil">
-                    <IconComponent name="trash" size={14} />
-                    <span>Tümünü Sil</span>
-                  </button>
-                )}
-              </div>
-            </div>
+      <div className="toolbar">
+        <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
+          <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
+            <IconComponent name="search" size={16} />
+          </div>
+          <input
+            type="text"
+            className="input"
+            placeholder="Öğretmen ara..."
+            style={{ paddingLeft: '36px' }}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              title="Temizle"
+              style={{
+                position: 'absolute',
+                right: '12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                padding: '2px'
+              }}
+            >
+              <IconComponent name="x" size={14} />
+            </button>
+          )}
+        </div>
+        
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+          <input type="file" accept=".pdf,.xlsx,.xls" onChange={onUpload} style={{ display: 'none' }} id={uploadInputId} />
+          <label htmlFor={uploadInputId} className="btn btn-primary" title="Öğretmen El Programı Yükle">
+            <IconComponent name="upload" size={16} />
+            <span className="btn-text">Öğretmen El Programı Yükle</span>
+          </label>
+          {teacherSchedulesList.length > 0 && (
+            <button className="btn btn-danger" onClick={onDeleteAllSchedules} title="Tüm ders programlarını sil">
+              <IconComponent name="trash" size={14} />
+              <span>Tümünü Sil</span>
+            </button>
+          )}
+        </div>
+      </div>
 
             {teacherSchedulesList.length === 0 ? (
               <div className="empty-state">
@@ -130,7 +129,8 @@ export default function CourseScheduleSection({
                     <div className="empty-state-icon">
                       <IconComponent name="search" size={32} />
                     </div>
-                    <p>Sonuç bulunamadı</p>
+                    <h3>Sonuç Bulunamadı</h3>
+                    <p>Arama kriterlerinize uygun sonuç bulunamadı.</p>
                   </div>
                 ) : (
                 filteredTeacherSchedules.map(([teacherName, schedule], index) => {
@@ -190,7 +190,6 @@ export default function CourseScheduleSection({
                 </div>
               </div>
             )}
-      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@
   background-color: var(--bg-elevated);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
+  overflow: auto;
 }
 
 .title {
@@ -23,6 +24,7 @@
   font-family: var(--font-family-sans);
   font-size: 0.9rem;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .textarea:focus {
@@ -32,9 +34,11 @@
 }
 
 .toolbar {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .printOnly {

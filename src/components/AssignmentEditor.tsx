@@ -310,11 +310,11 @@ function AssignmentEditor({
             {sortedClasses.length === 0 ? (
               <tr>
                 <td colSpan={periods.length + 1} style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--surface)' }}>
-                  <div className="empty-state" style={{ background: 'transparent', border: 'none', padding: 0 }}>
-                    <div className="empty-state-icon">
+                  <div className="empty-state" style={{ background: 'transparent', border: 'none', padding: 0, textTransform: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div className="empty-state-icon" style={{ margin: '0 auto', marginBottom: '16px' }}>
                       <IconComponent name="info" size={32} />
                     </div>
-                    <p style={{ margin: 0, marginTop: '12px', color: 'var(--text-muted)' }}>Seçili gün için kayıtlı ders programı bulunmamaktadır.</p>
+                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem', textTransform: 'none', textAlign: 'center' }}>Seçili gün için herhangi bir planlama bulunmamaktadır.</p>
                   </div>
                 </td>
               </tr>

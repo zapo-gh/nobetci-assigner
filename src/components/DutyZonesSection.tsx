@@ -64,35 +64,24 @@ export default function DutyZonesSection({
   };
 
   return (
-    <div className="dz-section">
-      <div className="dz-header">
-        <div className="dz-title">
-          <div className="dz-icon-wrapper">
-            <IconComponent name="mapPin" size={24} />
-          </div>
-          <h2>Nöbet Yerleri</h2>
-          <span className="dz-badge">{dutyZones?.length || 0} Bölge</span>
-        </div>
+    <div role="tabpanel" id="panel-duty-zones" aria-labelledby="tab-duty-zones">
+      <div className="toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={onAddZone}>
           <IconComponent name="plus" size={16} />
-          <span>Yeni Bölge Ekle</span>
+          <span className="btn-text">Nöbet Yeri Ekle</span>
         </button>
       </div>
       
-      <div className="dz-content">
-        {(!dutyZones || dutyZones.length === 0) ? (
-          <div className="dz-empty-state">
-            <div className="dz-empty-icon">
-              <IconComponent name="info" size={48} />
-            </div>
-            <h3>Henüz nöbet yeri eklenmemiş</h3>
-            <p>Excel'den nöbet listesi yüklediğinizde nöbet yerleri otomatik olarak oluşturulur veya manuel ekleyebilirsiniz.</p>
-            <button className="btn btn-primary" onClick={onAddZone}>
-              <IconComponent name="plus" size={16} />
-              <span>Yeni Nöbet Yeri Ekle</span>
-            </button>
+      {(!dutyZones || dutyZones.length === 0) ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <IconComponent name="info" size={32} />
           </div>
-        ) : (
+          <h3>Henüz Nöbet Yeri Eklenmedi</h3>
+          <p>Excel'den nöbet listesi yüklediğinizde nöbet yerleri otomatik olarak oluşturulur veya manuel ekleyebilirsiniz.</p>
+        </div>
+      ) : (
+        <div style={{ padding: '24px' }}>
           <div className="dz-grid">
             {dutyZones.map((zone, index) => (
               <div 
@@ -110,7 +99,9 @@ export default function DutyZonesSection({
                         onClick={() => onDeleteZone(zone.zoneId)}
                         title="Sil"
                       >
-                        <IconComponent name="trash" size={16} />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px' }}>
+                          <IconComponent name="trash" size={16} />
+                        </div>
                       </button>
                     )}
                   </div>
@@ -124,8 +115,8 @@ export default function DutyZonesSection({
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {uniqueLocations.length > 0 && (
         <div style={{ marginTop: '30px' }}>
@@ -297,14 +288,13 @@ export default function DutyZonesSection({
         }
 
         .dz-card {
-          background: var(--bg-default);
-          border: 1px solid var(--border-subtle);
+          background: var(--surface, #ffffff);
+          border: 1px solid var(--border-strong, #e5e7eb);
           border-radius: var(--radius-lg);
           position: relative;
           overflow: hidden;
-          transition: all var(--transition-default) ease;
-          animation: fadeUpIn 0.5s ease both;
-          box-shadow: var(--shadow-sm);
+          transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+          box-shadow: var(--shadow-card);
         }
 
         @keyframes fadeUpIn {
@@ -314,8 +304,8 @@ export default function DutyZonesSection({
 
         .dz-card:hover {
           transform: translateY(-4px);
-          box-shadow: var(--shadow-md);
-          border-color: var(--border-focus);
+          box-shadow: var(--shadow-lg);
+          border-color: var(--primary);
         }
 
         .dz-card-bg-gradient {
@@ -323,8 +313,8 @@ export default function DutyZonesSection({
           top: 0;
           left: 0;
           right: 0;
-          height: 3px;
-          background: var(--gradient-primary);
+          height: 4px;
+          background: var(--primary-gradient);
           opacity: 0;
           transition: opacity var(--transition-default);
         }
@@ -347,30 +337,42 @@ export default function DutyZonesSection({
 
         .dz-zone-name {
           margin: 0;
-          font-size: 1rem;
-          font-weight: var(--font-weight-semibold);
+          font-size: 1.1rem;
+          font-weight: 700;
           color: var(--text-primary);
           line-height: 1.4;
         }
 
         .dz-delete-btn {
-          background: var(--error-bg);
-          color: var(--error);
-          border: 1px solid transparent;
+          background: #fee2e2;
+          color: #dc2626;
+          border: none;
           border-radius: var(--radius-md);
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           transition: all var(--transition-fast);
           flex-shrink: 0;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .dz-delete-btn svg {
+          stroke: currentColor !important;
+          flex-shrink: 0;
+        }
+
+        .dz-card:hover .dz-delete-btn {
+          opacity: 1;
+          pointer-events: auto;
         }
 
         .dz-delete-btn:hover {
-          background: var(--error);
-          color: var(--text-on-primary);
+          background: #dc2626;
+          color: #ffffff;
           transform: scale(1.05);
         }
 

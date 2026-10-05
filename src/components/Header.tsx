@@ -32,27 +32,30 @@ function Header({
     <header className="app-header">
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div className="app-logo">
-          <Icon name="shield" size={24} />
+          <img src="/logo.png" alt="Logo" />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '64px', padding: '2px 0' }}>
           <h1 className="app-title">Nöbetçi Öğretmen Görevlendirme</h1>
           <div className="app-subtitle">{dateString}</div>
         </div>
       </div>
 
       <div className="day-switcher">
-        {DAYS.map((dayObj, i) => (
-          <button
-            key={dayObj.key}
-            className="day-pill"
-            aria-selected={day === dayObj.key}
-            onClick={() => handleDayChange(dayObj.key)}
-            title={dayObj.label}
-          >
-            {dayObj.short}
-            <span className="day-num">{weekDates[i]}</span>
-          </button>
-        ))}
+        {DAYS.map((dayObj, i) => {
+          const isToday = today.getDay() === i + 1; // 0 is Sunday, 1 is Monday. i=0 is Monday.
+          return (
+            <button
+              key={dayObj.key}
+              className={`day-pill ${isToday ? 'is-today' : ''}`}
+              aria-selected={day === dayObj.key}
+              onClick={() => handleDayChange(dayObj.key)}
+              title={dayObj.label}
+            >
+              {dayObj.short}
+              <span className="day-num">{weekDates[i]}</span>
+            </button>
+          );
+        })}
       </div>
     </header>
   );

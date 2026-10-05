@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React from 'react'
+import EmptyState from './EmptyState';
 
 export default function ModernClassAvailabilityGrid({
   classes,
@@ -101,8 +102,13 @@ export default function ModernClassAvailabilityGrid({
           <tbody>
             {classes.length === 0 ? (
               <tr>
-                <td colSpan={periods.length + 2} className="text-center text-muted p-4">
-                  Henüz sınıf eklenmedi. Lütfen "Sınıflar" sekmesinden ekleyin.
+                <td colSpan={periods.length + 2} style={{ padding: '48px 0' }}>
+                  <EmptyState
+                    IconComponent={IconComponent}
+                    icon="home"
+                    title="Henüz Sınıf Eklenmedi"
+                    description='Yeni bir sınıf eklemek için yukarıdaki "Yeni Sınıf Ekle" butonunu kullanabilirsiniz.'
+                  />
                 </td>
               </tr>
             ) : (

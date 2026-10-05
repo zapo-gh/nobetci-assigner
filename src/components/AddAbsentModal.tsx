@@ -12,6 +12,78 @@ const REASON_OPTIONS = [
   { value: 'Diğer', label: 'Diğer' }
 ];
 
+const S = {
+  label: {
+    display: 'block',
+    marginBottom: '6px',
+    fontWeight: 600,
+    fontSize: '0.875rem',
+    color: '#374151',
+  } as React.CSSProperties,
+  input: (hasError: boolean) => ({
+    width: '100%',
+    padding: '10px 14px',
+    fontSize: '0.95rem',
+    border: hasError ? '2px solid #ef4444' : '1.5px solid #d1d5db',
+    borderRadius: '10px',
+    outline: 'none',
+    boxSizing: 'border-box' as const,
+    background: '#fff',
+    color: '#111827',
+    fontFamily: 'inherit',
+  }),
+  hint: {
+    margin: '5px 0 0',
+    fontSize: '0.78rem',
+    color: '#6b7280',
+    lineHeight: 1.4,
+  } as React.CSSProperties,
+  error: {
+    margin: '5px 0 0',
+    fontSize: '0.78rem',
+    color: '#ef4444',
+  } as React.CSSProperties,
+  dayBox: {
+    padding: '10px 14px',
+    background: '#f9fafb',
+    border: '1.5px solid #e5e7eb',
+    borderRadius: '10px',
+    color: '#374151',
+    fontWeight: 600,
+    fontSize: '0.95rem',
+  } as React.CSSProperties,
+  actions: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'flex-end',
+    paddingTop: '16px',
+    borderTop: '1px solid #e5e7eb',
+    marginTop: '4px',
+  } as React.CSSProperties,
+  btnCancel: {
+    padding: '10px 22px',
+    borderRadius: '10px',
+    border: '1.5px solid #d1d5db',
+    background: '#fff',
+    color: '#374151',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  } as React.CSSProperties,
+  btnSubmit: (disabled: boolean) => ({
+    padding: '10px 22px',
+    borderRadius: '10px',
+    border: 'none',
+    background: disabled ? '#c7d2fe' : '#4338ca',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontFamily: 'inherit',
+  }),
+};
+
 export default function AddAbsentModal({
   isOpen,
   onClose,
@@ -21,11 +93,7 @@ export default function AddAbsentModal({
   teacherOptions = [],
   blockedTeacherNames = new Set(),
 }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    reason: 'Raporlu',
-    customReason: '',
-  });
+  const [formData, setFormData] = useState({ name: '', reason: 'Raporlu', customReason: '' });
   const [errors, setErrors] = useState({});
   const [selectedTeacher, setSelectedTeacher] = useState(null);
 
@@ -57,11 +125,7 @@ export default function AddAbsentModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setFormData({
-      name: '',
-      reason: 'Raporlu',
-      customReason: '',
-    });
+    setFormData({ name: '', reason: 'Raporlu', customReason: '' });
     setErrors({});
     setSelectedTeacher(null);
   }, [isOpen, currentDayKey]);
@@ -69,28 +133,17 @@ export default function AddAbsentModal({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handleTeacherInput = (value) => {
     const inputValue = value || '';
     setFormData(prev => ({ ...prev, name: inputValue }));
 
-    // Eğer liste boşsa eşleşmeye çalışmaya gerek yok
-    if (!preparedTeacherOptions.length) {
-      setSelectedTeacher(null);
-      return;
-    }
+    if (!preparedTeacherOptions.length) { setSelectedTeacher(null); return; }
 
-    // Kullanıcı yazarken sürekli eşleşme yapıp blur'a sebep olmamak için
-    // sadece datalist'ten seçildiği an (tam eşleşme olduğunda) teacher set edelim
     const normalized = normalizeForComparison(inputValue);
-    if (!normalized) {
-      setSelectedTeacher(null);
-      return;
-    }
+    if (!normalized) { setSelectedTeacher(null); return; }
 
     if (blockedSet.has(normalized)) {
       setSelectedTeacher(null);
@@ -98,15 +151,10 @@ export default function AddAbsentModal({
       return;
     }
 
-    const exactMatch = preparedTeacherOptions.find(
-      opt => opt.normalizedName === normalized
-    );
-
+    const exactMatch = preparedTeacherOptions.find(opt => opt.normalizedName === normalized);
     if (exactMatch) {
       setSelectedTeacher(exactMatch);
-      if (errors.name) {
-        setErrors(prev => ({ ...prev, name: '' }));
-      }
+      if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
     } else {
       setSelectedTeacher(null);
     }
@@ -118,30 +166,19 @@ export default function AddAbsentModal({
       newErrors.name = 'Önce ders programı yüklemelisiniz.';
     } else {
       const trimmed = formData.name.trim();
-      if (!trimmed) {
-        newErrors.name = 'Öğretmen adı zorunludur';
-      } else if (!selectedTeacher) {
-        newErrors.name = 'Listeden bir öğretmen seçmelisiniz';
-      } else if (blockedSet.has(normalizeForComparison(trimmed))) {
-        newErrors.name = 'Bu öğretmen seçili gün için zaten mazeretli';
-      }
+      if (!trimmed) newErrors.name = 'Öğretmen adı zorunludur';
+      else if (!selectedTeacher) newErrors.name = 'Listeden bir öğretmen seçmelisiniz';
+      else if (blockedSet.has(normalizeForComparison(trimmed))) newErrors.name = 'Bu öğretmen seçili gün için zaten mazeretli';
     }
-    if (!formData.reason) {
-      newErrors.reason = 'Neden seçilmelidir';
-    }
-    if (formData.reason === 'Diğer' && !formData.customReason.trim()) {
-      newErrors.customReason = 'Lütfen mazeret açıklaması girin';
-    }
+    if (!formData.reason) newErrors.reason = 'Neden seçilmelidir';
+    if (formData.reason === 'Diğer' && !formData.customReason.trim()) newErrors.customReason = 'Lütfen mazeret açıklaması girin';
     return newErrors;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const newErrors = validate();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     onSubmit({
       name: selectedTeacher?.teacherName || formData.name.trim(),
       teacherId: selectedTeacher?.teacherId,
@@ -160,189 +197,99 @@ export default function AddAbsentModal({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Okula Gelemeyen Öğretmen Ekle" size="small">
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="name" className="form-label">
-            Öğretmen Adı <span className="required">*</span>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+        {/* Öğretmen Adı */}
+        <div>
+          <label style={S.label}>
+            Öğretmen Adı <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <input
             type="text"
             id="name"
             name="name"
-            className={`input w-full ${errors.name ? 'error' : ''}`}
             value={formData.name}
             onChange={(e) => handleTeacherInput(e.target.value)}
             placeholder={preparedTeacherOptions.length ? 'Örn: Ayşe Yılmaz' : 'Önce ders programı yükleyin'}
             autoFocus
             list="absent-teacher-options"
+            style={S.input(!!errors.name)}
           />
           <datalist id="absent-teacher-options">
             {preparedTeacherOptions.map(option => (
               <option key={option.teacherId} value={option.teacherName} />
             ))}
           </datalist>
-          {errors.name && (
-            <span className="error-message">{errors.name}</span>
-          )}
+          {errors.name && <p style={S.error}>{errors.name}</p>}
           {!errors.name && !preparedTeacherOptions.length && (
-            <small className="form-hint">Mazeret eklemek için önce ders programını sisteme yükleyin.</small>
+            <p style={S.hint}>Mazeret eklemek için önce ders programını sisteme yükleyin.</p>
           )}
           {selectedTeacher === null && formData.name.trim() && preparedTeacherOptions.length > 0 && !errors.name && (
-            <span className="error-message" style={{ marginTop: '6px' }}>
-              Bu isimle eşleşen öğretmen bulunamadı. Lütfen listeden bir öğretmen seçin.
-            </span>
+            <p style={S.error}>Bu isimle eşleşen öğretmen bulunamadı. Lütfen listeden bir öğretmen seçin.</p>
           )}
         </div>
 
-        <div className="form-group">
-          <label htmlFor="reason" className="form-label">
-            Neden <span className="required">*</span>
+        {/* Neden */}
+        <div>
+          <label style={S.label}>
+            Neden <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <select
             id="reason"
             name="reason"
-            className={`input w-full ${errors.reason ? 'error' : ''}`}
             value={formData.reason}
             onChange={handleChange}
+            style={S.input(!!errors.reason)}
           >
             {REASON_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
+              <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          {errors.reason && <span className="error-message">{errors.reason}</span>}
-          <small className="form-hint">Öğretmenin okula gelememe nedeni</small>
+          {errors.reason && <p style={S.error}>{errors.reason}</p>}
+          <p style={S.hint}>Öğretmenin okula gelememe nedeni</p>
         </div>
 
+        {/* Diğer Mazeret */}
         {formData.reason === 'Diğer' && (
-          <div className="form-group custom-reason-field">
-            <label htmlFor="customReason" className="form-label">
-              Mazeret Açıklaması <span className="required">*</span>
+          <div>
+            <label style={S.label}>
+              Mazeret Açıklaması <span style={{ color: '#ef4444' }}>*</span>
             </label>
             <input
               type="text"
               id="customReason"
               name="customReason"
-              className={`input w-full ${errors.customReason ? 'error' : ''}`}
               value={formData.customReason}
               onChange={handleChange}
               placeholder="Örn: Eş Doğum İzni, Mahkeme"
               maxLength={50}
+              style={S.input(!!errors.customReason)}
             />
-            {errors.customReason && <span className="error-message">{errors.customReason}</span>}
-            <small className="form-hint">Lütfen özel mazeret nedenini yazın</small>
+            {errors.customReason && <p style={S.error}>{errors.customReason}</p>}
+            <p style={S.hint}>Lütfen özel mazeret nedenini yazın</p>
           </div>
         )}
 
-        <div className="form-group">
-          <label className="form-label">
-            Mazeretli Gün
-          </label>
-          <div className="day-display">
-            <span>{currentDayLabel}</span>
-          </div>
-          <small className="form-hint">Mazeretler yalnızca seçili gün için geçerlidir. Gün değiştiğinde otomatik temizlenir.</small>
+        {/* Mazeretli Gün */}
+        <div>
+          <label style={S.label}>Mazeretli Gün</label>
+          <div style={S.dayBox}>{currentDayLabel}</div>
+          <p style={S.hint}>
+            Mazeretler yalnızca seçili gün için geçerlidir. Gün değiştiğinde otomatik temizlenir.
+          </p>
         </div>
 
-        <div className="form-actions">
-          <button type="button" className="btn-secondary" onClick={handleClose}>
+        {/* Butonlar */}
+        <div style={S.actions}>
+          <button type="button" onClick={handleClose} style={S.btnCancel}>
             İptal
           </button>
-          <button type="submit" className="btn" disabled={!preparedTeacherOptions.length}>
+          <button type="submit" disabled={!preparedTeacherOptions.length} style={S.btnSubmit(!preparedTeacherOptions.length)}>
             Ekle
           </button>
         </div>
+
       </form>
-
-      <style>{`
-        .form-group {
-          margin-bottom: 20px;
-        }
-
-        .form-label {
-          display: block;
-          margin-bottom: 8px;
-          font-weight: 500;
-          color: var(--text-primary, #e8eefc);
-          font-size: 0.95rem;
-        }
-
-        .required {
-          color: #ff6b6b;
-        }
-
-        /* standard inputs use global .input classes */
-
-        .error-message {
-          display: block;
-          margin-top: 6px;
-          color: #ff6b6b;
-          font-size: 0.875rem;
-        }
-
-        .form-hint {
-          display: block;
-          margin-top: 6px;
-          color: var(--text-muted, #8b9dc3);
-          font-size: 0.875rem;
-        }
-
-        .day-display {
-          padding: 10px 14px;
-          background: var(--surface-2);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-md);
-          font-weight: 600;
-          color: var(--text);
-        }
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-          margin-top: 24px;
-          padding-top: 20px;
-          border-top: 1px solid var(--border-color, #2e3d6e);
-        }
-
-        .custom-reason-field {
-          animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-            max-height: 0;
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-            max-height: 200px;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .custom-reason-field {
-            animation: none;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .form-actions {
-            flex-direction: column-reverse;
-          }
-
-          .form-actions button {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .form-group {
-            margin-bottom: 16px;
-          }
-        }
-      `}</style>
     </Modal>
   );
 }

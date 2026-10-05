@@ -18,8 +18,8 @@ const S = {
   btnSubmit: { padding: '10px 22px', borderRadius: '10px', border: 'none', background: '#4338ca', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'inherit' } as React.CSSProperties,
 };
 
-export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
-  const [formData, setFormData] = useState({ teacherName: '', maxDutyPerDay: '6' });
+export default function AddZoneModal({ isOpen, onClose, onSubmit }) {
+  const [formData, setFormData] = useState({ name: '', requiredTeachers: '1' });
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
@@ -30,9 +30,9 @@ export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.teacherName.trim()) newErrors.teacherName = 'Öğretmen adı zorunludur';
-    const max = parseInt(formData.maxDutyPerDay, 10);
-    if (!Number.isFinite(max) || max < 1 || max > 9) newErrors.maxDutyPerDay = 'Günlük görev limiti 1-9 arasında olmalıdır';
+    if (!formData.name.trim()) newErrors.name = 'Nöbet yeri adı zorunludur';
+    const req = parseInt(formData.requiredTeachers, 10);
+    if (!Number.isFinite(req) || req < 1) newErrors.requiredTeachers = 'En az 1 öğretmen gereklidir';
     return newErrors;
   };
 
@@ -40,43 +40,48 @@ export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
     e.preventDefault();
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
-    onSubmit({ teacherName: formData.teacherName.trim(), maxDutyPerDay: parseInt(formData.maxDutyPerDay, 10) });
-    setFormData({ teacherName: '', maxDutyPerDay: '6' });
+    onSubmit({
+      zoneId: `zone_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: formData.name.trim(),
+      requiredTeacherCount: parseInt(formData.requiredTeachers, 10),
+    });
+    setFormData({ name: '', requiredTeachers: '1' });
     setErrors({});
     onClose();
   };
 
   const handleClose = () => {
-    setFormData({ teacherName: '', maxDutyPerDay: '6' });
+    setFormData({ name: '', requiredTeachers: '1' });
     setErrors({});
     onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Yeni Öğretmen Ekle" size="small">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Nöbet Yeri Ekle" size="small">
       <form onSubmit={handleSubmit} style={S.form}>
 
         <div>
-          <label style={S.label}>Öğretmen Adı <span style={{ color: '#ef4444' }}>*</span></label>
+          <label style={S.label}>Nöbet Yeri Adı <span style={{ color: '#ef4444' }}>*</span></label>
           <input
-            type="text" id="teacherName" name="teacherName"
-            value={formData.teacherName} onChange={handleChange}
-            placeholder="Örn: Ahmet Yılmaz" autoFocus
-            style={S.input(!!errors.teacherName)}
+            type="text" id="zoneName" name="name"
+            value={formData.name} onChange={handleChange}
+            placeholder="Örn: Bahçe, Koridor, Kantin" autoFocus
+            style={S.input(!!errors.name)}
           />
-          {errors.teacherName && <p style={S.error}>{errors.teacherName}</p>}
+          {errors.name && <p style={S.error}>{errors.name}</p>}
+          <p style={S.hint}>Nöbet yerinin adını girin</p>
         </div>
 
         <div>
-          <label style={S.label}>Günlük Görev Limiti <span style={{ color: '#ef4444' }}>*</span></label>
+          <label style={S.label}>Gerekli Öğretmen Sayısı <span style={{ color: '#ef4444' }}>*</span></label>
           <input
             type="number" inputMode="numeric" pattern="[0-9]*"
-            id="maxDutyPerDay" name="maxDutyPerDay"
-            value={formData.maxDutyPerDay} onChange={handleChange}
-            min="1" max="9" style={S.input(!!errors.maxDutyPerDay)}
+            id="requiredTeachers" name="requiredTeachers"
+            value={formData.requiredTeachers} onChange={handleChange}
+            min="1" max="20" style={S.input(!!errors.requiredTeachers)}
           />
-          {errors.maxDutyPerDay && <p style={S.error}>{errors.maxDutyPerDay}</p>}
-          <p style={S.hint}>Bir günde bu öğretmene verilebilecek maksimum görev sayısı (1–9)</p>
+          {errors.requiredTeachers && <p style={S.error}>{errors.requiredTeachers}</p>}
+          <p style={S.hint}>Bu nöbet yeri için atanması gereken öğretmen sayısı</p>
         </div>
 
         <div style={S.actions}>

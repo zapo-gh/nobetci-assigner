@@ -2,14 +2,22 @@
 import React, { useCallback, useEffect, useRef, memo } from 'react';
 import styles from './Modal.module.css';
 
-const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'medium' }) {
-  const modalRef = useRef(null);
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: React.ReactNode;
+  children?: React.ReactNode;
+  size?: 'small' | 'medium' | 'large' | 'xlarge' | string;
+}
 
-  const stopPropagation = useCallback((event) => {
+const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'medium' }: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const stopPropagation = useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
   }, []);
 
-  const handleOverlayClick = useCallback((event) => {
+  const handleOverlayClick = useCallback((event: React.MouseEvent) => {
     if (event.target !== event.currentTarget) return;
     onClose();
   }, [onClose]);

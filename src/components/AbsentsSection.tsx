@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import AbsenteeList from './AbsenteeList';
+import EmptyState from './EmptyState';
 
 export default function AbsentsSection({
   absentPeople,
@@ -30,14 +31,12 @@ export default function AbsentsSection({
       </div>
 
       {(!absentPeopleForCurrentDay || absentPeopleForCurrentDay.length === 0) ? (
-        <div className="empty-state">
-           <div className="empty-state-icon">
-             <IconComponent name="userX" size={42} />
-           </div>
-           <h3>Henüz Mazeret Eklenmedi</h3>
-           <p>Bugün için sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor.</p>
-
-        </div>
+        <EmptyState
+          IconComponent={IconComponent}
+          icon="userX"
+          title="Henüz Mazeret Eklenmedi"
+          description="Bugün için sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor."
+        />
       ) : (
         <AbsenteeList absentPeople={absentPeopleForCurrentDay} onDelete={onDeleteAbsent} IconComponent={IconComponent} />
       )}

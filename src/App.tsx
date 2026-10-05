@@ -55,6 +55,7 @@ import {
   clearAdminLocks,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
   saveLocationZoneMapping,
+  saveDutyZones,
 } from './services/firebaseDataService.js';
 
 import { useUI } from './hooks/useUI.js';
@@ -441,7 +442,34 @@ export default function App() {
     localStorage.setItem('nobetci_locationZoneMapping', JSON.stringify(locationZoneMapping));
   }, [locationZoneMapping]);
 
-  const [dutyZones, setDutyZones] = useState<DutyZone[]>([]);
+  const [dutyZones, setDutyZones] = useState<DutyZone[]>(() => {
+    try {
+      const saved = localStorage.getItem('nobetci_dutyZones');
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  // Firestore'dan ilk yükleme bitmeden boş listeyle üzerine yazmayı önler
+  const dutyZonesLoadedRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nobetci_dutyZones', JSON.stringify(dutyZones));
+    } catch { /* ignore */ }
+    if (!dutyZonesLoadedRef.current) return;
+    saveDutyZones(dutyZones).catch(err => logger.error('saveDutyZones error:', err));
+  }, [dutyZones]);
+
+  const addZone = (zone: DutyZone) => {
+    setDutyZones(prev => [...prev, zone]);
+  };
+
+  const deleteZone = (zoneId: string) => {
+    setDutyZones(prev => prev.filter(z => z.zoneId !== zoneId));
+  };
+
   const [periods, setPeriods] = useState(PERIODS);
   const [notifications, setNotifications] = useState([]);
   const toggleToolbar = useCallback(() => setToolbarExpanded(prev => !prev), [setToolbarExpanded]);
@@ -589,6 +617,10 @@ export default function App() {
         if (supabaseData.locationZoneMapping) {
           setLocationZoneMapping(supabaseData.locationZoneMapping);
         }
+        if (Array.isArray(supabaseData.dutyZones)) {
+          setDutyZones(supabaseData.dutyZones);
+        }
+        dutyZonesLoadedRef.current = true;
 
         // Teacher schedules'i yükle - boş olsa bile Supabase'den geldiğini işaretle
         const loadedTeacherSchedules = supabaseData.teacherSchedules || {}
@@ -2497,6 +2529,7 @@ export default function App() {
     modals.teacher ||
     modals.class ||
     modals.absent ||
+    modals.zone ||
     modals.commonLesson ||
     modals.dutyTeacherExcel ||
     confirmationModal.isOpen ||
@@ -2521,7 +2554,7 @@ export default function App() {
         active={activeSection}
         onChange={setActiveSection}
         items={[
-          { key: "courseSchedule", label: "Ders Programı", icon: "bookOpen", group: "Veri" },
+          { key: "courseSchedule", label: "Öğretmen Ders Programı", icon: "bookOpen", group: "Veri" },
           { key: "classSchedules", label: "Sınıf Programları", icon: "bookOpen", group: "Veri" },
           { key: "teachers", label: "Nöbetçi Öğretmenler", icon: "users", group: "Veri" },
           { key: "classes", label: "Sınıflar", icon: "home", group: "Veri" },
@@ -2614,6 +2647,8 @@ export default function App() {
               locationZoneMapping={locationZoneMapping}
               setLocationZoneMapping={setLocationZoneMapping}
               onSaveLocationZoneMapping={() => saveLocationZoneMapping(locationZoneMapping)}
+              onAddZone={() => setModals((m) => ({ ...m, zone: true }))}
+              onDeleteZone={deleteZone}
             />
           )}
 
@@ -2684,6 +2719,7 @@ export default function App() {
             addTeacher={addTeacher}
             addClass={addClass}
             addAbsent={addAbsent}
+            addZone={addZone}
             day={day}
             DAYS={DAYS}
             scheduledTeacherOptions={scheduledTeacherOptions}

@@ -11,33 +11,28 @@ export default function AssignmentOptions({
 
     return (
         <>
-            <div className="assignment-options-row">
-                {/* Atama Kuralları */}
-                <div className="option-card">
-                    <label className="control-label">
-                        <Icon name="zap" size={16} />
-                        <span>Atama Kuralları</span>
-                    </label>
-                    <div className="options-grid single">
-                        <div className="option-item">
-                            <label htmlFor="preventConsecutive" className="option-label">
-                                <input
-                                    type="checkbox"
-                                    id="preventConsecutive"
-                                    name="preventConsecutive"
-                                    checked={options.preventConsecutive}
-                                    onChange={(e) => handleOptionChange('preventConsecutive', e.target.checked)}
-                                />
-                                <span>Ardışık Görevi Engelle</span>
-                            </label>
-                            <small>Öğretmene art arda saatlerde görev verilmesini önler.</small>
+            <div className="toolbar assignment-options-container">
+                {/* Ardışık Görevi Engelle */}
+                <div className="option-section">
+                    <div className="option-row-top">
+                        <div className="checkbox-wrapper">
+                            <input
+                                type="checkbox"
+                                id="preventConsecutive"
+                                name="preventConsecutive"
+                                checked={options.preventConsecutive}
+                                onChange={(e) => handleOptionChange('preventConsecutive', e.target.checked)}
+                            />
                         </div>
+                        <label htmlFor="preventConsecutive" className="control-label">
+                            <span>Ardışık Görevi Engelle</span>
+                        </label>
                     </div>
                 </div>
 
                 {/* Aynı Saatte Max Görev */}
-                <div className="option-card narrow">
-                    <div className="control-label-with-input">
+                <div className="option-section">
+                    <div className="option-row-top">
                         <input
                             type="number" inputMode="numeric" pattern="[0-9]*"
                             id="maxClassesPerSlot"
@@ -53,12 +48,11 @@ export default function AssignmentOptions({
                             <span>Aynı Saatte Max Görev</span>
                         </label>
                     </div>
-                    <small className="option-description">Bir öğretmene aynı saatte en fazla kaç görev verilebileceği.</small>
                 </div>
 
                 {/* Günlük Max Görev (Toplu) */}
-                <div className="option-card narrow">
-                    <div className="control-label-with-input">
+                <div className="option-section">
+                    <div className="option-row-top">
                         <input
                             type="number" inputMode="numeric" pattern="[0-9]*"
                             id="bulkMaxDuty"
@@ -74,28 +68,67 @@ export default function AssignmentOptions({
                             <span>Günlük Max Görev (Toplu)</span>
                         </label>
                     </div>
-                    <small className="option-description">Tüm öğretmenlerin günlük görev limitini topluca günceller.</small>
                 </div>
             </div>
 
             <style>{`
-        .assignment-options-row {
+        .assignment-options-container {
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          gap: var(--space-3);
-          margin-bottom: var(--space-4);
+          gap: 0;
+          padding: var(--space-3) 0 !important;
+          overflow: hidden;
         }
-        .option-card {
-          padding: var(--space-2);
-          background-color: var(--bg-elevated);
-          border: 1px solid var(--border-default);
-          border-radius: var(--radius-lg);
-        }
-        .option-card.narrow { align-self: start; }
-        .control-group {
+        .option-section {
+          padding: 0 var(--space-4);
           display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
+          align-items: center;
+          justify-content: center;
+        }
+        .option-section:not(:last-child) {
+          border-right: 2px solid var(--border);
+        }
+        @media (max-width: 768px) {
+          .assignment-options-container {
+            grid-template-columns: 1fr;
+            padding: var(--space-3) 0 !important;
+            gap: var(--space-3);
+          }
+          .option-section:not(:last-child) {
+            border-right: none;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: var(--space-3);
+          }
+        }
+        .option-row-top {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+        }
+        .checkbox-wrapper {
+          width: 54px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .checkbox-wrapper input {
+          width: 16px;
+          height: 16px;
+          cursor: pointer;
+          margin: 0;
+        }
+        .option-input-inline {
+          width: 54px;
+          height: 32px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-default);
+          background-color: var(--bg-default);
+          color: var(--text-primary);
+          text-align: center;
+          font-weight: 600;
+          flex-shrink: 0;
         }
         .control-label {
           display: flex;
@@ -104,89 +137,8 @@ export default function AssignmentOptions({
           font-weight: var(--font-weight-medium);
           font-size: 0.8rem;
           color: var(--text-secondary);
-        }
-        .control-label-with-input {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-          margin-bottom: var(--space-2);
-        }
-        .option-input-inline {
-          width: 60px;
-          padding: var(--space-1) var(--space-2);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-default);
-          background-color: var(--bg-default);
-          color: var(--text-primary);
-          text-align: center;
-          flex-shrink: 0;
-        }
-        .option-description {
-          display: block;
-          font-size: 0.65rem;
-          color: var(--text-muted);
-          line-height: 1.2;
-          margin-top: var(--space-1);
-        }
-        .options-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: var(--space-2);
-        }
-        .options-grid.single { grid-template-columns: 1fr; }
-        @media (min-width: 480px) {
-          .assignment-options-row { grid-template-columns: 1fr 1fr 1fr; }
-        }
-        @media (min-width: 768px) {
-          .assignment-options-row { grid-template-columns: 1fr 1fr 1fr; }
-        }
-        .option-item {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .option-label {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
           cursor: pointer;
-        }
-        .option-label span {
-          font-weight: var(--font-weight-medium);
-          font-size: 0.8rem;
-        }
-        .option-input {
-          width: 60px;
-          padding: var(--space-1) var(--space-2);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-default);
-          background-color: var(--bg-default);
-          color: var(--text-primary);
-          text-align: center;
-        }
-        .option-item small {
-          font-size: 0.65rem;
-          color: var(--text-muted);
-          padding-left: 24px;
-          line-height: 1.2;
-        }
-        /* Günlük görev sayısı özeti */
-        @media (max-width: 479px) {
-          .options-grid {
-            grid-template-columns: 1fr;
-            gap: var(--space-2);
-          }
-          .option-item {
-            gap: 1px;
-          }
-          .option-item small {
-            font-size: 0.65rem;
-            padding-left: 24px;
-            line-height: 1.2;
-          }
-          .option-label span {
-            font-size: 0.8rem;
-          }
+          margin: 0;
         }
       `}</style>
         </>

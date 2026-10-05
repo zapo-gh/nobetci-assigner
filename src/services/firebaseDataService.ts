@@ -55,7 +55,7 @@ export async function loadInitialData() {
     const [
       teachersSnap, classesSnap, absentsSnap, 
       classFree, teacherFree, classAbsence, 
-      locks, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping
+      locks, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping, dutyZones
     ] = await Promise.all([
       getDocs(collection(db, 'teachers')),
       getDocs(collection(db, 'classes')),
@@ -67,7 +67,8 @@ export async function loadInitialData() {
       getConfigDoc('pdf_schedule', {}),
       getConfigDoc('teacher_schedules', {}),
       getConfigDoc('common_lessons', {}),
-      getConfigDoc('location_zone_mapping', {})
+      getConfigDoc('location_zone_mapping', {}),
+      getConfigDoc('duty_zones', null)
     ]);
 
     const teachers = teachersSnap.docs.map(d => d.data());
@@ -85,7 +86,8 @@ export async function loadInitialData() {
       pdfSchedule,
       teacherSchedules,
       commonLessons,
-      locationZoneMapping
+      locationZoneMapping,
+      dutyZones
     };
   } catch (error) {
     reportServiceError('loadInitialData error:', error);
@@ -122,6 +124,14 @@ export async function loadLocationZoneMapping() {
 
 export async function saveLocationZoneMapping(mapping: any) {
   await setConfigDoc('location_zone_mapping', mapping);
+}
+
+export async function loadDutyZones() {
+  return getConfigDoc('duty_zones', null);
+}
+
+export async function saveDutyZones(zones: any[]) {
+  await setConfigDoc('duty_zones', zones);
 }
 
 export async function insertTeacher({ teacherName, maxDutyPerDay = 6, source = 'manual', dutyLocations = {} }: any) {

@@ -15,12 +15,12 @@ export default function EmptyState({
   return (
     <div className={classes}>
       {IconComponent && (
-        <div className="empty-icon empty-icon-modern">
+        <div className="empty-state-icon">
           <IconComponent name={icon} size={size} />
         </div>
       )}
-      {title && <h3 className="mt-4 text-lg font-medium">{title}</h3>}
-      {description && <p className="mt-2 text-sm text-muted">{description}</p>}
+      {title && <h3>{title}</h3>}
+      {description && <p>{description}</p>}
       {children}
     </div>
   )

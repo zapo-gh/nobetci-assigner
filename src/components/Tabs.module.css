@@ -77,9 +77,7 @@
 }
 
 .tabItem:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  outline: none;
 }
 
 .tabIndicator {
@@ -291,8 +289,7 @@
 }
 
 .themeToggleBtn:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+  outline: none;
 }
 
 .themeToggleBtn svg {

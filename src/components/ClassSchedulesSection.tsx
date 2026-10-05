@@ -7,6 +7,64 @@ const COLORS = [
   '#ffecb3', '#ffe0b2', '#ffccbc', '#d7ccc8'
 ];
 
+const getSubjectColor = (subject: string) => {
+  if (!subject) return '#6b7280';
+  const hash = subject.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+  const colors = [
+    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+    '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'
+  ];
+  return colors[hash % colors.length];
+};
+
+const shortenSubjectName = (subject: string) => {
+  if (!subject) return '';
+  const mappings: Record<string, string> = {
+    'TÜRK DİLİ VE EDEBİYATI': 'TDE',
+    'MESLEKİ GELİŞİM ATÖLYESİ': 'MGA',
+    'TARİH': 'Trh',
+    'KİMYA': 'Kmy',
+    'COĞRAFYA': 'Coğr',
+    'BİYOLOJİ': 'Biy',
+    'MATEMATİK': 'Mat',
+    'FİZİK': 'Fiz',
+    'İNGİLİZCE': 'İng',
+    'BEDEN EĞİTİMİ VE SPOR': 'BES',
+    'DİN KÜLTÜRÜ VE AHLAK BİLGİSİ': 'DKAB',
+    'FELSEFE': 'Fel',
+    'GÖRSEL SANATLAR': 'GS',
+    'MÜZİK': 'Müz',
+    'REHBERLİK': 'Reh',
+    'SAĞLIK BİLGİSİ VE TRAFİK KÜLTÜRÜ': 'SBTK',
+    'BİLİŞİM TEKNOLOJİLERİNİN TEMELLERİ': 'BTT',
+    'PROGRAMLAMA TEMELLERİ': 'PT',
+    'BİLGİSAYARLI TASARIM UYGULAMALARI': 'BTU',
+    'SEÇMELİ': 'S.'
+  };
+
+  let upperSubject = subject.toLocaleUpperCase('tr-TR').trim();
+
+  for (const [key, value] of Object.entries(mappings)) {
+    if (upperSubject.includes(key) && key !== 'SEÇMELİ') {
+      if (upperSubject.includes('SEÇMELİ')) {
+        return 'S.' + value;
+      }
+      return value;
+    }
+  }
+
+  const words = subject.split(/[\s-]+/).filter((w: string) => w.toLowerCase() !== 've' && w.length > 0);
+  
+  if (words.length > 1) {
+    return words.map((w: string) => w.charAt(0).toLocaleUpperCase('tr-TR')).join('');
+  } else {
+    if (subject.length <= 4) return subject;
+    let firstPart = subject.substring(0, 3);
+    return firstPart.charAt(0).toLocaleUpperCase('tr-TR') + firstPart.substring(1).toLocaleLowerCase('tr-TR');
+  }
+};
+
+
 export default function ClassSchedulesSection({
   classes,
   teacherSchedules,
@@ -63,7 +121,7 @@ export default function ClassSchedulesSection({
     // Then merge from teacherSchedules (FALLBACK source for subject/location, but PRIMARY source for teacher full names)
     Object.entries(teacherSchedules || {}).forEach(([tName, tDays]) => {
       Object.entries((tDays as any) || {}).forEach(([day, tPeriods]) => {
-        Object.entries((tPeriods as any) || {}).forEach(([period, cId]: [string, string]) => {
+        Object.entries((tPeriods as any) || {}).forEach(([period, cId]: [string, any]) => {
           if (cId && typeof cId === 'string' && cId.trim()) {
             const classNames = cId.split(',').map(s => s.trim()).filter(Boolean);
             classNames.forEach(className => {
@@ -131,21 +189,14 @@ export default function ClassSchedulesSection({
 
   const hasLocations = Object.keys(classLocations || {}).length > 0;
 
-  const getClassLevelColor = (className: string) => {
-    if (className.includes('9')) return 'var(--level-9)';
-    if (className.includes('10')) return 'var(--level-10)';
-    if (className.includes('11')) return 'var(--level-11)';
-    if (className.includes('12')) return 'var(--level-12)';
-    return 'var(--level-other)';
-  };
+
 
   return (
     <div role="tabpanel">
-      <div className="card" style={{ margin: '0 24px' }}>
-        <div className="toolbar" style={{ borderBottom: '1px solid var(--border-subtle)', borderRadius: '16px 16px 0 0' }}>
-          <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
-            <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
-              <IconComponent name="search" size={16} />
+      <div className="toolbar" style={{ flexWrap: 'wrap' }}>
+        <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
+          <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
+            <IconComponent name="search" size={16} />
             </div>
             <input
               type="text"
@@ -183,7 +234,7 @@ export default function ClassSchedulesSection({
                 onClick={() => setLevelFilter(level)}
                 className={`chip ${levelFilter === level ? 'active' : ''}`}
                 style={levelFilter === level ? { 
-                  backgroundColor: `var(--level-${level === 'Tümü' ? 'other' : level})`, 
+                  backgroundColor: level === 'Tümü' ? 'var(--primary)' : `var(--level-${level})`, 
                   color: 'white', 
                   border: 'none' 
                 } : {}}
@@ -239,6 +290,15 @@ export default function ClassSchedulesSection({
           </div>
         </div>
 
+        {allClassNames.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+               <IconComponent name="calendar" size={32} />
+            </div>
+            <h3>Henüz Ders Programı Eklenmedi</h3>
+            <p>Excel dosyasını yükleyerek sınıf ders programlarını oluşturabilirsiniz.</p>
+          </div>
+        ) : (
         <div style={{ padding: '24px' }}>
           <div className="card-grid">
             {filteredClasses.length === 0 ? (
@@ -246,7 +306,8 @@ export default function ClassSchedulesSection({
                 <div className="empty-state-icon">
                   <IconComponent name="search" size={32} />
                 </div>
-                <p>Sonuç bulunamadı</p>
+                <h3>Sonuç Bulunamadı</h3>
+                <p>Arama kriterlerinize uygun sonuç bulunamadı.</p>
               </div>
             ) : (
             filteredClasses.map(cName => {
@@ -303,7 +364,7 @@ export default function ClassSchedulesSection({
           )}
           </div>
         </div>
-      </div>
+        )}
 
       <Modal
         isOpen={!!selectedClass}
@@ -311,65 +372,69 @@ export default function ClassSchedulesSection({
         title={`${selectedClass} - Haftalık Sınıf Ders Programı`}
         size="xlarge"
       >
-        <div style={{ padding: '0', overflowX: 'auto' }}>
-          <table className="tbl w-full text-sm" style={{ tableLayout: 'fixed', minWidth: '900px', borderCollapse: 'separate', borderSpacing: '0' }}>
+        <div className="schedule-table-container">
+          <table className="schedule-table">
             <thead>
               <tr>
-                <th className="text-left" style={{ width: '100px', position: 'sticky', left: 0, zIndex: 1, backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>Gün</th>
-                {periods.map(p => (
-                  <th key={p} className="text-center" style={{ borderBottom: '1px solid var(--border)' }}>{p}. Ders</th>
+                <th className="day-header">Günler</th>
+                {periods.map(period => (
+                  <th key={period} className="period-header">
+                    {period}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {days.map(day => (
                 <tr key={day.id}>
-                  <td className="font-medium text-left" style={{ position: 'sticky', left: 0, backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>{day.label}</td>
-                  {periods.map(p => {
-                    const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[p];
+                  <td className="day-cell">{day.label}</td>
+                  {periods.map(period => {
+                    const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[period];
                     
-                    if (!lesson || (lesson.teachers.length === 0 && !lesson.subject && !lesson.location)) {
-                       return (
-                         <td key={p} className="text-center p-2 border-bottom border-right" style={{ borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', backgroundColor: 'var(--bg)' }}>
-                         </td>
-                       );
-                    }
-
-                    const hash = (lesson.subject || 'x').split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-                    const colorIndex = (hash % 6) + 1; // 1 to 6
+                    const isEmpty = !lesson || (lesson.teachers.length === 0 && !lesson.subject && !lesson.location);
                     
                     return (
-                      <td 
-                        key={p} 
-                        style={{ padding: '4px', verticalAlign: 'top', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}
-                      >
-                        <div className={`lesson-cell c${colorIndex}`} style={{ minHeight: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          {lesson.subject && (
-                            <strong style={{ fontSize: '12px', letterSpacing: '0.3px', textAlign: 'center', lineHeight: '1.2' }}>{lesson.subject}</strong>
-                          )}
-                          
-                          {lesson.teachers.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '100%', alignItems: 'center', opacity: 0.95, fontSize: '10.5px', fontWeight: 'normal' }}>
-                              {lesson.teachers.map((tName: string, i: number) => (
-                                <span key={i} title={tName} style={{ textAlign: 'center', lineHeight: '1.1' }}>
-                                  {tName}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {lesson.location && (
-                            <span style={{
-                              fontSize: '10px',
-                              backgroundColor: 'rgba(255,255,255,0.2)',
-                              padding: '2px 6px',
-                              borderRadius: 'var(--radius-sm)',
-                              marginTop: 'auto'
-                            }}>
-                              {lesson.location}
-                            </span>
-                          )}
-                        </div>
+                      <td key={period} className={`schedule-cell ${isEmpty ? 'empty-period' : ''}`}>
+                        {isEmpty ? (
+                          <span className="empty-indicator">-</span>
+                        ) : (
+                          <div 
+                            className="class-badge"
+                            style={{ 
+                              backgroundColor: getSubjectColor(lesson.subject || 'Ders'), 
+                              display: 'inline-flex', 
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              whiteSpace: 'nowrap',
+                              padding: '6px 8px',
+                              minWidth: '70px'
+                            }}
+                          >
+                            {lesson.subject && (
+                              <span style={{ fontWeight: 'bold', marginBottom: '2px' }}>{shortenSubjectName(lesson.subject)}</span>
+                            )}
+                            
+                            {lesson.teachers.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85em', opacity: 0.9 }}>
+                                {lesson.teachers.map((tName: string, i: number) => (
+                                  <span key={i}>{tName}</span>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {lesson.location && (
+                              <span style={{
+                                fontSize: '0.8em',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                padding: '2px 4px',
+                                borderRadius: '4px',
+                                marginTop: '4px'
+                              }}>
+                                {lesson.location}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                     );
                   })}

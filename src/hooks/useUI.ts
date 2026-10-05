@@ -28,7 +28,8 @@ export function useUI() {
         class: false,
         absent: false,
         commonLesson: false,
-        dutyTeacherExcel: false
+        dutyTeacherExcel: false,
+        zone: false
     });
 
     const [pdfImportModal, setPdfImportModal] = useState(false);
