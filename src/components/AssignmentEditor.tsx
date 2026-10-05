@@ -307,7 +307,19 @@ function AssignmentEditor({
             </tr>
           </thead>
           <tbody>
-            {sortedClasses.map(cls => (
+            {sortedClasses.length === 0 ? (
+              <tr>
+                <td colSpan={periods.length + 1} style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--surface)' }}>
+                  <div className="empty-state" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+                    <div className="empty-state-icon">
+                      <IconComponent name="info" size={32} />
+                    </div>
+                    <p style={{ margin: 0, marginTop: '12px', color: 'var(--text-muted)' }}>Seçili gün için kayıtlı ders programı bulunmamaktadır.</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+            sortedClasses.map(cls => (
               <tr key={cls.classId}>
                 <td className="sticky-col text-left">{cls.className}</td>
                 {periods.map(p => {
@@ -487,11 +499,17 @@ function AssignmentEditor({
                                   })
                                 }
 
-                                return result.map((teacher) => (
-                                  <option key={teacher.teacherId} value={teacher.teacherId}>
-                                    {teacher.teacherName}
-                                  </option>
-                                ))
+                                return result.map((teacher) => {
+                                  const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
+                                  const systemDay = systemDayMap[day] || day;
+                                  const dutyLocation = teacher.dutyLocations?.[systemDay];
+                                  const locationText = dutyLocation ? ` [${dutyLocation}]` : '';
+                                  return (
+                                    <option key={teacher.teacherId} value={teacher.teacherId}>
+                                      {teacher.teacherName}{locationText}
+                                    </option>
+                                  )
+                                })
                               })()}
                             </select>
                             <button
@@ -524,7 +542,7 @@ function AssignmentEditor({
                   )
                 })}
               </tr>
-            ))}
+            )))}
 
           </tbody>
         </table>

@@ -18,41 +18,33 @@ export default function AssignmentInsights({ insights, IconComponent }) {
   }
 
   return (
-    <section className="assignment-insights" aria-label="Planlama analizleri">
-      <header className="assignment-insights-header">
-        <div className="assignment-insights-title">
-          {IconComponent && <IconComponent name="info" size={18} />}
-          <h3>Planlama Analizi</h3>
-        </div>
-      </header>
+    <section className="card" style={{ marginTop: '24px' }} aria-label="Planlama analizleri">
+      <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px' }}>
+        {IconComponent && <IconComponent name="info" size={20} />}
+        <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text)' }}>Planlama Analizi</h3>
+      </div>
 
       {hasTeachers && (
-        <div className="teacher-insight-grid">
-          {activeTeachers.map(({ teacher, assignments = [] }) => {
-            return (
-              <div key={teacher.teacherId} className="teacher-insight-card">
-                <div className="teacher-insight-header">
-                  <span className="teacher-name">{teacher.teacherName}</span>
-                  <span className="teacher-assignment-count">
-                    <strong>{assignments.length}</strong> görev
-                  </span>
-                </div>
-
-                {assignments.length > 0 && (
-                  <div className="teacher-assignment-list">
-                    {assignments
-                      .sort((a, b) => a.period - b.period)
-                      .map((assignment) => (
-                        <span key={`${assignment.period}-${assignment.classId}`} className="assignment-chip">
-                          {assignment.period}. saat · {assignment.className || assignment.classId}
-                        </span>
-                      ))}
-                  </div>
-                )}
-
+        <div className="card-grid" style={{ padding: '20px', gap: '12px' }}>
+          {activeTeachers.map(({ teacher, assignments = [] }) => (
+            <div key={teacher.teacherId} style={{ background: 'var(--surface-2)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <strong style={{ color: 'var(--text)' }}>{teacher.teacherName}</strong>
+                <span className="badge badge-primary">{assignments.length} görev</span>
               </div>
-            )
-          })}
+              {assignments.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {assignments
+                    .sort((a, b) => a.period - b.period)
+                    .map((assignment) => (
+                      <span key={`${assignment.period}-${assignment.classId}`} className="badge" style={{ background: 'var(--surface)', border: '1px solid var(--border-subtle)' }}>
+                        {assignment.period}. saat · {assignment.className || assignment.classId}
+                      </span>
+                    ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </section>

@@ -9,6 +9,7 @@ interface DutyZonesSectionProps {
   classLocations?: Record<string, any>;
   locationZoneMapping?: Record<string, string>;
   setLocationZoneMapping?: (mapping: Record<string, string>) => void;
+  onSaveLocationZoneMapping?: () => Promise<void> | void;
 }
 
 export default function DutyZonesSection({
@@ -18,7 +19,8 @@ export default function DutyZonesSection({
   IconComponent,
   classLocations = {},
   locationZoneMapping = {},
-  setLocationZoneMapping
+  setLocationZoneMapping,
+  onSaveLocationZoneMapping
 }: DutyZonesSectionProps) {
   
   // Extract unique locations from classLocations
@@ -46,6 +48,21 @@ export default function DutyZonesSection({
       });
     }
   };
+
+  const [saveStatus, setSaveStatus] = React.useState<'idle'|'saving'|'success'|'error'>('idle');
+  const handleSave = async () => {
+    if (onSaveLocationZoneMapping) {
+      setSaveStatus('saving');
+      try {
+        await onSaveLocationZoneMapping();
+        setSaveStatus('success');
+      } catch (err) {
+        setSaveStatus('error');
+      }
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
   return (
     <div className="dz-section">
       <div className="dz-header">
@@ -56,8 +73,8 @@ export default function DutyZonesSection({
           <h2>Nöbet Yerleri</h2>
           <span className="dz-badge">{dutyZones?.length || 0} Bölge</span>
         </div>
-        <button className="dz-add-btn" onClick={onAddZone}>
-          <IconComponent name="plus" size={18} />
+        <button className="btn btn-primary" onClick={onAddZone}>
+          <IconComponent name="plus" size={16} />
           <span>Yeni Bölge Ekle</span>
         </button>
       </div>
@@ -70,8 +87,9 @@ export default function DutyZonesSection({
             </div>
             <h3>Henüz nöbet yeri eklenmemiş</h3>
             <p>Excel'den nöbet listesi yüklediğinizde nöbet yerleri otomatik olarak oluşturulur veya manuel ekleyebilirsiniz.</p>
-            <button className="dz-add-btn-large" onClick={onAddZone}>
-              <IconComponent name="plus" size={18} /> Yeni Nöbet Yeri Ekle
+            <button className="btn btn-primary" onClick={onAddZone}>
+              <IconComponent name="plus" size={16} />
+              <span>Yeni Nöbet Yeri Ekle</span>
             </button>
           </div>
         ) : (
@@ -111,36 +129,49 @@ export default function DutyZonesSection({
 
       {uniqueLocations.length > 0 && (
         <div style={{ marginTop: '30px' }}>
-          <div className="dz-header">
-            <div className="dz-title">
-              <div className="dz-icon-wrapper">
-                <IconComponent name="map" size={24} />
-              </div>
-              <h2>Sınıf Yeri & Nöbet Yeri Eşleştirmesi</h2>
-              <span className="dz-badge">{uniqueLocations.length} Sınıf Yeri</span>
-            </div>
-          </div>
-          
           <div className="card">
-            <p className="text-sm text-secondary" style={{ marginBottom: '15px' }}>
-              Dersi boş geçen sınıfa nöbetçi öğretmen atanırken, sınıfın bulunduğu kattaki öğretmene öncelik verilir.
-              Bunun düzgün çalışması için lütfen sınıf yerlerinin hangi nöbet bölgesinde olduğunu aşağıdan eşleştiriniz.
-            </p>
-            <div className="table-container">
+            <div className="card-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px', padding: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="dz-icon-wrapper" style={{ width: '40px', height: '40px', borderRadius: '10px' }}>
+                    <IconComponent name="map" size={20} />
+                  </div>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text)' }}>Sınıf Yeri & Nöbet Yeri Eşleştirmesi</h2>
+                  <span className="badge badge-info">{uniqueLocations.length} Sınıf Yeri</span>
+                </div>
+                {onSaveLocationZoneMapping && (
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleSave}
+                    disabled={saveStatus === 'saving'}
+                    style={{ backgroundColor: saveStatus === 'success' ? 'var(--success)' : undefined }}
+                  >
+                    <IconComponent name={saveStatus === 'success' ? 'check' : 'save'} size={16} />
+                    <span>{saveStatus === 'saving' ? 'Kaydediliyor...' : saveStatus === 'success' ? 'Kaydedildi' : 'Kaydet'}</span>
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-secondary" style={{ margin: '8px 0 0 0', maxWidth: '800px', lineHeight: '1.5' }}>
+                Dersi boş geçen sınıfa nöbetçi öğretmen atanırken, sınıfın bulunduğu kattaki öğretmene öncelik verilir.
+                Bunun düzgün çalışması için lütfen sınıf yerlerinin hangi nöbet bölgesinde olduğunu aşağıdan eşleştiriniz.
+              </p>
+            </div>
+            
+            <div className="table-container" style={{ borderTop: '1px solid var(--border)' }}>
               <table className="tbl w-full text-sm">
                 <thead>
                   <tr>
-                    <th className="text-left w-1/2">Sınıf Yeri (Excel'den)</th>
-                    <th className="text-left w-1/2">Bağlı Olduğu Nöbet Yeri (Kat)</th>
+                    <th className="text-left w-1/2" style={{ paddingLeft: '24px' }}>Sınıf Yeri (Excel'den)</th>
+                    <th className="text-left w-1/2" style={{ paddingRight: '24px' }}>Bağlı Olduğu Nöbet Yeri (Kat)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {uniqueLocations.map(loc => (
                     <tr key={loc}>
-                      <td className="font-medium text-left">{loc}</td>
-                      <td>
+                      <td className="font-medium text-left" style={{ paddingLeft: '24px' }}>{loc}</td>
+                      <td style={{ paddingRight: '24px' }}>
                         <select
-                          className="input-base w-full"
+                          className="input w-full"
                           value={locationZoneMapping[loc] || ''}
                           onChange={(e) => handleMappingChange(loc, e.target.value)}
                         >

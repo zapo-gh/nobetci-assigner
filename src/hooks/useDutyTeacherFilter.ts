@@ -15,19 +15,16 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
       Thu: 'thursday',
       Fri: 'friday',
     };
+    const pdfDayKey = dayMapping[day] || 'monday';
 
-    const pdfDayKey = dayMapping[day];
+    const hasAnyDutyLocations = teachers.some((t) => t.dutyLocations && Object.keys(t.dutyLocations).length > 0);
+    const hasPdfScheduleForDay = pdfSchedule && typeof pdfSchedule === 'object' && 
+                                 pdfSchedule[pdfDayKey] && typeof pdfSchedule[pdfDayKey] === 'object' && 
+                                 Object.keys(pdfSchedule[pdfDayKey]).length > 0;
 
-    if (!pdfSchedule || typeof pdfSchedule !== 'object' || Object.keys(pdfSchedule).length === 0) {
+    if (!hasAnyDutyLocations && !hasPdfScheduleForDay) {
       if (IS_DEV_ENV) {
-        logger.warn('teachersForCurrentDay: pdfSchedule is empty or invalid');
-      }
-      return teachers;
-    }
-
-    if (!pdfSchedule[pdfDayKey] || typeof pdfSchedule[pdfDayKey] !== 'object' || Object.keys(pdfSchedule[pdfDayKey]).length === 0) {
-      if (IS_DEV_ENV) {
-        logger.warn('teachersForCurrentDay: pdfSchedule[pdfDayKey] is empty for:', pdfDayKey);
+        logger.warn('teachersForCurrentDay: no dutyLocations and no pdfSchedule available');
       }
       return teachers;
     }
@@ -35,70 +32,56 @@ export function useDutyTeacherFilter(teachers = [], pdfSchedule = {}, day = 'Mon
     const dutyTeacherIds = new Set();
     const dutyTeacherNames = new Set();
 
-    const daySchedule = pdfSchedule[pdfDayKey];
-    if (IS_DEV_ENV) {
-      logger.log('teachersForCurrentDay: daySchedule for', pdfDayKey, ':', daySchedule);
-    }
-
-    Object.values(daySchedule).forEach((periodTeachers, periodIndex) => {
-      let teacherNames = [];
-      if (Array.isArray(periodTeachers)) {
-        teacherNames = periodTeachers;
-      } else if (typeof periodTeachers === 'string' && periodTeachers.trim()) {
-        teacherNames = [periodTeachers];
-      } else {
-        if (IS_DEV_ENV) {
-          logger.warn('teachersForCurrentDay: periodTeachers is not an array or string at period index:', periodIndex, 'value:', periodTeachers);
+    if (hasPdfScheduleForDay) {
+      const daySchedule = pdfSchedule[pdfDayKey];
+      Object.values(daySchedule).forEach((periodTeachers, periodIndex) => {
+        let teacherNames = [];
+        if (Array.isArray(periodTeachers)) {
+          teacherNames = periodTeachers;
+        } else if (typeof periodTeachers === 'string' && periodTeachers.trim()) {
+          teacherNames = [periodTeachers];
         }
-        return;
-      }
 
-      teacherNames.forEach((teacherName) => {
-        if (!teacherName || typeof teacherName !== 'string') return;
+        teacherNames.forEach((teacherName) => {
+          if (!teacherName || typeof teacherName !== 'string') return;
 
-        const normalizedScheduleName = normalizeForComparison(teacherName.trim());
+          const normalizedScheduleName = normalizeForComparison(teacherName.trim());
+          dutyTeacherNames.add(normalizedScheduleName);
 
-        const matchingTeacher = teachers.find((t) => {
-          if (!t?.teacherName) return false;
-          const normalizedTeacherName = normalizeForComparison(t.teacherName);
-          return normalizedTeacherName === normalizedScheduleName;
+          const matchingTeacher = teachers.find((t) => {
+            if (!t?.teacherName) return false;
+            return normalizeForComparison(t.teacherName) === normalizedScheduleName;
+          });
+
+          if (matchingTeacher) {
+            dutyTeacherIds.add(matchingTeacher.teacherId);
+          }
         });
-
-        if (matchingTeacher) {
-          dutyTeacherIds.add(matchingTeacher.teacherId);
-          dutyTeacherNames.add(normalizedScheduleName);
-        } else {
-          dutyTeacherNames.add(normalizedScheduleName);
-        }
       });
-    });
-
-    if (IS_DEV_ENV) {
-      logger.log('teachersForCurrentDay: dutyTeacherIds:', Array.from(dutyTeacherIds));
-      logger.log('teachersForCurrentDay: dutyTeacherNames:', Array.from(dutyTeacherNames));
-    }
-
-    if (dutyTeacherIds.size === 0 && dutyTeacherNames.size === 0) {
-      return teachers;
     }
 
     const filteredTeachers = teachers.filter((t) => {
       if (!t?.teacherId) return false;
-      // Manuel eklenen öğretmenleri her zaman göster
-      if (t.source !== 'duty_schedule') return true;
-      
-      if (dutyTeacherIds.has(t.teacherId)) return true;
-      const normalizedTeacherName = normalizeForComparison(t.teacherName);
-      return dutyTeacherNames.has(normalizedTeacherName);
-    });
 
-    if (filteredTeachers.length === 0) {
-      return teachers.filter(t => t.source !== 'duty_schedule');
-    }
+      // Herhangi bir öğretmenin nöbet günleri 'dutyLocations' içinde belirtilmişse
+      // O öğretmenin bugünkü görevi olup olmadığına bakarız
+      if (t.dutyLocations && Object.keys(t.dutyLocations).length > 0) {
+        return !!t.dutyLocations[pdfDayKey];
+      }
+
+      // Öğretmenin dutyLocations verisi yoksa ama PDF schedule varsa
+      if (hasPdfScheduleForDay) {
+        if (dutyTeacherIds.has(t.teacherId)) return true;
+        const normalizedTeacherName = normalizeForComparison(t.teacherName);
+        return dutyTeacherNames.has(normalizedTeacherName);
+      }
+
+      // Eğer öğretmenin dutyLocations'u yoksa, ve PDF schedule da yoksa onu gösterelim
+      return true;
+    });
 
     if (IS_DEV_ENV) {
       logger.log('Filtered teachers count:', filteredTeachers.length);
-      logger.log('Filtered teachers:', filteredTeachers.map((t) => t.teacherName));
     }
 
     return filteredTeachers;

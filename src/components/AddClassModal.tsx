@@ -56,7 +56,7 @@ export default function AddClassModal({ isOpen, onClose, onSubmit }) {
             type="text"
             id="className"
             name="className"
-            className={`form-input ${errors.className ? 'error' : ''}`}
+            className={`input w-full ${errors.className ? 'error' : ''}`}
             value={formData.className}
             onChange={handleChange}
             placeholder="Örn: 9/A, 10/B, 11/C"
@@ -93,30 +93,7 @@ export default function AddClassModal({ isOpen, onClose, onSubmit }) {
           color: #ff6b6b;
         }
 
-        .form-input {
-          width: 100%;
-          padding: 10px 12px;
-          border: 1px solid var(--border-color, #2e3d6e);
-          border-radius: 8px;
-          background: var(--bg-secondary, #0b1328);
-          color: var(--text-primary, #e8eefc);
-          font-size: 1rem;
-          transition: all 0.2s;
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: var(--primary, #4a90e2);
-          box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        }
-
-        .form-input.error {
-          border-color: #ff6b6b;
-        }
-
-        .form-input.error:focus {
-          box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
-        }
+        /* standard inputs use global .input classes */
 
         .error-message {
           display: block;

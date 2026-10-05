@@ -9,6 +9,7 @@ const REASON_LABELS = {
   "sevkli": "Sevkli",
   "izinli": "İzinli",
   "gorevli-izinli": "Görevli İzinli",
+  "mazeret-izinli": "Mazeret İzinli",
   "diger": "Diğer"
 };
 
@@ -115,10 +116,19 @@ export default function PrintableDailyList({
                 </td>
               </tr>
             ) : (
-              (teachers || []).map(t => (
+              (teachers || []).map(t => {
+                const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
+                const systemDay = systemDayMap[day] || day;
+                const dutyLocation = t.dutyLocations?.[systemDay];
+                return (
                 <tr key={t.teacherId}>
                   <td className="teacher-name">
                     <strong className="nowrap">{t.teacherName}</strong>
+                    {dutyLocation && (
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted, gray)', marginTop: '2px', lineHeight: '1.2' }}>
+                        {dutyLocation}
+                      </div>
+                    )}
                   </td>
 
                   {(periods || []).map(p => {

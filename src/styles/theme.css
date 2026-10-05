@@ -1,4 +1,4 @@
-﻿/* ==========================================================
+/* ==========================================================
    NÃƒÂ¶betÃƒÂ§i Ãƒâ€“Ã„Å¸retmen GÃƒÂ¶revlendirme Ã¢â‚¬â€ CanlÃ„Â± & Belirgin AÃƒÂ§Ã„Â±k Tema (v3)
    YalnÃ„Â±zca AÃƒâ€¡IK tema. Koyu tema ve tema geÃƒÂ§iÃ…Å¸i YOKTUR.
    TÃƒÂ¼m bileÃ…Å¸enler ham deÃ„Å¸er yerine bu token'larÃ„Â± kullanÃ„Â±r.
@@ -15,6 +15,24 @@
                  radial-gradient(900px 500px at 50% 110%, #c9f2e6 0%, transparent 60%),
                  #e6ebff;
   --surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --z-modal: 1000;
+  --warning-light: #fef3c7;
+  --danger-light: #fee2e2;
+  --primary-dark: #3730a3;
+  /* Aliases for Modal.module.css */
+  --transition-default: var(--transition-base);
+  --transition-slow: 300ms ease;
+  --radius-xl: 24px;
+  --shadow-lg: 0 20px 60px rgba(15, 21, 53, 0.4);
+  --border-default: var(--border);
+  --text-primary: var(--text);
+  --font-weight-semibold: 700;
+  --font-weight-medium: 600;
+  --font-weight-bold: 800;
+  --bg-default: var(--bg);
   --surface-2: #eef1ff;
   --border: #c5cdf0;
   --border-strong: #9fabe0;
@@ -198,7 +216,7 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 .filter-chip[data-level="12"][aria-pressed="true"] { background: var(--level-12); border-color: var(--level-12); }
 
 /* ================= Kartlar ================= */
-.card-grid { display: grid; gap: var(--card-gap); grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+.card-grid { display: grid; gap: var(--card-gap); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .card {
   --tone: var(--primary); --tone-soft: var(--primary-soft);
   background: var(--surface); border: 2px solid var(--border);
@@ -307,6 +325,125 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 :focus-visible { outline: 3px solid rgba(79, 70, 229, .6); outline-offset: 2px; border-radius: var(--radius-sm); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
+/* ================= Teacher Schedule Modal ================= */
+.teacher-schedule-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.schedule-table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.schedule-table th,
+.schedule-table td {
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+}
+
+.schedule-table thead {
+  background: var(--surface-2);
+}
+
+.day-header, .period-header {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.day-cell {
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  text-align: left;
+  padding-left: var(--space-4) !important;
+}
+
+.schedule-cell {
+  min-width: 60px;
+}
+
+.empty-period {
+  background: var(--bg);
+}
+
+.empty-indicator {
+  color: var(--text-faint);
+}
+
+.class-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.schedule-legend {
+  background: var(--surface-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.schedule-legend h4 {
+  margin: 0 0 var(--space-3) 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.schedule-summary {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+.summary-stats {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+}
+
 /* ================= Tablolar ve Utility Classlar ================= */
 .table-container {
   background: var(--surface); border: 2px solid var(--border);
@@ -322,7 +459,9 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 .tbl th { background: var(--surface-2); font-weight: 700; color: var(--text); font-size: 0.9rem; }
 .tbl tbody tr:last-child td { border-bottom: none; }
 .tbl tbody tr:hover { background: var(--surface-2); }
-.sticky-col { position: sticky; left: 0; background: inherit; z-index: 10; }
+.sticky-col { position: sticky; left: 0; background: var(--surface); z-index: 10; }
+.tbl tbody tr:hover .sticky-col { background: var(--surface-2); }
+.tbl thead .sticky-col { background: var(--surface-2); }
 .stuck-shadow { box-shadow: 4px 0 8px rgba(0,0,0,0.05); }
 
 /* Tailwind Utilities used in Grid */
@@ -359,4 +498,31 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 
 .w-\[200px\] { width: 200px; }
 .min-w-32 { min-width: 8rem; }
+
+/* YAZDIRMA (PRINT) STİLLERİ */
+@media print {
+  /* Ekrandaki her şeyi gizle */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Sadece panel-outputs (Çıktılar bölümü) ve içindekileri görünür yap */
+  #panel-outputs, #panel-outputs * {
+    visibility: visible;
+  }
+  
+  /* Çıktılar bölümünü sayfanın en sol üst köşesine daya */
+  #panel-outputs {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* no-print sınıfına sahip olan araç çubuklarını tamamen gizle */
+  .no-print, .no-print * {
+    visibility: hidden !important;
+    display: none !important;
+  }
+}
 

@@ -43,6 +43,7 @@ export function normalizeReason(input: any): string {
   const vn = norm(v);
 
   if (/^g(ö|o)revli(\s*[- ]\s*izinli)?$/.test(v)) return 'Görevli İzinli';
+  if (/^mazeret(\s*[- ]\s*i?z(in)?li)?$/.test(v) || /^mazeret/.test(v)) return 'Mazeret İzinli';
 
   if (/^rapor/.test(v)) return 'Raporlu';
   if (/^sevk/.test(v)) return 'Sevkli';
@@ -50,7 +51,7 @@ export function normalizeReason(input: any): string {
 
   if (vn === 'diger' || v === 'diğer') return 'Diğer';
 
-  if (['Raporlu', 'Sevkli', 'İzinli', 'Görevli İzinli', 'Diğer'].includes(v))
+  if (['Raporlu', 'Sevkli', 'İzinli', 'Görevli İzinli', 'Mazeret İzinli', 'Diğer'].includes(v))
     return v;
 
   return '';

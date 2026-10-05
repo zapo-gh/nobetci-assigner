@@ -36,10 +36,7 @@ export default function AbsentsSection({
            </div>
            <h3>Henüz Mazeret Eklenmedi</h3>
            <p>Bugün için sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor.</p>
-           <button className="btn btn-primary" onClick={onAddAbsent}>
-             <IconComponent name="userX" size={16} />
-             <span>Yeni Mazeretli Ekle</span>
-           </button>
+
         </div>
       ) : (
         <AbsenteeList absentPeople={absentPeopleForCurrentDay} onDelete={onDeleteAbsent} IconComponent={IconComponent} />

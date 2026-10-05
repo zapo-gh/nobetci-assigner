@@ -9,6 +9,7 @@ const REASON_LABELS = {
   "sevkli": "Sevkli",
   "izinli": "İzinli",
   "gorevli-izinli": "Görevli İzinli",
+  "mazeret-izinli": "Mazeret İzinli",
   "diger": "Diğer"
 };
 
@@ -61,7 +62,10 @@ export default function AssignmentText({
         const reason = abs ? (REASON_LABELS[abs.reason] || abs.reason) : "";
         const suffix = abs ? ` (${abs.name} - ${reason})` : "";
         const teacherDisplayName = t?.teacherName || (a.teacherId.startsWith('auto_') ? 'Bilinmeyen Öğretmen' : a.teacherId);
-        const lineText = `${p}. saat — ${c?.className || a.classId}: ${teacherDisplayName}${suffix}`;
+        const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
+        const systemDay = systemDayMap[day] || day;
+        const dutyLocation = t?.dutyLocations?.[systemDay] ? ` [${t.dutyLocations[systemDay]}]` : '';
+        const lineText = `${p}. saat — ${c?.className || a.classId}: ${teacherDisplayName}${dutyLocation}${suffix}`;
         lines.push(lineText);
         const teacherKey = normalizeTeacherKey(teacherDisplayName);
         const mapKey = `${p}|${teacherKey}`;

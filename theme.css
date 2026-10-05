@@ -16,6 +16,24 @@
                  #e6ebff;
   --surface: #ffffff;
   --surface-2: #eef1ff;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --z-modal: 1000;
+  --warning-light: #fef3c7;
+  --danger-light: #fee2e2;
+  --primary-dark: #3730a3;
+  /* Aliases for Modal.module.css */
+  --transition-default: var(--transition-base);
+  --transition-slow: 300ms ease;
+  --radius-xl: 24px;
+  --shadow-lg: 0 20px 60px rgba(15, 21, 53, 0.4);
+  --border-default: var(--border);
+  --text-primary: var(--text);
+  --font-weight-semibold: 700;
+  --font-weight-medium: 600;
+  --font-weight-bold: 800;
+  --bg-default: var(--bg);
   --border: #c5cdf0;
   --border-strong: #9fabe0;
   --text: #0f1535;
@@ -304,3 +322,122 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 /* ================= Erişilebilirlik ================= */
 :focus-visible { outline: 3px solid rgba(79, 70, 229, .6); outline-offset: 2px; border-radius: var(--radius-sm); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ================= Teacher Schedule Modal ================= */
+.teacher-schedule-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.schedule-table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.schedule-table th,
+.schedule-table td {
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+}
+
+.schedule-table thead {
+  background: var(--surface-2);
+}
+
+.day-header, .period-header {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.day-cell {
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  text-align: left;
+  padding-left: var(--space-4) !important;
+}
+
+.schedule-cell {
+  min-width: 60px;
+}
+
+.empty-period {
+  background: var(--bg);
+}
+
+.empty-indicator {
+  color: var(--text-faint);
+}
+
+.class-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.schedule-legend {
+  background: var(--surface-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.schedule-legend h4 {
+  margin: 0 0 var(--space-3) 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.schedule-summary {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+.summary-stats {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+}

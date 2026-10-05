@@ -1,5 +1,30 @@
 import { db } from './firebaseClient.js';
-import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection as fbCollection, doc as fbDoc, getDoc as fbGetDoc, getDocs as fbGetDocs, setDoc as fbSetDoc, deleteDoc as fbDeleteDoc, query as fbQuery, where as fbWhere, writeBatch as fbWriteBatch } from 'firebase/firestore';
+
+const IS_FB_CONFIGURED = !!import.meta.env.VITE_FIREBASE_PROJECT_ID;
+
+const collection = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbCollection(...args as [any, string, ...string[]]) : {} as any; } catch(e) { return {} as any; } };
+const doc = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbDoc(...args as [any, string, ...string[]]) : {} as any; } catch(e) { return {} as any; } };
+const query = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbQuery(...args as [any, ...any[]]) : {} as any; } catch(e) { return {} as any; } };
+const where = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbWhere(...args as [string, any, any]) : {} as any; } catch(e) { return {} as any; } };
+
+const getDoc = async (ref: any) => { if (!IS_FB_CONFIGURED || !ref) return { exists: () => false, data: () => null }; try { return await fbGetDoc(ref); } catch (e) { return { exists: () => false, data: () => null }; } };
+const getDocs = async (ref: any) => { if (!IS_FB_CONFIGURED || !ref) return { docs: [] }; try { return await fbGetDocs(ref); } catch (e) { return { docs: [] }; } };
+const setDoc = async (ref: any, data: any) => { if (!IS_FB_CONFIGURED || !ref) return Promise.resolve(); try { return await fbSetDoc(ref, data); } catch (e) { return Promise.resolve(); } };
+const deleteDoc = async (ref: any) => { if (!IS_FB_CONFIGURED || !ref) return Promise.resolve(); try { return await fbDeleteDoc(ref); } catch (e) { return Promise.resolve(); } };
+const writeBatch = (dbRef: any) => {
+  if (!IS_FB_CONFIGURED) return { set: () => {}, delete: () => {}, commit: async () => Promise.resolve() };
+  try {
+    const batch = fbWriteBatch(dbRef);
+    const originalCommit = batch.commit.bind(batch);
+    batch.commit = async () => {
+      try { return await originalCommit(); } catch(e) { return Promise.resolve(); }
+    };
+    return batch;
+  } catch (e) {
+    return { set: () => {}, delete: () => {}, commit: async () => Promise.resolve() };
+  }
+};
 const createId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -30,7 +55,7 @@ export async function loadInitialData() {
     const [
       teachersSnap, classesSnap, absentsSnap, 
       classFree, teacherFree, classAbsence, 
-      locks, pdfSchedule, teacherSchedules, commonLessons
+      locks, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping
     ] = await Promise.all([
       getDocs(collection(db, 'teachers')),
       getDocs(collection(db, 'classes')),
@@ -41,7 +66,8 @@ export async function loadInitialData() {
       getConfigDoc('locks', {}),
       getConfigDoc('pdf_schedule', {}),
       getConfigDoc('teacher_schedules', {}),
-      getConfigDoc('common_lessons', {})
+      getConfigDoc('common_lessons', {}),
+      getConfigDoc('location_zone_mapping', {})
     ]);
 
     const teachers = teachersSnap.docs.map(d => d.data());
@@ -58,7 +84,8 @@ export async function loadInitialData() {
       locked: locks,
       pdfSchedule,
       teacherSchedules,
-      commonLessons
+      commonLessons,
+      locationZoneMapping
     };
   } catch (error) {
     reportServiceError('loadInitialData error:', error);
@@ -418,3 +445,4 @@ export async function bulkSaveTeacherFree(teacherFree: any) {
 export async function bulkSaveLocks(locks: any) {
   await setConfigDoc('locks', locks);
 }
+

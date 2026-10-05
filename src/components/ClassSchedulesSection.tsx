@@ -239,15 +239,16 @@ export default function ClassSchedulesSection({
           </div>
         </div>
 
-        <div className="card-grid">
-          {filteredClasses.length === 0 ? (
-            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-              <div className="empty-state-icon">
-                <IconComponent name="search" size={32} />
+        <div style={{ padding: '24px' }}>
+          <div className="card-grid">
+            {filteredClasses.length === 0 ? (
+              <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                <div className="empty-state-icon">
+                  <IconComponent name="search" size={32} />
+                </div>
+                <p>Sonuç bulunamadı</p>
               </div>
-              <p>Sonuç bulunamadı</p>
-            </div>
-          ) : (
+            ) : (
             filteredClasses.map(cName => {
               const schedule = classSchedulesMap[cName] || {};
               
@@ -284,21 +285,15 @@ export default function ClassSchedulesSection({
                       <span className="chip"><IconComponent name="book" size={12} /> {totalLessons} ders</span>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {dayStats.length > 0 ? (
-                        dayStats.map(({ key, label, count }) => {
-                          const progress = (count / 10) * 100;
-                          return (
-                            <div key={key} className="day-row" style={{ '--fill': `${progress}%` } as React.CSSProperties}>
-                              <span className="day-row-name">{label}</span>
-                              <span className="day-row-count">{count} ders</span>
-                            </div>
-                          );
-                        })
+                        dayStats.map(({ key, label, count }) => (
+                          <span key={key} style={{ fontSize: '0.78rem', padding: '2px 6px', background: 'var(--surface-2)', borderRadius: '4px', borderLeft: '3px solid var(--tone)' }}>
+                            <strong style={{ color: 'var(--text)' }}>{label}</strong>: {count}
+                          </span>
+                        ))
                       ) : (
-                        <div className="day-row" data-empty="true">
-                          <span className="day-row-name">Ders bilgisi bulunamadı</span>
-                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ders bilgisi yok</span>
                       )}
                     </div>
                   </div>
@@ -306,6 +301,7 @@ export default function ClassSchedulesSection({
               );
             })
           )}
+          </div>
         </div>
       </div>
 
@@ -349,13 +345,13 @@ export default function ClassSchedulesSection({
                       >
                         <div className={`lesson-cell c${colorIndex}`} style={{ minHeight: '70px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                           {lesson.subject && (
-                            <span>{lesson.subject}</span>
+                            <strong style={{ fontSize: '12px', letterSpacing: '0.3px', textAlign: 'center', lineHeight: '1.2' }}>{lesson.subject}</strong>
                           )}
                           
                           {lesson.teachers.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center', opacity: 0.9 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '100%', alignItems: 'center', opacity: 0.95, fontSize: '10.5px', fontWeight: 'normal' }}>
                               {lesson.teachers.map((tName: string, i: number) => (
-                                <span key={i} title={tName}>
+                                <span key={i} title={tName} style={{ textAlign: 'center', lineHeight: '1.1' }}>
                                   {tName}
                                 </span>
                               ))}

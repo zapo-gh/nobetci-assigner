@@ -69,6 +69,7 @@ export default function ModernClassAvailabilityGrid({
       sevkli: 'badge-info',
       izinli: 'badge-success',
       'gorevli-izinli': 'badge-warning',
+      'mazeret-izinli': 'badge-warning',
       diger: 'badge-muted'
     }
     return colorMap[reason?.toLowerCase()] || 'badge-muted'

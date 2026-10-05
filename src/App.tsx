@@ -54,6 +54,7 @@ import {
   bulkSaveTeacherFree,
   clearAdminLocks,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
+  saveLocationZoneMapping,
 } from './services/firebaseDataService.js';
 
 import { useUI } from './hooks/useUI.js';
@@ -585,6 +586,9 @@ export default function App() {
         setCommonLessons(sanitizedCommonLessons);
         setLocked(supabaseData.locked || {});
         setPdfSchedule(supabaseData.pdfSchedule || {});
+        if (supabaseData.locationZoneMapping) {
+          setLocationZoneMapping(supabaseData.locationZoneMapping);
+        }
 
         // Teacher schedules'i yükle - boş olsa bile Supabase'den geldiğini işaretle
         const loadedTeacherSchedules = supabaseData.teacherSchedules || {}
@@ -854,26 +858,17 @@ export default function App() {
     refreshAbsenceData();
   }, [absenceRefreshState.isRefreshing, refreshAbsenceData, setToolbarExpanded]);
 
+  const teachersForCurrentDay = useDutyTeacherFilter(teachers, pdfSchedule, day);
+
   // Nöbetçi öğretmenlerin boş saatlerini otomatik işaretle (referanslardan önce tanımlandı)
   const autoMarkDutyTeachersFree = useCallback(() => {
     if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return;
-    if (!pdfSchedule || Object.keys(pdfSchedule).length === 0) return;
+    if (!teachersForCurrentDay || teachersForCurrentDay.length === 0) return;
 
     const dayMapping = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday' };
-    const pdfDayKey = dayMapping[day];
-    if (!pdfDayKey || !pdfSchedule[pdfDayKey]) return;
+    const pdfDayKey = dayMapping[day] || 'monday';
 
-    const dutyTeachers = new Set();
-    Object.values(pdfSchedule[pdfDayKey]).forEach(periodTeachers => {
-      if (Array.isArray(periodTeachers)) {
-        periodTeachers.forEach(teacherName => {
-          const normalizedName = normalizeForComparison(teacherName);
-          // O(n²) teachers.find yerine normalizedNameMap kullan
-          const matchingTeacher = teachers.find(t => normalizeForComparison(t.teacherName) === normalizedName);
-          if (matchingTeacher) dutyTeachers.add(matchingTeacher.teacherId);
-        });
-      }
-    });
+    const dutyTeachers = new Set(teachersForCurrentDay.map(t => t.teacherId));
     if (dutyTeachers.size === 0) return;
 
     setTeacherFree((prev) => {
@@ -908,21 +903,20 @@ export default function App() {
 
       return next;
     });
-  }, [day, teacherSchedules, pdfSchedule, teachers, teacherMap, periods]);
+  }, [day, teacherSchedules, teachersForCurrentDay, teacherMap, periods]);
 
   // Sistem yüklendiğinde ve gün değiştiğinde nöbetçi öğretmenlerin boş saatlerini otomatik işaretle
   useEffect(() => {
     if (!hydratedRef.current) return;
     if (!teacherSchedulesHydrated) return;
     if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return;
-    if (!pdfSchedule || Object.keys(pdfSchedule).length === 0) return;
 
     // requestAnimationFrame kullanarak hemen çalıştır (gecikme yok)
     const rafId = requestAnimationFrame(() => {
       autoMarkDutyTeachersFree();
     });
     return () => cancelAnimationFrame(rafId);
-  }, [day, teacherSchedules, pdfSchedule, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
+  }, [day, teacherSchedules, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
 
   const handleTeacherScheduleUpload = useCallback(
     async (event) => {
@@ -1018,7 +1012,6 @@ export default function App() {
     if (!hydratedRef.current) return;
     if (!teacherSchedulesHydrated) return;
     if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) return;
-    if (!pdfSchedule || Object.keys(pdfSchedule).length === 0) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -1031,7 +1024,7 @@ export default function App() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [day, teacherSchedules, pdfSchedule, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
+  }, [day, teacherSchedules, teacherSchedulesHydrated, teachers, periods, autoMarkDutyTeachersFree]);
 
   // period değişince Set'leri garantiye al
   useEffect(() => {
@@ -1768,7 +1761,7 @@ export default function App() {
     });
   }, [classFree, day, classes]);
 
-  const teachersForCurrentDay = useDutyTeacherFilter(teachers, pdfSchedule, day);
+  // (teachersForCurrentDay has been moved to the top of the component)
 
   const normalizedClassNames = useMemo(() => {
     const set = new Set();
@@ -1988,7 +1981,7 @@ export default function App() {
   const { schedule: rawAssignment } = useMemo(
     () =>
       assignDuties({
-        teachers,
+        teachers: teachersForCurrentDay,
         freeTeachers: freeTeachersByDay,
         classes,
         freeClasses: freeClassesByDay,
@@ -1998,7 +1991,7 @@ export default function App() {
         classLocations,
         locationZoneMapping
       }),
-    [teachers, classes, freeTeachersByDay, freeClassesByDay, options, locked, commonLessons, classLocations, locationZoneMapping]
+    [teachersForCurrentDay, classes, freeTeachersByDay, freeClassesByDay, options, locked, commonLessons, classLocations, locationZoneMapping]
   );
   const assignment = useMemo(
     () => applyFairnessAdjustments({
@@ -2620,6 +2613,7 @@ export default function App() {
               classLocations={classLocations}
               locationZoneMapping={locationZoneMapping}
               setLocationZoneMapping={setLocationZoneMapping}
+              onSaveLocationZoneMapping={() => saveLocationZoneMapping(locationZoneMapping)}
             />
           )}
 

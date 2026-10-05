@@ -53,7 +53,7 @@ function ModernAvailabilityGrid({
                   <span className="badge badge-info">{rows.length}</span>
                 </div>
               </th>
-              <th className="text-center min-w-20">İşlem</th>
+
               {periods.map(p => {
                 //const selectedCount = getSelectedCount(p)
                 //const totalCount = getTotalCount()
@@ -75,7 +75,7 @@ function ModernAvailabilityGrid({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={periods.length + 3}>
+                <td colSpan={periods.length + 2}>
                   <EmptyState
                     IconComponent={IconComponent}
                     icon="users"
@@ -107,24 +107,25 @@ function ModernAvailabilityGrid({
                           >
                             {rowName}
                           </span>
-                          {extraCol && <div className="text-xs text-secondary mt-1">{extraCol(row)}</div>}
+                          {extraCol && <div style={{ marginTop: '2px' }}>{extraCol(row)}</div>}
                         </div>
-                        <span className="badge badge-info ml-2">
-                          {selectedCount}/{periods.length}
-                        </span>
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="badge badge-info">
+                            {selectedCount}/{periods.length}
+                          </span>
+                          {onDelete && (
+                            <button
+                              className="btn-danger btn-sm"
+                              onClick={() => onDelete(rowId)}
+                              title={`${rowName} adlı öğretmeni sil`}
+                              aria-label={`${rowName} adlı öğretmeni sil`}
+                              style={{ padding: '4px', minWidth: '24px', minHeight: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              {IconComponent && <IconComponent name="trash" size={14} />}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </td>
-                    <td className="text-center p-2">
-                      {onDelete && (
-                        <button
-                          className="btn-danger btn-sm"
-                          onClick={() => onDelete(rowId)}
-                          title={`${rowName} adlı öğretmeni sil`}
-                          aria-label={`${rowName} adlı öğretmeni sil`}
-                        >
-                          {IconComponent && <IconComponent name="trash" size={14} />}
-                        </button>
-                      )}
                     </td>
 
                     {periods.map(p => {
@@ -153,7 +154,7 @@ function ModernAvailabilityGrid({
             <tfoot>
               <tr>
                 <td className="text-left"><span>Toplam Seçili</span></td>
-                <td className="text-center">—</td>
+
                 {periods.map(p => {
                   const selectedCount = getSelectedCount(p)
                   const totalCount = getTotalCount()

@@ -8,6 +8,7 @@ const REASON_OPTIONS = [
   { value: 'Sevkli', label: 'Sevkli' },
   { value: 'İzinli', label: 'İzinli' },
   { value: 'Görevli İzinli', label: 'Görevli İzinli' },
+  { value: 'Mazeret İzinli', label: 'Mazeret İzinli' },
   { value: 'Diğer', label: 'Diğer' }
 ];
 
@@ -168,7 +169,7 @@ export default function AddAbsentModal({
             type="text"
             id="name"
             name="name"
-            className={`form-input ${errors.name ? 'error' : ''}`}
+            className={`input w-full ${errors.name ? 'error' : ''}`}
             value={formData.name}
             onChange={(e) => handleTeacherInput(e.target.value)}
             placeholder={preparedTeacherOptions.length ? 'Örn: Ayşe Yılmaz' : 'Önce ders programı yükleyin'}
@@ -200,7 +201,7 @@ export default function AddAbsentModal({
           <select
             id="reason"
             name="reason"
-            className={`form-input ${errors.reason ? 'error' : ''}`}
+            className={`input w-full ${errors.reason ? 'error' : ''}`}
             value={formData.reason}
             onChange={handleChange}
           >
@@ -223,7 +224,7 @@ export default function AddAbsentModal({
               type="text"
               id="customReason"
               name="customReason"
-              className={`form-input ${errors.customReason ? 'error' : ''}`}
+              className={`input w-full ${errors.customReason ? 'error' : ''}`}
               value={formData.customReason}
               onChange={handleChange}
               placeholder="Örn: Eş Doğum İzni, Mahkeme"
@@ -271,30 +272,7 @@ export default function AddAbsentModal({
           color: #ff6b6b;
         }
 
-        .form-input {
-          width: 100%;
-          padding: 10px 12px;
-          border: 1px solid var(--border-color, #2e3d6e);
-          border-radius: 8px;
-          background: var(--bg-secondary, #0b1328);
-          color: var(--text-primary, #e8eefc);
-          font-size: 1rem;
-          transition: all 0.2s;
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: var(--primary, #4a90e2);
-          box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        }
-
-        .form-input.error {
-          border-color: #ff6b6b;
-        }
-
-        .form-input.error:focus {
-          box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
-        }
+        /* standard inputs use global .input classes */
 
         .error-message {
           display: block;
@@ -312,11 +290,11 @@ export default function AddAbsentModal({
 
         .day-display {
           padding: 10px 14px;
-          background: var(--bg-secondary, #0b1328);
-          border: 1px solid var(--border-default, #2e3d6e);
-          border-radius: 8px;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
           font-weight: 600;
-          color: var(--text-primary, #e8eefc);
+          color: var(--text);
         }
         .form-actions {
           display: flex;
@@ -325,10 +303,6 @@ export default function AddAbsentModal({
           margin-top: 24px;
           padding-top: 20px;
           border-top: 1px solid var(--border-color, #2e3d6e);
-        }
-
-        select.form-input {
-          cursor: pointer;
         }
 
         .custom-reason-field {

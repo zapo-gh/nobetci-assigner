@@ -75,11 +75,11 @@ export default function TeachersSection({
         extraCol={(row) => {
           if (!row.dutyLocations || !day) return null;
           const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
-          const systemDay = systemDayMap[day];
+          const systemDay = systemDayMap[day] || day;
           const location = row.dutyLocations[systemDay];
           return location ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
-              <IconComponent name="mapPin" size={12} /> {location}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted, gray)', lineHeight: '1.2' }}>
+              <IconComponent name="mapPin" size={10} /> {location}
             </span>
           ) : null;
         }}

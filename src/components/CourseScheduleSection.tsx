@@ -65,20 +65,8 @@ export default function CourseScheduleSection({
 
   return (
     <div role="tabpanel" id="panel-courseSchedule" aria-labelledby="tab-courseSchedule">
-      <div>
-        {teacherSchedulesList.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-               <IconComponent name="calendar" size={32} />
-            </div>
-            <h3>Henüz Ders Programı Eklenmedi</h3>
-            <p>Excel dosyasını yükleyerek öğretmen ders programlarını oluşturabilirsiniz.</p>
-          </div>
-        )}
-
-        {teacherSchedulesList.length > 0 && (
-          <div>
-            <div className="toolbar">
+      <div className="card" style={{ margin: '0 24px' }}>
+        <div className="toolbar" style={{ borderBottom: '1px solid var(--border-subtle)', borderRadius: '16px 16px 0 0' }}>
               <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
                 <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
                   <IconComponent name="search" size={16} />
@@ -113,26 +101,38 @@ export default function CourseScheduleSection({
               
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                 <input type="file" accept=".pdf,.xlsx,.xls" onChange={onUpload} style={{ display: 'none' }} id={uploadInputId} />
-                <label htmlFor={uploadInputId} className="btn btn-primary" title="Excel'den Ders Programı Yükle">
+                <label htmlFor={uploadInputId} className="btn btn-primary" title="Öğretmen El Programı Yükle">
                   <IconComponent name="upload" size={16} />
-                  <span>Excel Yükle</span>
+                  <span className="btn-text">Öğretmen El Programı Yükle</span>
                 </label>
-                <button className="btn btn-danger" onClick={onDeleteAllSchedules} title="Tüm ders programlarını sil">
-                  <IconComponent name="trash" size={14} />
-                  <span>Tümünü Sil</span>
-                </button>
+                {teacherSchedulesList.length > 0 && (
+                  <button className="btn btn-danger" onClick={onDeleteAllSchedules} title="Tüm ders programlarını sil">
+                    <IconComponent name="trash" size={14} />
+                    <span>Tümünü Sil</span>
+                  </button>
+                )}
               </div>
             </div>
-            
-            <div className="card-grid">
-              {filteredTeacherSchedules.length === 0 ? (
-                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                  <div className="empty-state-icon">
-                    <IconComponent name="search" size={32} />
-                  </div>
-                  <p>Sonuç bulunamadı</p>
+
+            {teacherSchedulesList.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                   <IconComponent name="calendar" size={32} />
                 </div>
-              ) : (
+                <h3>Henüz Ders Programı Eklenmedi</h3>
+                <p>Excel dosyasını yükleyerek öğretmen ders programlarını oluşturabilirsiniz.</p>
+              </div>
+            ) : (
+              <div style={{ padding: '24px' }}>
+                <div className="card-grid">
+                {filteredTeacherSchedules.length === 0 ? (
+                  <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                    <div className="empty-state-icon">
+                      <IconComponent name="search" size={32} />
+                    </div>
+                    <p>Sonuç bulunamadı</p>
+                  </div>
+                ) : (
                 filteredTeacherSchedules.map(([teacherName, schedule], index) => {
                 const dayStats = dayDefinitions
                   .map(({ key, label }) => {
@@ -172,27 +172,24 @@ export default function CourseScheduleSection({
                         <span className="chip"><IconComponent name="book" size={12} /> {totalLessons} ders</span>
                       </div>
                       
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {dayStats.length > 0 ? (
                           dayStats.map(({ key, label, count }) => (
-                            <div key={key} className="day-row" style={{ '--fill': `${(count / 10) * 100}%` } as React.CSSProperties}>
-                              <span className="day-row-name">{label}</span>
-                              <span className="day-row-count">{count} ders</span>
-                            </div>
+                            <span key={key} style={{ fontSize: '0.78rem', padding: '2px 6px', background: 'var(--surface-2)', borderRadius: '4px', borderLeft: '3px solid var(--tone)' }}>
+                              <strong style={{ color: 'var(--text)' }}>{label}</strong>: {count}
+                            </span>
                           ))
                         ) : (
-                          <div className="day-row" data-empty="true">
-                            <span className="day-row-name">Günlük ders bilgisi yok</span>
-                          </div>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ders bilgisi yok</span>
                         )}
                       </div>
                     </div>
                   </div>
                 );
               }))}
-            </div>
-          </div>
-        )}
+                </div>
+              </div>
+            )}
       </div>
     </div>
   );
