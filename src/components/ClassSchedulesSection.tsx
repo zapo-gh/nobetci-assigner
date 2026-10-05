@@ -94,7 +94,21 @@ export default function ClassSchedulesSection({
     Object.entries(classLocations || {}).forEach(([rawCName, cDays]) => {
       const classNames = typeof rawCName === 'string' ? rawCName.split(',').map(s => s.trim()).filter(Boolean) : [rawCName];
       
-      classNames.forEach(cName => {
+      classNames.forEach(rawClassName => {
+        // Try to find the exact class from the 'classes' array
+        let cName = rawClassName;
+        const matchedClass = classes?.find((c: any) => c.className && rawClassName.includes(c.className));
+        
+        if (matchedClass) {
+          cName = matchedClass.className;
+        } else {
+          // If not found, at least strip out obvious noise like times and room parentheses
+          cName = cName.replace(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/g, '')
+                       .replace(/\([^)]*\)/g, '')
+                       .trim();
+          cName = cName.replace(/\s+-\s*$/, '').trim();
+        }
+
         if (!map[cName]) map[cName] = {};
         Object.entries((cDays as any) || {}).forEach(([day, cPeriods]) => {
           if (!map[cName][day]) map[cName][day] = {};
@@ -124,7 +138,22 @@ export default function ClassSchedulesSection({
         Object.entries((tPeriods as any) || {}).forEach(([period, cId]: [string, any]) => {
           if (cId && typeof cId === 'string' && cId.trim()) {
             const classNames = cId.split(',').map(s => s.trim()).filter(Boolean);
-            classNames.forEach(className => {
+            classNames.forEach(rawClassName => {
+              // Try to find the exact class from the 'classes' array
+              let className = rawClassName;
+              const matchedClass = classes?.find((c: any) => c.className && rawClassName.includes(c.className));
+              
+              if (matchedClass) {
+                className = matchedClass.className;
+              } else {
+                // If not found, at least strip out obvious noise like times and room parentheses
+                className = className.replace(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/g, '')
+                                     .replace(/\([^)]*\)/g, '')
+                                     .trim();
+                // Also remove trailing hyphen if any
+                className = className.replace(/\s+-\s*$/, '').trim();
+              }
+
               if (!map[className]) map[className] = {};
               if (!map[className][day]) map[className][day] = {};
               
