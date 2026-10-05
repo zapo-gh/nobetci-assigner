@@ -23,6 +23,7 @@ public/version.json
 # environment files
 .env
 .env.*
+!.env.production
 /.env.local
 *.local
 
