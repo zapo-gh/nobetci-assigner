@@ -189,8 +189,9 @@ export default function PrintableDailyList({
                     );
                   })}
                 </tr>
-              ))
-            )}
+              );
+            })
+          )}
 
             {/* Common Lesson Teachers (nöbetçi listesinde olmayanlar) */}
             {(() => {

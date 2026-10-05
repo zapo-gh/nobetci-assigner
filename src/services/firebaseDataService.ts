@@ -44,7 +44,7 @@ const reportServiceError = (msg: string, err: any) => {
 // Generic config fetcher
 async function getConfigDoc(docName: string, fallback: any = {}) {
   const d = await getDoc(doc(db, 'config', docName));
-  return d.exists() ? (d.data().data || fallback) : fallback;
+  return d.exists() ? ((d.data() as any)?.data ?? fallback) : fallback;
 }
 async function setConfigDoc(docName: string, data: any) {
   await setDoc(doc(db, 'config', docName), { data });
