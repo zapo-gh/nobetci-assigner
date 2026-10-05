@@ -6,6 +6,7 @@ import { useAssignments } from './contexts/useAssignments';
 import { useTeacherManager } from './hooks/useTeacherManager';
 import { useClassManager } from './hooks/useClassManager';
 import { useAvailabilityManager } from './hooks/useAvailabilityManager';
+import { normalizeClassName } from './utils/classNameUtils';
 import React, { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { DutyZone } from "./types.js";
 import Header from './components/Header.js';
@@ -56,6 +57,8 @@ import {
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
   saveLocationZoneMapping,
   saveDutyZones,
+  saveClassLocations,
+  loadClassLocations,
 } from './services/firebaseDataService.js';
 
 import { useUI } from './hooks/useUI.js';
@@ -437,6 +440,17 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('nobetci_classLocations', JSON.stringify(classLocations));
   }, [classLocations]);
+
+  // Load persisted class schedules from the database (localStorage acts only as a cache)
+  useEffect(() => {
+    loadClassLocations()
+      .then((data: any) => {
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          setClassLocations(data);
+        }
+      })
+      .catch((err: any) => logger.error('classLocations load error:', err));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('nobetci_locationZoneMapping', JSON.stringify(locationZoneMapping));
@@ -1018,6 +1032,10 @@ export default function App() {
         const { parseClassLocationsFromExcel } = await import('./utils/classScheduleExcelParser.js');
         const locations = await parseClassLocationsFromExcel(file, teacherSchedules, teachers);
         setClassLocations(locations);
+        await saveClassLocations(locations).catch((err: any) => {
+          logger.error('classLocations save error:', err);
+          addNotification('Sınıf programı veritabanına kaydedilemedi.', 'error');
+        });
         addNotification('Sınıf yerleri sisteme başarıyla kaydedildi.', 'success');
         // İsteğe bağlı olarak bu veriyi Supabase'e kaydedebilirsiniz
       } catch (error) {
@@ -1035,9 +1053,50 @@ export default function App() {
   const handleDeleteAllClassLocations = useCallback(() => {
     if (window.confirm('Tüm sınıf programı verilerini silmek istediğinize emin misiniz?')) {
       setClassLocations({});
+      saveClassLocations({}).catch((err: any) => logger.error('classLocations clear error:', err));
       addNotification('Sınıf programları başarıyla silindi.', 'success');
     }
   }, [addNotification]);
+
+  // Manually derive class schedules from teacher schedules (never automatic).
+  // Existing (uploaded) entries are preserved; only empty slots are filled.
+  const handleDeriveClassSchedulesFromTeachers = useCallback(() => {
+    if (!teacherSchedules || Object.keys(teacherSchedules).length === 0) {
+      addNotification('Önce öğretmen ders programını yükleyin.', 'warning');
+      return;
+    }
+    const next: any = JSON.parse(JSON.stringify(classLocations || {}));
+    let added = 0;
+    Object.entries(teacherSchedules).forEach(([tName, tDays]: [string, any]) => {
+      if (tName === TEACHER_SCHEDULES_SNAPSHOT_KEY || !tDays || typeof tDays !== 'object') return;
+      Object.entries(tDays).forEach(([day, tPeriods]: [string, any]) => {
+        Object.entries(tPeriods || {}).forEach(([period, cId]: [string, any]) => {
+          if (!cId || typeof cId !== 'string' || !cId.trim()) return;
+          cId.split(',').map((s) => s.trim()).filter(Boolean).forEach((raw) => {
+            const cName = normalizeClassName(raw);
+            if (!cName) return;
+            if (!next[cName]) next[cName] = {};
+            if (!next[cName][day]) next[cName][day] = {};
+            const existing = next[cName][day][period];
+            if (existing && !Array.isArray(existing.teachers)) return; // uploaded entry, keep as is
+            if (!existing) {
+              next[cName][day][period] = { subject: '', location: '', teacherNamesStr: '', teachers: [] };
+              added++;
+            }
+            if (!next[cName][day][period].teachers.includes(tName)) {
+              next[cName][day][period].teachers.push(tName);
+            }
+          });
+        });
+      });
+    });
+    setClassLocations(next);
+    saveClassLocations(next).catch((err: any) => {
+      logger.error('classLocations save error:', err);
+      addNotification('Sınıf programı veritabanına kaydedilemedi.', 'error');
+    });
+    addNotification(`Öğretmen programından ${added} ders hücresi türetildi.`, 'success');
+  }, [teacherSchedules, classLocations, addNotification]);
 
   // Sekme açıldığında (sayfa görünür olduğunda) nöbetçi öğretmen işaretlemelerini güncelle
   useEffect(() => {
@@ -2036,9 +2095,11 @@ export default function App() {
       commonLessons,
       locked,
       options,
-      teacherMap
+      teacherMap,
+      classLocations,
+      locationZoneMapping
     }),
-    [rawAssignment, day, periods, teachersForCurrentDay, freeTeachersByDay, freeClassesByDay, commonLessons, locked, options, teacherMap]
+    [rawAssignment, day, periods, teachersForCurrentDay, freeTeachersByDay, freeClassesByDay, commonLessons, locked, options, teacherMap, classLocations, locationZoneMapping]
   );
 
   const unassignedForSelectedDay = useMemo(() => {
@@ -2612,6 +2673,7 @@ export default function App() {
               onUploadSinifProgrami={handleSinifProgramiUpload}
               classLocations={classLocations}
               onDeleteAll={handleDeleteAllClassLocations}
+              onDeriveFromTeachers={handleDeriveClassSchedulesFromTeachers}
             />
           )}
 

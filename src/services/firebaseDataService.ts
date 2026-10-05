@@ -412,6 +412,14 @@ export async function clearTeacherSchedules() {
   await setConfigDoc('teacher_schedules', {});
 }
 
+export async function saveClassLocations(classLocations: any) {
+  await setConfigDoc('class_locations', classLocations || {});
+}
+
+export async function loadClassLocations() {
+  return getConfigDoc('class_locations', {});
+}
+
 export async function saveCommonLessons(commonLessons: any) {
   await setConfigDoc('common_lessons', commonLessons);
 }

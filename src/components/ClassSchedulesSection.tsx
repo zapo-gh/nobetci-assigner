@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import Modal from './Modal';
+import { normalizeClassName } from '../utils/classNameUtils';
 
-const COLORS = [
-  'var(--bg-card)', '#f8bbd0', '#e1bee7', '#d1c4e9', '#c5cae9', '#bbdefb', '#b3e5fc',
-  '#b2ebf2', '#b2dfdb', '#c8e6c9', '#dcedc8', '#f0f4c3', '#fff9c4',
-  '#ffecb3', '#ffe0b2', '#ffccbc', '#d7ccc8'
-];
+
 
 const getSubjectColor = (subject: string) => {
   if (!subject) return '#6b7280';
@@ -65,14 +62,15 @@ const shortenSubjectName = (subject: string) => {
 };
 
 
+
 export default function ClassSchedulesSection({
   classes,
   teacherSchedules,
-  teachers,
   IconComponent,
   onUploadSinifProgrami,
   classLocations,
   onDeleteAll,
+  onDeriveFromTeachers,
 }: any) {
   const [selectedClass, setSelectedClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -109,6 +107,7 @@ export default function ClassSchedulesSection({
           cName = cName.replace(/\s+-\s*$/, '').trim();
         }
 
+        cName = normalizeClassName(rawClassName);
         if (!map[cName]) map[cName] = {};
         Object.entries((cDays as any) || {}).forEach(([day, cPeriods]) => {
           if (!map[cName][day]) map[cName][day] = {};
@@ -121,7 +120,10 @@ export default function ClassSchedulesSection({
              if (location) map[cName][day][period].location = location;
              if (subject) map[cName][day][period].subject = subject;
              
-             if (teacherNamesStr) {
+             if (Array.isArray(locData?.teachers) && locData.teachers.length > 0) {
+                 map[cName][day][period].teachers = [...locData.teachers];
+                 map[cName][day][period]._hasShortNames = false;
+             } else if (teacherNamesStr) {
                  // Class locations gives a string like "S.YAĞAN" or "S. URBAY/C.PAYLAN". 
                  // We put these as temporary short names.
                  map[cName][day][period].teachers = teacherNamesStr.split(/[\/\-]/).map(s => s.trim()).filter(Boolean);
@@ -154,13 +156,11 @@ export default function ClassSchedulesSection({
                 className = className.replace(/\s+-\s*$/, '').trim();
               }
 
-              if (!map[className]) map[className] = {};
-              if (!map[className][day]) map[className][day] = {};
-              
-              if (!map[className][day][period]) {
-                  // It was NOT in classLocations! So it's a fallback
-                  map[className][day][period] = { teachers: [], subject: '', location: '', _isFallback: true, _hasShortNames: false };
-              }
+              className = normalizeClassName(rawClassName);
+              // Class schedules are NOT derived automatically from teacher schedules.
+              // Teacher schedules are only used to resolve full teacher names for
+              // periods that already exist (uploaded Excel or manual derivation).
+              if (!map[className]?.[day]?.[period]) return;
               
               // If the cell currently only has short names from the Excel cell, let's clear them 
               // the FIRST time we add a real full name from teacherSchedules!
@@ -208,13 +208,6 @@ export default function ClassSchedulesSection({
 
     return true;
   });
-
-  const getSubjectColor = (subject: string) => {
-    if (!subject) return 'transparent';
-    const hash = subject.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    // return color, skipping index 0 (which is default card bg)
-    return COLORS[(hash % (COLORS.length - 1)) + 1];
-  };
 
   const hasLocations = Object.keys(classLocations || {}).length > 0;
 
@@ -310,6 +303,16 @@ export default function ClassSchedulesSection({
               <IconComponent name="upload" size={16} />
               <span className="btn-text">Sınıf El Programı Yükle</span>
             </label>
+            {onDeriveFromTeachers && !hasLocations && (
+              <button
+                className="btn"
+                onClick={onDeriveFromTeachers}
+                title="Öğretmen ders programlarından sınıf programlarını türet (mevcut kayıtların üzerine yazmaz)"
+              >
+                <IconComponent name="calendar" size={14} />
+                <span>Öğretmen Programından Türet</span>
+              </button>
+            )}
             {hasLocations && (
               <button className="btn btn-danger" onClick={onDeleteAll} title="Tüm sınıf programlarını sil">
                 <IconComponent name="trash" size={14} />

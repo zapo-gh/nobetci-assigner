@@ -441,25 +441,22 @@ function extractClassFromCell(cell) {
   
   if (prefixes.length === 0) prefixes.push('');
   
-  // First, try to match grade and branch/field
-  // e.g. "9-A", "AMP9K", "11/G", "10 MUHASEB", "11/I PAZAR"
   const m = text.match(/(?:^|[^0-9])(\d{1,2})[-\s\/]?([A-ZÇĞİÖŞÜ]+)/);
   if (m) {
-    const grade = m[1];
-    const branch = m[2];
-    const baseClass = branch.length === 1 ? `${grade}-${branch}` : `${grade} ${branch}`;
-    const classCode = prefixes.map(p => `${p}${baseClass}`).join(', ');
+    const parts = text.split(' ');
+    let i = 0;
+    if (parts[i] === 'AMP' || parts[i] === 'ATP' || parts[i] === 'MESEM') i++;
+    if (parts[i] && parts[i].match(/\d/)) i++;
     
-    // Attempt to extract the subject
-    const matchIndex = text.indexOf(m[0]);
-    let subject = text.substring(0, matchIndex) + text.substring(matchIndex + m[0].length);
-    subject = subject.replace(/AMP/g, '').replace(/ATP/g, '').replace(/MESEM/g, '');
-    subject = subject.replace(/^[-\s\/]+/, '').replace(/[-\s\/]+$/, '').trim();
-    
-    if (subject.length > 0) {
-      return `${classCode} - ${subject}`;
+    const classParts = parts.slice(0, i);
+    for (; i < parts.length; i++) {
+      if (parts[i] !== '-' && parts[i].match(/\d/)) {
+        break;
+      }
+      classParts.push(parts[i]);
     }
-    return classCode;
+    
+    return classParts.join(' ').replace(/\s+-\s*$/, '').trim();
   }
 
   // Check for specific known non-standard class names

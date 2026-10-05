@@ -299,13 +299,18 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
             })
             
             // Nöbet Yeri / Kat Eşleştirme Bonusu (Önceliklendirme)
-            const cLoc = classLocations?.[classId]?.[day]?.[period];
+            const cLocObj = classLocations?.[classId]?.[day]?.[period];
+            const cLoc = cLocObj ? (typeof cLocObj === 'string' ? cLocObj : cLocObj.location) : null;
             const requiredZone = cLoc ? locationZoneMapping?.[cLoc] : null;
             const teacherZone = teacherDutyLocations[tid]?.[day];
             
             // Öğretmenin o günkü nöbet bölgesi, sınıfın bulunduğu bölgeyle aynıysa -10000 puan (hemen seçilmesi için çok küçük değer)
             const zoneMatchBonus = (requiredZone && teacherZone && requiredZone === teacherZone) ? -10000 : 0;
             
+            if (classId.includes('PAZARLA')) {
+              console.log(`[ZONE DEBUG] Class: ${classId}, Per: ${period}, cLoc: ${cLoc}, reqZone: ${requiredZone}, tid: ${tid}, tZone: ${teacherZone}, bonus: ${zoneMatchBonus}`);
+            }
+
             const scoreValue = (remainingClasses * 200) + (dutyDifference * 50) + consecutivePenalty + (currentDuty * 5) + (availabilityCount * 3) + zoneMatchBonus
             return { tid, scoreValue, remainingClasses, dutyDifference, currentDuty, consecutivePenalty, availabilityCount, zoneMatchBonus }
           })
@@ -351,7 +356,8 @@ export function assignDuties({ teachers, freeTeachers, freeClasses, locked, opti
             continue // Bu sınıf zaten atanmış, atla
           }
 
-          const cLoc = classLocations?.[classId]?.[day]?.[period];
+          const cLocObj = classLocations?.[classId]?.[day]?.[period];
+          const cLoc = cLocObj ? (typeof cLocObj === 'string' ? cLocObj : cLocObj.location) : null;
           const requiredZone = cLoc ? locationZoneMapping?.[cLoc] : null;
 
           // Bu sınıfa özel (kat bilgisi içeren) sıralama
@@ -441,7 +447,9 @@ export function applyFairnessAdjustments({
   commonLessons,
   locked,
   options,
-  teacherMap
+  teacherMap,
+  classLocations,
+  locationZoneMapping
 }) {
   if (!baseSchedule || !baseSchedule[day]) return baseSchedule;
   const daySchedule = baseSchedule[day] || {};
@@ -577,17 +585,34 @@ export function applyFairnessAdjustments({
       if (!assignments.length) continue;
 
       const candidates = assignments
-        .map((assignment, idx) => ({
-          idx,
-          classId: assignment.classId,
-          teacherId: assignment.teacherId,
-          donorCount: assignmentCounts[assignment.teacherId] || 0,
-        }))
+        .map((assignment, idx) => {
+          const cLocObj = classLocations?.[assignment.classId]?.[day]?.[period];
+          const cLoc = cLocObj ? (typeof cLocObj === 'string' ? cLocObj : cLocObj.location) : null;
+          const requiredZone = cLoc ? locationZoneMapping?.[cLoc] : null;
+          
+          const candidateZone = teacherMap.get(assignment.teacherId)?.dutyLocations?.[day];
+          const candidateHasZoneMatch = Boolean(requiredZone && candidateZone && String(requiredZone).trim() === String(candidateZone).trim());
+          
+          const currentTeacherZone = teacherMap.get(teacherId)?.dutyLocations?.[day];
+          const currentTeacherHasZoneMatch = Boolean(requiredZone && currentTeacherZone && String(requiredZone).trim() === String(currentTeacherZone).trim());
+          
+          // Eğer atanan öğretmen kendi katında ise, ve yeni atanacak öğretmen o katta değilse, bu atamayı çalma!
+          const isZoneProtected = candidateHasZoneMatch && !currentTeacherHasZoneMatch;
+
+          return {
+            idx,
+            classId: assignment.classId,
+            teacherId: assignment.teacherId,
+            donorCount: assignmentCounts[assignment.teacherId] || 0,
+            isZoneProtected
+          };
+        })
         .filter(candidate =>
           candidate.teacherId &&
           candidate.teacherId !== teacherId &&
           candidate.donorCount > (assignmentCounts[teacherId] || 0) &&
-          candidate.donorCount > 1
+          candidate.donorCount > 1 &&
+          !candidate.isZoneProtected
         )
         .sort((a, b) => b.donorCount - a.donorCount || a.idx - b.idx);
 
