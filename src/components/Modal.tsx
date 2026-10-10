@@ -178,26 +178,24 @@ const Modal = memo(function Modal({
                   className={styles.modalNavBtn}
                   onClick={onPrev}
                   disabled={hasPrev === false || !onPrev}
-                  title="Önceki (← Sol Ok)"
+                  title="Önceki Program (← Sol Ok)"
                   aria-label="Önceki"
                   type="button"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
+                  <span className={styles.navArrow}>‹</span>
+                  <span className={styles.navBtnText}>Önceki</span>
                 </button>
                 {navLabel && <span className={styles.modalNavLabel}>{navLabel}</span>}
                 <button
                   className={styles.modalNavBtn}
                   onClick={onNext}
                   disabled={hasNext === false || !onNext}
-                  title="Sonraki (→ Sağ Ok)"
+                  title="Sonraki Program (→ Sağ Ok)"
                   aria-label="Sonraki"
                   type="button"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
+                  <span className={styles.navBtnText}>Sonraki</span>
+                  <span className={styles.navArrow}>›</span>
                 </button>
               </div>
             )}
