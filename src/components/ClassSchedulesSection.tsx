@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Modal from './Modal';
 import { normalizeClassName, sortClassNames } from '../utils/classNameUtils';
 import styles from './ClassSchedulesSection.module.css';
@@ -250,13 +250,19 @@ export default function ClassSchedulesSection({
 
   const handlePrevClass = () => {
     if (hasPrevClass) {
-      setSelectedClass(navigationClasses[currentClassIndex - 1]);
+      const prev = navigationClasses[currentClassIndex - 1];
+      if (prev) {
+        setSelectedClass(prev);
+      }
     }
   };
 
   const handleNextClass = () => {
     if (hasNextClass) {
-      setSelectedClass(navigationClasses[currentClassIndex + 1]);
+      const next = navigationClasses[currentClassIndex + 1];
+      if (next) {
+        setSelectedClass(next);
+      }
     }
   };
 

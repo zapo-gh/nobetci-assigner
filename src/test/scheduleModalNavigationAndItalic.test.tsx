@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Modal from '../components/Modal';
 import ClassSchedulesSection from '../components/ClassSchedulesSection';
@@ -101,12 +100,15 @@ describe('Modal Navigation and Schedule Features', () => {
   });
 
   it('TeacherScheduleModal allows cycling between teachers with navigation controls', () => {
-    const mockList = [
+    const mockList: [string, any][] = [
       ['AHMET YILMAZ', { monday: { '1': '10-A' } }],
       ['BURCU SUNGUR', { monday: { '1': '11-B' } }],
       ['CANAN DEMİR', { monday: { '1': '12-C' } }],
     ];
 
+    const teacher0 = mockList[0]!;
+    const teacher1 = mockList[1]!;
+    const teacher2 = mockList[2]!;
     const handleSelectTeacher = vi.fn();
 
     render(
@@ -114,10 +116,10 @@ describe('Modal Navigation and Schedule Features', () => {
         isOpen={true}
         onClose={() => {}}
         teacherName="BURCU SUNGUR"
-        schedule={mockList[1][1]}
-        teacherSchedulesList={mockList}
+        schedule={teacher1[1]}
+        teacherSchedulesList={mockList as any}
         onSelectTeacher={handleSelectTeacher}
-        IconComponent={Icon}
+        IconComponent={Icon as any}
       />
     );
 
@@ -126,11 +128,11 @@ describe('Modal Navigation and Schedule Features', () => {
 
     const prevBtn = screen.getByRole('button', { name: 'Önceki' });
     fireEvent.click(prevBtn);
-    expect(handleSelectTeacher).toHaveBeenCalledWith('AHMET YILMAZ', mockList[0][1]);
+    expect(handleSelectTeacher).toHaveBeenCalledWith('AHMET YILMAZ', teacher0[1]);
 
     const nextBtn = screen.getByRole('button', { name: 'Sonraki' });
     fireEvent.click(nextBtn);
-    expect(handleSelectTeacher).toHaveBeenCalledWith('CANAN DEMİR', mockList[2][1]);
+    expect(handleSelectTeacher).toHaveBeenCalledWith('CANAN DEMİR', teacher2[1]);
   });
 
   it('ClassSchedulesSection teacherNameSub class applies italic font style', () => {

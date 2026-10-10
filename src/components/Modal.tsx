@@ -5,14 +5,14 @@ import styles from './Modal.module.css';
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: React.ReactNode;
-  children?: React.ReactNode;
-  size?: 'small' | 'medium' | 'large' | 'xlarge' | string;
-  onPrev?: () => void;
-  onNext?: () => void;
-  hasPrev?: boolean;
-  hasNext?: boolean;
-  navLabel?: string;
+  title?: React.ReactNode | undefined;
+  children?: React.ReactNode | undefined;
+  size?: 'small' | 'medium' | 'large' | 'xlarge' | string | undefined;
+  onPrev?: (() => void) | undefined;
+  onNext?: (() => void) | undefined;
+  hasPrev?: boolean | undefined;
+  hasNext?: boolean | undefined;
+  navLabel?: string | undefined;
 }
 
 const Modal = memo(function Modal({
