@@ -1,7 +1,6 @@
 // @ts-nocheck
 import React from 'react';
 import ModernAvailabilityGrid from './ModernAvailabilityGrid.jsx';
-import RuleEngineCard from './RuleEngineCard.jsx';
 
 export default function TeachersSection({
   teachers,
@@ -10,7 +9,9 @@ export default function TeachersSection({
   teacherFree,
   onToggleTeacherFree,
   onToggleAllTeachersFree,
+  onSetTeacherPeriodsFree,
   onDeleteTeacher,
+  onEditTeacher,
   onOpenDutyTeacherExcelModal,
   onOpenPdfImport,
   onOpenAddTeacherModal,
@@ -70,8 +71,11 @@ export default function TeachersSection({
         selectedMap={teacherFree}
         onToggle={onToggleTeacherFree}
         onToggleAll={onToggleAllTeachersFree}
+        onSetTeacherPeriodsFree={onSetTeacherPeriodsFree}
         onDelete={onDeleteTeacher}
+        onEdit={onEditTeacher}
         IconComponent={IconComponent}
+        day={day}
         extraCol={(row) => {
           if (!row.dutyLocations || !day) return null;
           const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
@@ -83,14 +87,6 @@ export default function TeachersSection({
             </span>
           ) : null;
         }}
-      />
-      <RuleEngineCard
-        options={options}
-        onOptionChange={onOptionChange}
-        teachers={teachersForCurrentDay}
-        periods={periods}
-        dayOptions={dayOptions}
-        IconComponent={IconComponent}
       />
     </div>
   );

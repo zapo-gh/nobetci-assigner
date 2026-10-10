@@ -4,7 +4,6 @@ import AssignmentOptions from './AssignmentOptions.jsx';
 import AssignmentEditor from './AssignmentEditor.jsx';
 import ConflictSuggestions from './ConflictSuggestions.jsx';
 import AssignmentInsights from './AssignmentInsights.jsx';
-import AutoBalanceReport from './AutoBalanceReport.jsx';
 
 export default function ScheduleSection({
   day,
@@ -21,6 +20,9 @@ export default function ScheduleSection({
   unassignedForSelectedDay,
   commonLessons,
   classes,
+  classLocations,
+  locationZoneMapping = {},
+  teacherSchedules = {},
   IconComponent,
   onOptionChange,
   onSetAllTeachersMaxDuty,
@@ -29,6 +31,10 @@ export default function ScheduleSection({
   onManualClear,
   onManualSetAdmin,
   onManualRelease,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) {
   if (!IconComponent) {
     throw new Error('ScheduleSection requires IconComponent prop');
@@ -48,8 +54,12 @@ export default function ScheduleSection({
         classes={classesForCurrentDay}
         teachers={teachersForCurrentDay}
         availableTeachersByPeriod={freeTeachersByDay[day] || {}}
+        freeClassesByDay={freeClassesByDay}
         assignment={assignment}
         locked={locked}
+        classLocations={classLocations}
+        locationZoneMapping={locationZoneMapping}
+        teacherSchedules={teacherSchedules}
         onDropAssign={onDropAssign}
         onManualAssign={onManualAssign}
         onManualClear={onManualClear}
@@ -58,27 +68,11 @@ export default function ScheduleSection({
         unassignedForSelectedDay={unassignedForSelectedDay}
         commonLessons={commonLessons}
         IconComponent={IconComponent}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={onUndo}
+        onRedo={onRedo}
       />
-      {unassignedForSelectedDay.length > 0 && (
-        <div className="unassigned-card" role="alert">
-          <div className="unassigned-header">
-            <IconComponent name="alertTriangle" size={16} />
-            <span>Atanamayan sınıflar ({unassignedForSelectedDay.length})</span>
-          </div>
-          <p className="unassigned-description">
-            Bu sınıflar için uygun öğretmen bulunamadı. Kuralları gevşetebilir, manuel atama yapabilir veya ilgili öğretmenlerin boş
-            saatlerini kontrol edebilirsiniz.
-          </p>
-          <ul className="unassigned-list">
-            {unassignedForSelectedDay.map(({ period, classId, className }) => (
-              <li key={`${period}-${classId}`}>
-                <span className="badge">{period}. saat</span>
-                <span>{className}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       <ConflictSuggestions
         assignment={assignment}
         day={day}
@@ -89,7 +83,6 @@ export default function ScheduleSection({
         maxClassesPerSlot={options.maxClassesPerSlot}
       />
       <AssignmentInsights insights={assignmentInsights} IconComponent={IconComponent} />
-      <AutoBalanceReport report={balanceReport} IconComponent={IconComponent} />
     </div>
   );
 }

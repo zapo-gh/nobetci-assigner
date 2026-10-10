@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Modal from './Modal';
-import { normalizeClassName } from '../utils/classNameUtils';
+import { normalizeClassName, sortClassNames } from '../utils/classNameUtils';
+import styles from './ClassSchedulesSection.module.css';
 
+const SUBJECT_GRADIENTS = [
+  'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', // Indigo
+  'linear-gradient(135deg, #059669 0%, #10b981 100%)', // Emerald
+  'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)', // Sky
+  'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)', // Amber
+  'linear-gradient(135deg, #db2777 0%, #ec4899 100%)', // Pink
+  'linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)', // Violet
+  'linear-gradient(135deg, #ea580c 0%, #f97316 100%)', // Orange
+  'linear-gradient(135deg, #0891b2 0%, #14b8a6 100%)', // Cyan
+  'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)', // Blue
+  'linear-gradient(135deg, #4b5563 0%, #6b7280 100%)', // Slate
+];
 
-
-const getSubjectColor = (subject: string) => {
-  if (!subject) return '#6b7280';
+const getSubjectGradient = (subject: string) => {
+  if (!subject) return SUBJECT_GRADIENTS[0];
   const hash = subject.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-  const colors = [
-    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
-    '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'
-  ];
-  return colors[hash % colors.length];
+  return SUBJECT_GRADIENTS[Math.abs(hash) % SUBJECT_GRADIENTS.length];
 };
 
 const shortenSubjectName = (subject: string) => {
@@ -36,7 +44,7 @@ const shortenSubjectName = (subject: string) => {
     'BİLİŞİM TEKNOLOJİLERİNİN TEMELLERİ': 'BTT',
     'PROGRAMLAMA TEMELLERİ': 'PT',
     'BİLGİSAYARLI TASARIM UYGULAMALARI': 'BTU',
-    'SEÇMELİ': 'S.'
+    'SEÇMELİ': 'S.',
   };
 
   let upperSubject = subject.toLocaleUpperCase('tr-TR').trim();
@@ -51,7 +59,7 @@ const shortenSubjectName = (subject: string) => {
   }
 
   const words = subject.split(/[\s-]+/).filter((w: string) => w.toLowerCase() !== 've' && w.length > 0);
-  
+
   if (words.length > 1) {
     return words.map((w: string) => w.charAt(0).toLocaleUpperCase('tr-TR')).join('');
   } else {
@@ -60,8 +68,6 @@ const shortenSubjectName = (subject: string) => {
     return firstPart.charAt(0).toLocaleUpperCase('tr-TR') + firstPart.substring(1).toLocaleLowerCase('tr-TR');
   }
 };
-
-
 
 export default function ClassSchedulesSection({
   classes,
@@ -74,104 +80,85 @@ export default function ClassSchedulesSection({
 }: any) {
   const [selectedClass, setSelectedClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [levelFilter, setLevelFilter] = useState('Tümü');
+  const [branchFilter, setBranchFilter] = useState('Tümü');
+
   const days = [
     { id: 'monday', label: 'Pazartesi' },
     { id: 'tuesday', label: 'Salı' },
     { id: 'wednesday', label: 'Çarşamba' },
     { id: 'thursday', label: 'Perşembe' },
-    { id: 'friday', label: 'Cuma' }
+    { id: 'friday', label: 'Cuma' },
   ];
-  
+
   const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-  const classSchedulesMap = React.useMemo(() => {
+  const classSchedulesMap = useMemo(() => {
     const map: any = {};
 
     // First populate from classLocations if available (PRIMARY source)
     Object.entries(classLocations || {}).forEach(([rawCName, cDays]) => {
-      const classNames = typeof rawCName === 'string' ? rawCName.split(',').map(s => s.trim()).filter(Boolean) : [rawCName];
-      
-      classNames.forEach(rawClassName => {
-        // Try to find the exact class from the 'classes' array
-        let cName = rawClassName;
-        const matchedClass = classes?.find((c: any) => c.className && rawClassName.includes(c.className));
-        
-        if (matchedClass) {
-          cName = matchedClass.className;
-        } else {
-          // If not found, at least strip out obvious noise like times and room parentheses
-          cName = cName.replace(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/g, '')
-                       .replace(/\([^)]*\)/g, '')
-                       .trim();
-          cName = cName.replace(/\s+-\s*$/, '').trim();
-        }
+      const classNames =
+        typeof rawCName === 'string'
+          ? rawCName.split(',').map((s) => s.trim()).filter(Boolean)
+          : [rawCName];
 
-        cName = normalizeClassName(rawClassName);
+      classNames.forEach((rawClassName) => {
+        const cName = normalizeClassName(rawClassName);
+        if (!cName) return;
         if (!map[cName]) map[cName] = {};
         Object.entries((cDays as any) || {}).forEach(([day, cPeriods]) => {
           if (!map[cName][day]) map[cName][day] = {};
           Object.entries((cPeriods as any) || {}).forEach(([period, locData]: [string, any]) => {
-             const location = typeof locData === 'string' ? locData : locData?.location;
-             const subject = typeof locData === 'string' ? '' : locData?.subject;
-             const teacherNamesStr = typeof locData === 'string' ? '' : locData?.teacherNamesStr;
-             
-             if (!map[cName][day][period]) map[cName][day][period] = { teachers: [], subject: '', location: '', _isFallback: false, _hasShortNames: false };
-             if (location) map[cName][day][period].location = location;
-             if (subject) map[cName][day][period].subject = subject;
-             
-             if (Array.isArray(locData?.teachers) && locData.teachers.length > 0) {
-                 map[cName][day][period].teachers = [...locData.teachers];
-                 map[cName][day][period]._hasShortNames = false;
-             } else if (teacherNamesStr) {
-                 // Class locations gives a string like "S.YAĞAN" or "S. URBAY/C.PAYLAN". 
-                 // We put these as temporary short names.
-                 map[cName][day][period].teachers = teacherNamesStr.split(/[\/\-]/).map(s => s.trim()).filter(Boolean);
-                 map[cName][day][period]._hasShortNames = true;
-             }
+            const location = typeof locData === 'string' ? locData : locData?.location;
+            const subject = typeof locData === 'string' ? '' : locData?.subject;
+            const teacherNamesStr = typeof locData === 'string' ? '' : locData?.teacherNamesStr;
+
+            if (!map[cName][day][period]) {
+              map[cName][day][period] = {
+                teachers: [],
+                subject: '',
+                location: '',
+                _isFallback: false,
+                _hasShortNames: false,
+              };
+            }
+            if (location) map[cName][day][period].location = location;
+            if (subject) map[cName][day][period].subject = subject;
+
+            if (Array.isArray(locData?.teachers) && locData.teachers.length > 0) {
+              map[cName][day][period].teachers = [...locData.teachers];
+              map[cName][day][period]._hasShortNames = false;
+            } else if (teacherNamesStr) {
+              map[cName][day][period].teachers = teacherNamesStr
+                .split(/[\/\-]/)
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+              map[cName][day][period]._hasShortNames = true;
+            }
           });
         });
       });
     });
 
-    // Then merge from teacherSchedules (FALLBACK source for subject/location, but PRIMARY source for teacher full names)
+    // Then merge from teacherSchedules
     Object.entries(teacherSchedules || {}).forEach(([tName, tDays]) => {
       Object.entries((tDays as any) || {}).forEach(([day, tPeriods]) => {
         Object.entries((tPeriods as any) || {}).forEach(([period, cId]: [string, any]) => {
           if (cId && typeof cId === 'string' && cId.trim()) {
-            const classNames = cId.split(',').map(s => s.trim()).filter(Boolean);
-            classNames.forEach(rawClassName => {
-              // Try to find the exact class from the 'classes' array
-              let className = rawClassName;
-              const matchedClass = classes?.find((c: any) => c.className && rawClassName.includes(c.className));
-              
-              if (matchedClass) {
-                className = matchedClass.className;
-              } else {
-                // If not found, at least strip out obvious noise like times and room parentheses
-                className = className.replace(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/g, '')
-                                     .replace(/\([^)]*\)/g, '')
-                                     .trim();
-                // Also remove trailing hyphen if any
-                className = className.replace(/\s+-\s*$/, '').trim();
+            const classNames = cId.split(',').map((s: string) => s.trim()).filter(Boolean);
+            classNames.forEach((rawClassName: string) => {
+              const className = normalizeClassName(rawClassName);
+              if (!className) return;
+              if (!map[className]?.[day]?.[period]) return;
+
+              if (map[className][day][period]._hasShortNames) {
+                map[className][day][period].teachers = [];
+                map[className][day][period]._hasShortNames = false;
               }
 
-              className = normalizeClassName(rawClassName);
-              // Class schedules are NOT derived automatically from teacher schedules.
-              // Teacher schedules are only used to resolve full teacher names for
-              // periods that already exist (uploaded Excel or manual derivation).
-              if (!map[className]?.[day]?.[period]) return;
-              
-              // If the cell currently only has short names from the Excel cell, let's clear them 
-              // the FIRST time we add a real full name from teacherSchedules!
-              if (map[className][day][period]._hasShortNames) {
-                  map[className][day][period].teachers = [];
-                  map[className][day][period]._hasShortNames = false;
-              }
-              
-              // Add the teacher from teacherSchedules (it's the exact full name)
               if (!map[className][day][period].teachers.includes(tName)) {
-                  map[className][day][period].teachers.push(tName);
+                map[className][day][period].teachers.push(tName);
               }
             });
           }
@@ -182,298 +169,385 @@ export default function ClassSchedulesSection({
     return map;
   }, [classLocations, teacherSchedules]);
 
-  const allClassNames = React.useMemo(() => {
+  const allClassNames = useMemo(() => {
     const classSet = new Set<string>();
-    classes.forEach((c: any) => {
-      if (c.className) classSet.add(c.className);
+    classes?.forEach((c: any) => {
+      if (c.className) {
+        const norm = normalizeClassName(c.className);
+        if (norm) classSet.add(norm);
+      }
     });
-    Object.keys(classSchedulesMap).forEach(cName => classSet.add(cName));
-    return Array.from(classSet).sort();
+    Object.keys(classSchedulesMap).forEach((cName) => {
+      if (cName) classSet.add(cName);
+    });
+    return sortClassNames(Array.from(classSet));
   }, [classes, classSchedulesMap]);
 
-  const [levelFilter, setLevelFilter] = useState('Tümü');
-  const [branchFilter, setBranchFilter] = useState('Tümü');
+  const filteredClasses = useMemo(() => {
+    return allClassNames.filter((cName) => {
+      const matchesSearch = cName
+        .toLocaleLowerCase('tr-TR')
+        .includes(searchTerm.toLocaleLowerCase('tr-TR').trim());
+      if (!matchesSearch) return false;
 
-  const filteredClasses = allClassNames.filter(cName => {
-    const matchesSearch = cName.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!matchesSearch) return false;
+      if (levelFilter !== 'Tümü') {
+        const gradeMatch = cName.match(/\b(\d{1,2})\b/);
+        if (!gradeMatch || gradeMatch[1] !== levelFilter) return false;
+      }
 
-    if (levelFilter !== 'Tümü') {
-      if (!cName.includes(levelFilter)) return false;
-    }
+      if (branchFilter !== 'Tümü') {
+        if (!cName.startsWith(branchFilter)) return false;
+      }
 
-    if (branchFilter !== 'Tümü') {
-      if (!cName.toUpperCase().includes(branchFilter)) return false;
-    }
-
-    return true;
-  });
+      return true;
+    });
+  }, [allClassNames, searchTerm, levelFilter, branchFilter]);
 
   const hasLocations = Object.keys(classLocations || {}).length > 0;
 
+  // Selected class stats for modal
+  const selectedClassStats = useMemo(() => {
+    if (!selectedClass || !classSchedulesMap[selectedClass]) {
+      return { totalLessons: 0, uniqueTeachers: 0, uniqueSubjects: 0 };
+    }
+    const schedule = classSchedulesMap[selectedClass];
+    let total = 0;
+    const teachersSet = new Set<string>();
+    const subjectsSet = new Set<string>();
 
+    Object.values(schedule).forEach((daySchedule: any) => {
+      Object.values(daySchedule).forEach((lesson: any) => {
+        if (lesson && (lesson.teachers?.length > 0 || lesson.subject || lesson.location)) {
+          total++;
+          if (lesson.subject) subjectsSet.add(lesson.subject);
+          lesson.teachers?.forEach((t: string) => teachersSet.add(t));
+        }
+      });
+    });
+
+    return {
+      totalLessons: total,
+      uniqueTeachers: teachersSet.size,
+      uniqueSubjects: subjectsSet.size,
+    };
+  }, [selectedClass, classSchedulesMap]);
+
+  const getLevelAvatarStyle = (level: string) => {
+    if (level === '9') return styles.avatar9;
+    if (level === '10') return styles.avatar10;
+    if (level === '11') return styles.avatar11;
+    if (level === '12') return styles.avatar12;
+    return styles.avatarOther;
+  };
 
   return (
-    <div role="tabpanel">
-      <div className="toolbar" style={{ flexWrap: 'wrap' }}>
-        <div className="input-wrapper" style={{ position: 'relative', width: '300px', maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
-          <div style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)', display: 'flex' }}>
+    <div className={styles.container} role="tabpanel" id="panel-classSchedules" aria-labelledby="tab-classSchedules">
+      {/* ---------------- Top Toolbar & Filters ---------------- */}
+      <div className={styles.toolbar}>
+        <div className={styles.searchWrapper}>
+          <span className={styles.searchIcon}>
             <IconComponent name="search" size={16} />
-            </div>
-            <input
-              type="text"
-              className="input"
-              placeholder="Sınıf ara..."
-              style={{ paddingLeft: '36px' }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                title="Temizle"
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  padding: '2px'
-                }}
-              >
-                <IconComponent name="x" size={14} />
-              </button>
-            )}
-          </div>
-          
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Seviye:</span>
-            {['Tümü', '9', '10', '11', '12'].map(level => (
-              <button 
-                key={level}
-                onClick={() => setLevelFilter(level)}
-                className={`chip ${levelFilter === level ? 'active' : ''}`}
-                style={levelFilter === level ? { 
-                  backgroundColor: level === 'Tümü' ? 'var(--primary)' : `var(--level-${level})`, 
-                  color: 'white', 
-                  border: 'none' 
-                } : {}}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Alan:</span>
-            {['Tümü', 'AMP', 'ATP'].map(branch => (
-              <button 
-                key={branch}
-                onClick={() => setBranchFilter(branch)}
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '16px',
-                  border: `1px solid ${branchFilter === branch ? 'var(--primary)' : 'var(--border-default)'}`,
-                  background: branchFilter === branch ? 'var(--primary-light)' : 'transparent',
-                  color: branchFilter === branch ? 'var(--primary-active)' : 'var(--text-secondary)',
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                {branch}
-              </button>
-            ))}
-          </div>
-          
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-            <input
-              type="file"
-              id="sinif-programi-upload"
-              accept=".xls,.xlsx"
-              style={{ display: 'none' }}
-              onChange={onUploadSinifProgrami}
-            />
-            <label 
-              className="btn btn-primary" 
-              htmlFor="sinif-programi-upload"
-              title="Sınıf El Programı Yükle"
+          </span>
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Sınıf adına göre ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className={styles.clearBtn}
+              onClick={() => setSearchTerm('')}
+              title="Aramayı Temizle"
             >
-              <IconComponent name="upload" size={16} />
-              <span className="btn-text">Sınıf El Programı Yükle</span>
-            </label>
-            {onDeriveFromTeachers && !hasLocations && (
-              <button
-                className="btn"
-                onClick={onDeriveFromTeachers}
-                title="Öğretmen ders programlarından sınıf programlarını türet (mevcut kayıtların üzerine yazmaz)"
-              >
-                <IconComponent name="calendar" size={14} />
-                <span>Öğretmen Programından Türet</span>
-              </button>
-            )}
-            {hasLocations && (
-              <button className="btn btn-danger" onClick={onDeleteAll} title="Tüm sınıf programlarını sil">
-                <IconComponent name="trash" size={14} />
-                <span>Tümünü Sil</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {allClassNames.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-               <IconComponent name="calendar" size={32} />
-            </div>
-            <h3>Henüz Ders Programı Eklenmedi</h3>
-            <p>Excel dosyasını yükleyerek sınıf ders programlarını oluşturabilirsiniz.</p>
-          </div>
-        ) : (
-        <div style={{ padding: '24px' }}>
-          <div className="card-grid">
-            {filteredClasses.length === 0 ? (
-              <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                <div className="empty-state-icon">
-                  <IconComponent name="search" size={32} />
-                </div>
-                <h3>Sonuç Bulunamadı</h3>
-                <p>Arama kriterlerinize uygun sonuç bulunamadı.</p>
-              </div>
-            ) : (
-            filteredClasses.map(cName => {
-              const schedule = classSchedulesMap[cName] || {};
-              
-              const dayStats = days.map(({ id, label }) => {
-                const count = Object.keys(schedule[id] || {}).length;
-                if (!count) return null;
-                return { key: id, label, count };
-              }).filter(Boolean) as { key: string, label: string, count: number }[];
-
-              const totalLessons = dayStats.reduce((sum, day) => sum + day.count, 0);
-              const level = cName.match(/\d+/)?.[0] || 'other';
-              const avatarContent = level !== 'other' ? level : <IconComponent name="users" size={20} />;
-
-              return (
-                <div
-                  key={cName}
-                  className="card class-card clickable"
-                  data-level={level}
-                  onClick={() => setSelectedClass(cName)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="card-header">
-                    <div className="avatar">
-                      {avatarContent}
-                    </div>
-                    <div className="card-title">
-                      {cName}
-                    </div>
-                  </div>
-                  
-                  <div className="card-body">
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                      <span className="chip"><IconComponent name="calendar" size={12} /> {dayStats.length || 0} gün</span>
-                      <span className="chip"><IconComponent name="book" size={12} /> {totalLessons} ders</span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {dayStats.length > 0 ? (
-                        dayStats.map(({ key, label, count }) => (
-                          <span key={key} style={{ fontSize: '0.78rem', padding: '2px 6px', background: 'var(--surface-2)', borderRadius: '4px', borderLeft: '3px solid var(--tone)' }}>
-                            <strong style={{ color: 'var(--text)' }}>{label}</strong>: {count}
-                          </span>
-                        ))
-                      ) : (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ders bilgisi yok</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+              <IconComponent name="x" size={14} />
+            </button>
           )}
+        </div>
+
+        {/* Level filter group */}
+        <div className={styles.filterGroup}>
+          <span className={styles.filterLabel}>Seviye:</span>
+          {['Tümü', '9', '10', '11', '12'].map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => setLevelFilter(lvl)}
+              className={`${styles.filterChip} ${levelFilter === lvl ? styles.filterChipActive : ''}`}
+            >
+              {lvl}
+            </button>
+          ))}
+        </div>
+
+        {/* Branch / Alan filter group */}
+        <div className={styles.filterGroup}>
+          <span className={styles.filterLabel}>Alan:</span>
+          {['Tümü', 'AMP', 'ATP'].map((br) => (
+            <button
+              key={br}
+              type="button"
+              onClick={() => setBranchFilter(br)}
+              className={`${styles.filterChip} ${branchFilter === br ? styles.filterChipActive : ''}`}
+            >
+              {br}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.countBadge}>
+          <IconComponent name="users" size={13} />
+          <span>
+            Toplam <strong className={styles.countBadgeStrong}>{allClassNames.length}</strong> Sınıf
+            {filteredClasses.length !== allClassNames.length && (
+              <> (Filtrelenen: <strong>{filteredClasses.length}</strong>)</>
+            )}
+          </span>
+        </div>
+
+        <div className={styles.toolbarActions}>
+          <input
+            type="file"
+            id="sinif-programi-upload"
+            accept=".xls,.xlsx"
+            style={{ display: 'none' }}
+            onChange={onUploadSinifProgrami}
+          />
+          <label
+            className={styles.uploadBtn}
+            htmlFor="sinif-programi-upload"
+            title="Sınıf El Programı Yükle"
+          >
+            <IconComponent name="upload" size={15} />
+            <span>Sınıf El Programı Yükle</span>
+          </label>
+
+          {onDeriveFromTeachers && !hasLocations && (
+            <button
+              type="button"
+              className={styles.secondaryBtn}
+              onClick={onDeriveFromTeachers}
+              title="Öğretmen ders programlarından sınıf programlarını türet"
+            >
+              <IconComponent name="calendar" size={14} />
+              <span>Öğretmen Programından Türet</span>
+            </button>
+          )}
+
+          {hasLocations && (
+            <button
+              type="button"
+              className={styles.deleteAllBtn}
+              onClick={onDeleteAll}
+              title="Tüm sınıf programlarını sil"
+            >
+              <IconComponent name="trash" size={14} />
+              <span>Tümünü Sil</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ---------------- Cards Grid ---------------- */}
+      {allClassNames.length === 0 ? (
+        <div className={styles.emptyContainer}>
+          <div className={styles.emptyIcon}>
+            <IconComponent name="calendar" size={30} />
+          </div>
+          <div className={styles.emptyTitle}>Henüz Sınıf Ders Programı Yüklenmedi</div>
+          <div className={styles.emptyDesc}>
+            Excel dosyasını (&quot;Sınıf El Programı Yükle&quot;) yükleyerek veya öğretmen programlarından türeterek sınıfların haftalık ders programlarını oluşturabilirsiniz.
           </div>
         </div>
-        )}
+      ) : filteredClasses.length === 0 ? (
+        <div className={styles.emptyContainer}>
+          <div className={styles.emptyIcon}>
+            <IconComponent name="search" size={28} />
+          </div>
+          <div className={styles.emptyTitle}>Sonuç Bulunamadı</div>
+          <div className={styles.emptyDesc}>
+            Seçilen arama veya filtre kriterlerine uygun sınıf programı bulunamadı.
+          </div>
+        </div>
+      ) : (
+        <div className={styles.cardGrid}>
+          {filteredClasses.map((cName) => {
+            const schedule = classSchedulesMap[cName] || {};
 
+            const dayStats = days
+              .map(({ id, label }) => {
+                const count = Object.keys(schedule[id] || {}).length;
+                return { key: id, label, count };
+              });
+
+            const totalLessons = dayStats.reduce((sum, day) => sum + day.count, 0);
+            const activeDaysCount = dayStats.filter((d) => d.count > 0).length;
+            const level = cName.match(/\b\d{1,2}\b/)?.[0] || 'other';
+
+            return (
+              <div
+                key={cName}
+                className={styles.card}
+                onClick={() => setSelectedClass(cName)}
+                title={`${cName} haftalık ders programını görüntüle`}
+              >
+                <div className={styles.cardTop}>
+                  <div className={`${styles.avatar} ${getLevelAvatarStyle(level)}`}>
+                    {level !== 'other' ? level : <IconComponent name="users" size={18} />}
+                  </div>
+                  <div className={styles.classInfo}>
+                    <div className={styles.className}>{cName}</div>
+                    <div className={styles.totalBadge}>
+                      <IconComponent name="book" size={12} />
+                      <span>{totalLessons} Saat Ders ({activeDaysCount} Gün)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Weekday distribution mini capsules */}
+                <div className={styles.daysContainer}>
+                  {dayStats.map(({ key, label, count }) => {
+                    const isActive = count > 0;
+                    return (
+                      <div
+                        key={key}
+                        className={`${styles.dayCapsule} ${
+                          isActive ? styles.dayCapsuleActive : styles.dayCapsuleInactive
+                        }`}
+                        title={`${label}: ${count > 0 ? `${count} saat ders` : 'Ders yok'}`}
+                      >
+                        <span className={styles.dayLabel}>{label.slice(0, 3)}</span>
+                        <span className={styles.dayCount}>{count > 0 ? `${count}s` : '-'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className={styles.cardFooter}>
+                  <span>Haftalık Program</span>
+                  <span className={styles.viewDetailsLink}>
+                    <span>İncele</span>
+                    <IconComponent name="chevronRight" size={13} />
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ---------------- Class Schedule Modal ---------------- */}
       <Modal
         isOpen={!!selectedClass}
         onClose={() => setSelectedClass('')}
         title={`${selectedClass} - Haftalık Sınıf Ders Programı`}
         size="xlarge"
       >
-        <div className="schedule-table-container">
-          <table className="schedule-table">
-            <thead>
-              <tr>
-                <th className="day-header">Günler</th>
-                {periods.map(period => (
-                  <th key={period} className="period-header">
-                    {period}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {days.map(day => (
-                <tr key={day.id}>
-                  <td className="day-cell">{day.label}</td>
-                  {periods.map(period => {
-                    const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[period];
-                    
-                    const isEmpty = !lesson || (lesson.teachers.length === 0 && !lesson.subject && !lesson.location);
-                    
-                    return (
-                      <td key={period} className={`schedule-cell ${isEmpty ? 'empty-period' : ''}`}>
-                        {isEmpty ? (
-                          <span className="empty-indicator">-</span>
-                        ) : (
-                          <div 
-                            className="class-badge"
-                            style={{ 
-                              backgroundColor: getSubjectColor(lesson.subject || 'Ders'), 
-                              display: 'inline-flex', 
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              whiteSpace: 'nowrap',
-                              padding: '6px 8px',
-                              minWidth: '70px'
-                            }}
-                          >
-                            {lesson.subject && (
-                              <span style={{ fontWeight: 'bold', marginBottom: '2px' }}>{shortenSubjectName(lesson.subject)}</span>
-                            )}
-                            
-                            {lesson.teachers.length > 0 && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85em', opacity: 0.9 }}>
-                                {lesson.teachers.map((tName: string, i: number) => (
-                                  <span key={i}>{tName}</span>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {lesson.location && (
-                              <span style={{
-                                fontSize: '0.8em',
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                padding: '2px 4px',
-                                borderRadius: '4px',
-                                marginTop: '4px'
-                              }}>
-                                {lesson.location}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
+        <div className={styles.modalBody}>
+          {/* Top Summary Stats */}
+          <div className={styles.summaryRow}>
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <IconComponent name="book" size={18} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statLabel}>Toplam Ders</span>
+                <span className={styles.statValue}>{selectedClassStats.totalLessons} Saat</span>
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <IconComponent name="users" size={18} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statLabel}>Görevli Öğretmen</span>
+                <span className={styles.statValue}>{selectedClassStats.uniqueTeachers} Kişi</span>
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statIcon}>
+                <IconComponent name="calendar" size={18} />
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statLabel}>Farklı Ders/Branş</span>
+                <span className={styles.statValue}>{selectedClassStats.uniqueSubjects} Branş</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Schedule Table */}
+          <div className={styles.modalTableContainer}>
+            <table className={styles.modalTable}>
+              <thead>
+                <tr>
+                  <th className={styles.modalDayHeader}>Günler</th>
+                  {periods.map((period) => (
+                    <th key={period} className={styles.modalPeriodHeader}>
+                      {period}. Saat
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {days.map((day) => (
+                  <tr key={day.id}>
+                    <td className={styles.modalDayCell}>{day.label}</td>
+                    {periods.map((period) => {
+                      const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[period];
+                      const isEmpty =
+                        !lesson ||
+                        (lesson.teachers.length === 0 && !lesson.subject && !lesson.location);
+
+                      return (
+                        <td
+                          key={period}
+                          className={`${styles.modalScheduleCell} ${
+                            isEmpty ? styles.modalEmptyCell : ''
+                          }`}
+                        >
+                          {isEmpty ? (
+                            <span className={styles.modalEmptyIndicator}>-</span>
+                          ) : (
+                            <div
+                              className={styles.lessonBadge}
+                              style={{
+                                background: getSubjectGradient(lesson.subject || 'Ders'),
+                              }}
+                              title={`${lesson.subject || 'Ders'} | ${lesson.teachers.join(', ')} ${
+                                lesson.location ? `(${lesson.location})` : ''
+                              }`}
+                            >
+                              {lesson.subject && (
+                                <span className={styles.subjectName}>
+                                  {shortenSubjectName(lesson.subject)}
+                                </span>
+                              )}
+
+                              {lesson.teachers.length > 0 && (
+                                <div className={styles.teacherNameSub}>
+                                  {lesson.teachers.join(', ')}
+                                </div>
+                              )}
+
+                              {lesson.location && (
+                                <span className={styles.locationChip}>
+                                  📍 {lesson.location}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </Modal>
     </div>

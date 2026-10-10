@@ -40,20 +40,15 @@ export function usePdfExport({ day, displayDate, addNotification }) {
         restoreList.push(() => { el.style.display = prev; });
       });
 
-      // 3. AssignmentText: screenOnly gizle, printOnly göster
-      outputSection.querySelectorAll('[class*="screenOnly"]').forEach(el => {
-        const prev = { val: el.style.getPropertyValue('display'), pri: el.style.getPropertyPriority('display') };
-        el.style.setProperty('display', 'none', 'important');
-        restoreList.push(() => el.style.setProperty('display', prev.val, prev.pri));
-      });
-      outputSection.querySelectorAll('[class*="printOnly"]').forEach(el => {
-        const prev = { val: el.style.getPropertyValue('display'), pri: el.style.getPropertyPriority('display') };
-        el.style.setProperty('display', 'block', 'important');
-        restoreList.push(() => el.style.setProperty('display', prev.val, prev.pri));
+      // 3. AssignmentText: gizle (çıktıda sadece resmi çizelge ve imzalar yer alır)
+      outputSection.querySelectorAll('[class*="assignmentTextContainer"]').forEach(el => {
+        const prev = el.style.display;
+        el.style.display = 'none';
+        restoreList.push(() => { el.style.display = prev; });
       });
 
-      // 4. assign-table-wrap: overflow kaldır (html2canvas tüm tabloyu yakalasın)
-      outputSection.querySelectorAll('.assign-table-wrap').forEach(el => {
+      // 4. assign-table-wrap / assign-list-table-wrap: overflow kaldır (html2canvas tüm tabloyu yakalasın)
+      outputSection.querySelectorAll('.assign-table-wrap, .assign-list-table-wrap').forEach(el => {
         const prev = el.style.overflow;
         el.style.overflow = 'visible';
         restoreList.push(() => { el.style.overflow = prev; });
@@ -125,13 +120,8 @@ export function usePdfExport({ day, displayDate, addNotification }) {
         #panel-outputs .abs { font-size: 8.5pt !important; }
         #panel-outputs .print-title { font-size: 11pt !important; margin-bottom: 3mm !important; }
         #panel-outputs [class*="assignmentTextContainer"] {
-          background: #ffffff !important;
-          border: none !important;
-          box-shadow: none !important;
-          padding: 0 !important;
-          margin-top: 8px !important;
+          display: none !important;
         }
-        #panel-outputs [class*="title"] { font-size: 11pt !important; }
       `;
       document.head.appendChild(printStyle);
 
@@ -152,10 +142,8 @@ export function usePdfExport({ day, displayDate, addNotification }) {
           clonedDoc.documentElement.setAttribute('data-theme', 'light');
           const cloned = clonedDoc.getElementById('panel-outputs');
           if (!cloned) return;
-          cloned.querySelectorAll('[class*="screenOnly"]').forEach(el =>
+          cloned.querySelectorAll('[class*="assignmentTextContainer"]').forEach(el =>
             el.style.setProperty('display', 'none', 'important'));
-          cloned.querySelectorAll('[class*="printOnly"]').forEach(el =>
-            el.style.setProperty('display', 'block', 'important'));
           cloned.querySelectorAll('.toolbar, .btn, .no-print').forEach(el =>
             el.style.setProperty('display', 'none', 'important'));
           cloned.querySelectorAll('.assign-table-wrap').forEach(el => {

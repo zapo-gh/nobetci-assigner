@@ -7,7 +7,7 @@ import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 
 export default defineConfig([
-  globalIgnores(['dist', 'public', 'bulk_functions.js', 'transform_update.js']),
+  globalIgnores(['dist', 'public']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

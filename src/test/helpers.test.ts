@@ -13,6 +13,10 @@ import {
   mondayOfWeek,
   dateForSelectedDay,
   formatTRDate,
+  getWeekMonday,
+  getWeekDatesForOffset,
+  formatWeekRangeTR,
+  formatDateKey,
   normalizeReason,
   validateTeacherData,
   validateClassData,
@@ -270,3 +274,44 @@ describe('arrayToSetMap', () => {
     expect(result[2]).toBeInstanceOf(Set);
   });
 });
+
+// ──────────────────────────── Hafta Gezinme Yardımcıları ────────────────────────────
+describe('Hafta Gezinme Yardımcıları', () => {
+  const baseWed = new Date('2026-10-07'); // Çarşamba
+
+  it('getWeekMonday: mevcut hafta Pazartesi döner (05.10.2026)', () => {
+    const mon = getWeekMonday(0, baseWed);
+    expect(formatTRDate(mon)).toBe('05.10.2026');
+  });
+
+  it('getWeekMonday: sonraki hafta Pazartesi döner (12.10.2026)', () => {
+    const nextMon = getWeekMonday(1, baseWed);
+    expect(formatTRDate(nextMon)).toBe('12.10.2026');
+  });
+
+  it('getWeekMonday: önceki hafta Pazartesi döner (28.09.2026)', () => {
+    const prevMon = getWeekMonday(-1, baseWed);
+    expect(formatTRDate(prevMon)).toBe('28.09.2026');
+  });
+
+  it('getWeekDatesForOffset: 1 hafta sonrası için 12-16 Ekim günlerini üretir', () => {
+    const dates = getWeekDatesForOffset(1, baseWed);
+    expect(dates).toHaveLength(5);
+    expect(dates[0]?.getDate()).toBe(12); // Pzt
+    expect(dates[1]?.getDate()).toBe(13); // Sal (13 Ekim!)
+    expect(dates[2]?.getDate()).toBe(14); // Çar
+    expect(dates[3]?.getDate()).toBe(15); // Per
+    expect(dates[4]?.getDate()).toBe(16); // Cum
+  });
+
+  it('formatWeekRangeTR: hafta aralığını doğru formatlar', () => {
+    const dates = getWeekDatesForOffset(1, baseWed);
+    expect(formatWeekRangeTR(dates)).toBe('12 - 16 Ekim 2026');
+  });
+
+  it('formatDateKey: YYYY-MM-DD anahtarı üretir', () => {
+    const d = new Date('2026-10-13');
+    expect(formatDateKey(d)).toBe('2026-10-13');
+  });
+});
+

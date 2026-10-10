@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTeachers } from '../contexts/useTeachers';
 import { useAssignments } from '../contexts/useAssignments';
-import { insertTeacher, deleteTeacherById, deleteLocksByTeacher } from '../services/firebaseDataService';
+import { insertTeacher, updateTeacher, deleteTeacherById, deleteLocksByTeacher } from '../services/firebaseDataService';
 import { sanitizeInputAdvanced } from '../utils/security';
 import { validateTeacherData } from '../utils/helpers';
 import { logger } from '../utils/logger';
@@ -19,12 +19,38 @@ export function useTeacherManager({ addNotification, setActiveSection, setExcelR
       return;
     }
     try {
-      const created = await insertTeacher({ teacherName: data.teacherName, maxDutyPerDay: data.maxDutyPerDay });
+      const created = await insertTeacher({
+        teacherName: data.teacherName,
+        maxDutyPerDay: data.maxDutyPerDay,
+        dutyLocations: data.dutyLocations || {},
+        source: 'manual',
+      });
       setTeachers((prev) => [...prev, created]);
       addNotification(`${data.teacherName} eklendi`, "success");
     } catch (error) {
       logger.error('Teacher insert error:', error);
       addNotification("Öğretmen eklenemedi", "error");
+    }
+  };
+
+  const editTeacher = async (teacherId, updates) => {
+    if (updates.teacherName) {
+      updates.teacherName = sanitizeInputAdvanced(updates.teacherName);
+      const errs = validateTeacherData({ teacherId, teacherName: updates.teacherName, maxDutyPerDay: updates.maxDutyPerDay });
+      if (errs.length) {
+        addNotification(errs.join(", "), "error");
+        return;
+      }
+    }
+    try {
+      await updateTeacher(teacherId, updates);
+      setTeachers((prev) =>
+        prev.map((t) => (t.teacherId === teacherId ? { ...t, ...updates } : t))
+      );
+      addNotification("Öğretmen bilgileri güncellendi", "success");
+    } catch (error) {
+      logger.error('Teacher update error:', error);
+      addNotification("Öğretmen güncellenemedi", "error");
     }
   };
 
@@ -189,6 +215,7 @@ export function useTeacherManager({ addNotification, setActiveSection, setExcelR
         logger.error(e);
         const errorMessage = e instanceof Error ? e.message : String(e);
         addNotification(`Excel yükleme hatası: ${errorMessage}`, "error");
+        return undefined;
       }
     },
     [addNotification, teachers, importDutyTeachersData, setActiveSection, setExcelReplaceModal]
@@ -196,6 +223,7 @@ export function useTeacherManager({ addNotification, setActiveSection, setExcelR
 
   return {
     addTeacher,
+    editTeacher,
     deleteTeacher,
     deleteAllPdfTeachers,
     importDutyTeachersData,

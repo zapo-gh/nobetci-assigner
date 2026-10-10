@@ -19,6 +19,9 @@ export default function GlobalModals({
     addZone,
     day,
     DAYS,
+    currentDateFormatted,
+    currentDateKey,
+    currentWeekKey,
     scheduledTeacherOptions,
     handleCloseCommonLessonModal,
     handleSetCommonLesson,
@@ -45,6 +48,7 @@ export default function GlobalModals({
     selectedTeacher,
     setSelectedTeacher,
     blockedAbsentTeacherNames = new Set(),
+    dutyZones = [],
 }) {
     const Icon = IconComponent;
 
@@ -63,6 +67,8 @@ export default function GlobalModals({
                     isOpen={modals.teacher}
                     onClose={() => setModals(m => ({ ...m, teacher: false }))}
                     onSubmit={addTeacher}
+                    dutyZones={dutyZones}
+                    day={day}
                 />
             )}
 
@@ -80,7 +86,9 @@ export default function GlobalModals({
                     onClose={() => setModals(m => ({ ...m, absent: false }))}
                     onSubmit={addAbsent}
                     currentDayKey={day}
-                    currentDayLabel={DAYS.find(d => d.key === day)?.label || day}
+                    currentDayLabel={currentDateFormatted || (DAYS.find(d => d.key === day)?.label || day)}
+                    currentDateKey={currentDateKey}
+                    currentWeekKey={currentWeekKey}
                     teacherOptions={scheduledTeacherOptions}
                     blockedTeacherNames={blockedAbsentTeacherNames}
                 />

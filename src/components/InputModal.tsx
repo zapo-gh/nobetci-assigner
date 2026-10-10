@@ -1,6 +1,56 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import styles from './Modal.module.css';
+import Modal from './Modal';
+
+const S = {
+  form: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  message: { margin: '0 0 12px', fontSize: '0.93rem', color: '#475569', lineHeight: 1.5 },
+  input: {
+    width: '100%',
+    padding: '10px 14px',
+    fontSize: '0.95rem',
+    border: '1.5px solid #d1d5db',
+    borderRadius: '10px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    background: '#fff',
+    color: '#111827',
+    fontFamily: 'inherit',
+  },
+  actions: {
+    display: 'flex',
+    gap: '10px',
+    justifyContent: 'flex-end',
+    paddingTop: '16px',
+    borderTop: '1px solid #e5e7eb',
+    marginTop: '8px',
+  },
+  btnCancel: {
+    padding: '10px 22px',
+    borderRadius: '10px',
+    border: '1.5px solid #d1d5db',
+    background: '#fff',
+    color: '#374151',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s ease',
+  },
+  btnSubmit: (disabled) => ({
+    padding: '10px 22px',
+    borderRadius: '10px',
+    border: 'none',
+    background: disabled ? '#c7d2fe' : '#4338ca',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontFamily: 'inherit',
+    boxShadow: disabled ? 'none' : '0 2px 6px rgba(67, 56, 202, 0.25)',
+    transition: 'all 0.15s ease',
+  }),
+};
 
 const InputModal = ({ 
   isOpen, 
@@ -13,8 +63,7 @@ const InputModal = ({
   type = "text",
   confirmText = "Tamam", 
   cancelText = "İptal",
-  required = false,
-  IconComponent: Icon = null
+  required = false
 }) => {
   const [value, setValue] = useState(defaultValue);
 
@@ -31,56 +80,37 @@ const InputModal = ({
     onClose();
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSubmit(e);
-    } else if (e.key === 'Escape') {
-      onClose();
-    }
-  };
-
   if (!isOpen) return null;
 
+  const isSubmitDisabled = Boolean(required && !value.trim());
+
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h3 className={styles.title}>{title}</h3>
-          <button className={styles.closeButton} onClick={onClose}>
-            {Icon ? <Icon name="x" size={20} /> : <span aria-hidden="true">×</span>}
-          </button>
-        </div>
-        
-        <div className={styles.content}>
-          {message && <p className="text-secondary mb-3">{message}</p>}
-          <form onSubmit={handleSubmit}>
-            <input
-              type={type}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder={placeholder}
-              className="input-field"
-              autoFocus
-              required={required}
-            />
-          </form>
-        </div>
-        
-        <div className={styles.footer}>
-          <button className="btn-tertiary" onClick={onClose}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size="small">
+      <form onSubmit={handleSubmit} style={S.form}>
+        {message && <p style={S.message}>{message}</p>}
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          style={S.input}
+          autoFocus
+          required={required}
+        />
+        <div style={S.actions}>
+          <button type="button" onClick={onClose} style={S.btnCancel}>
             {cancelText}
           </button>
           <button 
-            className="btn-primary" 
-            onClick={handleSubmit}
-            disabled={required && !value.trim()}
+            type="submit" 
+            disabled={isSubmitDisabled}
+            style={S.btnSubmit(isSubmitDisabled)}
           >
             {confirmText}
           </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 

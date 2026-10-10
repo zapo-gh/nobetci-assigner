@@ -1,5 +1,6 @@
 import { db } from './firebaseClient.js';
 import { collection as fbCollection, doc as fbDoc, getDoc as fbGetDoc, getDocs as fbGetDocs, setDoc as fbSetDoc, deleteDoc as fbDeleteDoc, query as fbQuery, where as fbWhere, writeBatch as fbWriteBatch } from 'firebase/firestore';
+import { normalizeClassName } from '../utils/classNameUtils.js';
 
 const IS_FB_CONFIGURED = !!import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
@@ -72,7 +73,17 @@ export async function loadInitialData() {
     ]);
 
     const teachers = teachersSnap.docs.map(d => d.data());
-    const classes = classesSnap.docs.map(d => d.data());
+    const classes = classesSnap.docs.map(d => {
+      const data = d.data();
+      if (data?.className) {
+        const norm = normalizeClassName(data.className);
+        if (norm && norm !== data.className) {
+          data.className = norm;
+          setDoc(d.ref, { ...data, className: norm }).catch(() => {});
+        }
+      }
+      return data;
+    });
     const absents = absentsSnap.docs.map(d => d.data());
 
     return {
@@ -141,6 +152,10 @@ export async function insertTeacher({ teacherName, maxDutyPerDay = 6, source = '
   return data;
 }
 
+export async function updateTeacher(teacherId: string, updates: any) {
+  await setDoc(doc(db, 'teachers', teacherId), { ...updates, updatedAt: Date.now() }, { merge: true });
+}
+
 export async function deleteTeacherById(teacherId: string) {
   await deleteDoc(doc(db, 'teachers', teacherId));
 }
@@ -153,16 +168,27 @@ export async function clearTeachersData() {
 }
 
 export async function insertClass({ className }: any) {
+  const normalized = normalizeClassName(className);
+  const finalName = normalized || className;
   const classId = createId();
-  const data = { classId, className, createdAt: Date.now() };
+  const data = { classId, className: finalName, createdAt: Date.now() };
   await setDoc(doc(db, 'classes', classId), data);
   return data;
 }
 
 export async function getClassByName(className: string) {
-  const q = query(collection(db, 'classes'), where('className', '==', className));
+  const normalized = normalizeClassName(className) || className;
+  const q = query(collection(db, 'classes'), where('className', '==', normalized));
   const snap = await getDocs(q);
-  return snap.docs.map(d => d.data());
+  if (snap.docs.length > 0) {
+    return snap.docs.map(d => d.data());
+  }
+  if (normalized !== className) {
+    const rawQ = query(collection(db, 'classes'), where('className', '==', className));
+    const rawSnap = await getDocs(rawQ);
+    return rawSnap.docs.map(d => d.data());
+  }
+  return [];
 }
 
 export async function deleteClassById(classId: string) {
@@ -176,9 +202,19 @@ export async function clearClassesData() {
   await batch.commit();
 }
 
-export async function insertAbsent({ name, teacherId, reason, days }: any) {
+export async function insertAbsent({ name, teacherId, reason, days, timeSlot, date, weekKey }: any) {
   const absentId = createId();
-  const data = { absentId, name, teacherId, reason, days, createdAt: Date.now() };
+  const data = { 
+    absentId, 
+    name, 
+    teacherId, 
+    reason, 
+    days, 
+    timeSlot: timeSlot || 'full', 
+    date: date || null,
+    weekKey: weekKey || null,
+    createdAt: Date.now() 
+  };
   await setDoc(doc(db, 'absents', absentId), data);
   return data;
 }
@@ -306,6 +342,21 @@ export async function upsertClassFree({ day, period, classId, isSelected }: any)
   await setConfigDoc('class_free', data);
 }
 
+export async function bulkUpsertClassFree(ops: Array<{ day: string; period: number | string; classId: string; isSelected?: boolean }>) {
+  if (!Array.isArray(ops) || ops.length === 0) return;
+  const data = await getConfigDoc('class_free', {});
+  for (const { day, period, classId, isSelected } of ops) {
+    if (!day || period === undefined || !classId) continue;
+    if (!data[day]) data[day] = {};
+    if (!data[day][period]) data[day][period] = [];
+    const set = new Set(data[day][period]);
+    if (isSelected !== false) set.add(classId);
+    else set.delete(classId);
+    data[day][period] = Array.from(set);
+  }
+  await setConfigDoc('class_free', data);
+}
+
 export async function upsertTeacherFree({ period, teacherId, isSelected }: any) {
   const data = await getConfigDoc('teacher_free', {});
   if (!data[period]) data[period] = [];
@@ -329,6 +380,24 @@ export async function upsertClassAbsence({ day, period, classId, absentId }: any
     delete data[day][period][classId];
     if (Object.keys(data[day][period]).length === 0) delete data[day][period];
     if (Object.keys(data[day]).length === 0) delete data[day];
+  }
+  await setConfigDoc('class_absence', data);
+}
+
+export async function bulkUpsertClassAbsence(ops: Array<{ day: string; period: number | string; classId: string; absentId?: string | null }>) {
+  if (!Array.isArray(ops) || ops.length === 0) return;
+  const data = await getConfigDoc('class_absence', {});
+  for (const { day, period, classId, absentId } of ops) {
+    if (!day || period === undefined || !classId) continue;
+    if (!data[day]) data[day] = {};
+    if (!data[day][period]) data[day][period] = {};
+    if (absentId) {
+      data[day][period][classId] = absentId;
+    } else {
+      delete data[day][period][classId];
+      if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+      if (Object.keys(data[day]).length === 0) delete data[day];
+    }
   }
   await setConfigDoc('class_absence', data);
 }

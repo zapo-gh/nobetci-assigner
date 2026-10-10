@@ -18,6 +18,7 @@ export interface Absent {
   name: string;
   reason?: string | null;
   days: string[]; // e.g. ["Mon", "Tue"]
+  timeSlot?: 'full' | 'morning' | 'afternoon';
   createdAt?: string;
 }
 

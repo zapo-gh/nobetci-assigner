@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js'
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js'
 
@@ -20,11 +20,21 @@ export default function PrintableDailyList({
   teachers = [],
   assignment = {},
   locked = {},
-  displayDate = "", // Prop adı 'displayDateStr'den 'displayDate'e düzeltildi
+  displayDate = "",
   absentPeople = [],
   classAbsence = {},
-  commonLessons = {}
+  commonLessons = {},
+  notes = "",
+  notesEnabled = true,
+  onNotesChange,
+  onNotesEnabledChange
 }) {
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editingText, setEditingText] = useState(notes || '');
+
+  useEffect(() => {
+    setEditingText(notes || '');
+  }, [notes]);
   const classNameById = useMemo(
     () => Object.fromEntries((classes || []).map(c => [c.classId, c.className])),
     [classes]
@@ -92,6 +102,19 @@ export default function PrintableDailyList({
 
   // Çıktılar sekmesinde özet gösterilmiyor (planlama sekmesinde var)
 
+  const activeDutyTeachers = useMemo(() => {
+    return (teachers || []).filter(t => {
+      const hasAssignment = (periods || []).some(p =>
+        (assignment?.[day]?.[p] || []).some(a => a.teacherId === t.teacherId)
+      );
+      const teacherKey = normalizeTeacherKey(t.teacherName);
+      const hasCommonLesson = (periods || []).some(p =>
+        (commonLessonTeacherData?.[teacherKey]?.byPeriod?.[p] || []).length > 0
+      );
+      return hasAssignment || hasCommonLesson;
+    });
+  }, [teachers, periods, assignment, day, commonLessonTeacherData]);
+
   return (
     <div className="print-wrap">
       <h2 className="print-title">
@@ -109,14 +132,14 @@ export default function PrintableDailyList({
             </tr>
           </thead>
           <tbody>
-            {teachers.length === 0 ? (
+            {activeDutyTeachers.length === 0 ? (
               <tr>
                 <td colSpan={periods.length + 1} className="text-center text-muted p-4">
-                  Henüz öğretmen eklenmedi.
+                  Bu günde görevi olan öğretmen bulunmuyor.
                 </td>
               </tr>
             ) : (
-              (teachers || []).map(t => {
+              activeDutyTeachers.map(t => {
                 const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
                 const systemDay = systemDayMap[day] || day;
                 const dutyLocation = t.dutyLocations?.[systemDay];
@@ -166,7 +189,7 @@ export default function PrintableDailyList({
                                 {item.isCommonLesson ? (
                                   <div className="abs">
                                     <small className="absline common-lesson">
-                                      Ders Birleştirilecek
+                                      Grup Birleştirilecek
                                     </small>
                                     {item.ownerInfo && (
                                       <>
@@ -220,7 +243,7 @@ export default function PrintableDailyList({
                                   <div className="class nowrap">{classNameById[classId] || classId}</div>
                                   <div className="abs">
                                     <small className="absline common-lesson">
-                                      Ders Birleştirilecek
+                                      Grup Birleştirilecek
                                     </small>
                                     {ownerInfo && (
                                       <>
@@ -284,6 +307,187 @@ export default function PrintableDailyList({
         </table>
       </div>
 
+      {/* ---------------- Çizelge Açıklamalar Bölümü ---------------- */}
+      <div className={`print-notes-card ${!notesEnabled || !notes?.trim() ? 'notes-hidden-in-print' : ''}`}>
+        {/* Yazdırmada Görünen Resmi Başlık ve İçerik */}
+        <div className="print-notes-title-print">AÇIKLAMALAR:</div>
+        <div className="print-notes-content-print">
+          {notes && notes.trim() ? notes : ''}
+        </div>
+
+        {/* Ekran Görünümünde (no-print) Başlık ve Kontroller */}
+        <div className="print-notes-header-screen no-print">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.1rem' }}>📝</span>
+            <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary, #0f172a)' }}>
+              Çizelge Açıklamaları
+            </strong>
+            {notesEnabled && notes?.trim() ? (
+              <span className="notes-status-badge badge-active">Çıktıda Görünür</span>
+            ) : (
+              <span className="notes-status-badge badge-inactive">Çıktıda Gizli</span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label className="notes-toggle-label">
+              <input
+                type="checkbox"
+                checked={notesEnabled}
+                onChange={(e) => onNotesEnabledChange?.(e.target.checked)}
+              />
+              <span>Çıktıda Göster</span>
+            </label>
+
+            {!isEditingNotes && (
+              <button
+                type="button"
+                className="btn-edit-notes"
+                onClick={() => {
+                  setEditingText(notes || '');
+                  setIsEditingNotes(true);
+                }}
+              >
+                <span>✏️</span>
+                <span>Düzenle</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Ekran Görünümünde Metin Önizlemesi */}
+        {!isEditingNotes && (
+          <div className="print-notes-screen-preview no-print">
+            {notes && notes.trim() ? (
+              <div className="notes-rendered-text">
+                {notes.split('\n').map((line, idx) => (
+                  <div key={idx} className="notes-line">
+                    {line}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="notes-empty-notice">
+                Henüz bir açıklama eklenmedi. Çıktı çizelgesinin altında yer almasını istediğiniz not veya kuralları eklemek için "Düzenle" butonuna tıklayabilirsiniz.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Ekran Görünümünde Düzenleme Alanı */}
+        {isEditingNotes && (
+          <div className="print-notes-edit-panel no-print">
+            <textarea
+              className="notes-textarea"
+              rows={4}
+              placeholder="Çıktıda yer almasını istediğiniz açıklamaları yazın... (Her satır ayrı bir madde olarak yazdırılır)"
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              autoFocus
+            />
+
+            {/* Hızlı Şablon Butonları */}
+            <div className="notes-quick-templates">
+              <span className="quick-tpl-label">Hızlı Ekle:</span>
+              <button
+                type="button"
+                className="btn-quick-tpl"
+                onClick={() => {
+                  const item = 'Nöbetçi öğretmenler boş geçen derslere zamanında girmekle yükümlüdür.';
+                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
+                }}
+              >
+                + Boş Ders Kuralı
+              </button>
+              <button
+                type="button"
+                className="btn-quick-tpl"
+                onClick={() => {
+                  const item = 'Sınıf defteri ve yoklama fişleri nöbetçi öğretmen tarafından imzalanacaktır.';
+                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
+                }}
+              >
+                + Defter/Yoklama İmzası
+              </button>
+              <button
+                type="button"
+                className="btn-quick-tpl"
+                onClick={() => {
+                  const item = 'Birleştirilen gruplar belirtilen atölye/dersliklerde derse devam edecektir.';
+                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
+                }}
+              >
+                + Birleştirilen Gruplar
+              </button>
+              <button
+                type="button"
+                className="btn-quick-tpl"
+                onClick={() => {
+                  const item = 'Görevli öğretmenler okul idaresinin bilgisi dışında görev yerini terk edemezler.';
+                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
+                }}
+              >
+                + Görev Yeri Kuralı
+              </button>
+            </div>
+
+            {/* Aksiyon Butonları */}
+            <div className="notes-edit-actions">
+              <button
+                type="button"
+                className="btn-tpl-action"
+                onClick={() => setEditingText('')}
+              >
+                Temizle
+              </button>
+              <button
+                type="button"
+                className="btn-tpl-action"
+                onClick={() => {
+                  setEditingText(`1. Nöbetçi öğretmenler boş geçen derslere zamanında girmekle yükümlüdür.
+2. Sınıf defteri ve yoklama fişleri ilgili ders saatinde nöbetçi öğretmen tarafından doldurulup imzalanacaktır.
+3. Görevli öğretmenler okul idaresinin bilgisi dışında görev yerini terk edemezler.`);
+                }}
+              >
+                Varsayılanı Yükle
+              </button>
+              <div style={{ flex: 1 }} />
+              <button
+                type="button"
+                className="btn-cancel-notes"
+                onClick={() => setIsEditingNotes(false)}
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                className="btn-save-notes"
+                onClick={() => {
+                  onNotesChange?.(editingText);
+                  setIsEditingNotes(false);
+                }}
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MEB Resmi Onay ve İmza Blokları */}
+      <div className="official-signatures">
+        <div className="sig-block">
+          <div className="sig-role">Nöbetçi Müdür Yardımcısı</div>
+          <div className="sig-space"></div>
+          <div className="sig-name">Adı Soyadı / İmza</div>
+        </div>
+        <div className="sig-block">
+          <div className="sig-role">UYGUNDUR</div>
+          <div className="sig-subrole">Okul Müdürü</div>
+          <div className="sig-space"></div>
+          <div className="sig-name">Mühür / İmza</div>
+        </div>
+      </div>
 
       <style>{`
         .print-wrap { width: 100%; }
@@ -486,7 +690,301 @@ export default function PrintableDailyList({
           .abs  { font-size: 8.5pt; }
 
           .assign-table, .assign-table-wrap { break-inside: avoid; page-break-inside: avoid; }
-          
+
+          /* Açıklamalar Bölümü (Yazdırma) */
+          .print-notes-card {
+            display: block !important;
+            margin-top: 3.5mm !important;
+            margin-bottom: 2mm !important;
+            padding: 2.2mm 3.5mm !important;
+            border: 0.8pt solid #000 !important;
+            border-radius: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+
+          .print-notes-card.notes-hidden-in-print {
+            display: none !important;
+          }
+
+          .print-notes-title-print {
+            display: block !important;
+            font-weight: bold !important;
+            font-size: 8.5pt !important;
+            color: #000 !important;
+            margin-bottom: 1.5mm !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.3px !important;
+          }
+
+          .print-notes-content-print {
+            display: block !important;
+            font-size: 8pt !important;
+            line-height: 1.35 !important;
+            color: #000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            white-space: pre-wrap !important;
+          }
+
+          .print-notes-header-screen,
+          .print-notes-screen-preview,
+          .print-notes-edit-panel,
+          .no-print {
+            display: none !important;
+          }
+
+          /* Resmi İmza Blokları (Yazdırma) */
+          .official-signatures {
+            display: flex !important;
+            justify-content: space-between !important;
+            margin-top: 8mm !important;
+            padding: 0 15mm !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .sig-block {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            min-width: 55mm !important;
+            text-align: center !important;
+          }
+          .sig-role {
+            font-weight: bold !important;
+            font-size: 9.5pt !important;
+            color: #000 !important;
+          }
+          .sig-subrole {
+            font-size: 8.5pt !important;
+            color: #000 !important;
+          }
+          .sig-space {
+            height: 14mm !important;
+          }
+          .sig-name {
+            font-size: 8.5pt !important;
+            color: #000 !important;
+            border-top: 0.8pt solid #000 !important;
+            padding-top: 2mm !important;
+            width: 100% !important;
+          }
+        }
+
+        /* Açıklamalar Bölümü (Ekran) */
+        .print-notes-card {
+          margin-top: 20px;
+          padding: 16px 20px;
+          background: var(--bg-elevated, #fff);
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          border-radius: var(--radius-lg, 12px);
+          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+        }
+        .print-notes-title-print,
+        .print-notes-content-print {
+          display: none;
+        }
+        .print-notes-header-screen {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .notes-status-badge {
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 999px;
+        }
+        .badge-active {
+          background: #dcfce7;
+          color: #166534;
+        }
+        .badge-inactive {
+          background: #f1f5f9;
+          color: #64748b;
+        }
+        .notes-toggle-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: var(--text-muted, #475569);
+          cursor: pointer;
+          user-select: none;
+        }
+        .btn-edit-notes {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 12px;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          background: #ffffff;
+          color: #334155;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .btn-edit-notes:hover {
+          background: #f8fafc;
+          border-color: #94a3b8;
+          color: #0f172a;
+        }
+        .notes-rendered-text {
+          font-size: 0.88rem;
+          color: var(--text-primary, #334155);
+          line-height: 1.6;
+        }
+        .notes-line {
+          padding: 2px 0;
+        }
+        .notes-empty-notice {
+          font-size: 0.82rem;
+          color: #94a3b8;
+          font-style: italic;
+          padding: 8px 0;
+        }
+        .print-notes-edit-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .notes-textarea {
+          width: 100%;
+          padding: 10px 12px;
+          border-radius: 8px;
+          border: 1.5px solid #cbd5e1;
+          font-family: inherit;
+          font-size: 0.85rem;
+          line-height: 1.5;
+          color: var(--text-primary, #0f172a);
+          background: var(--bg-primary, #ffffff);
+          resize: vertical;
+          outline: none;
+          box-sizing: border-box;
+        }
+        .notes-textarea:focus {
+          border-color: #4f46e5;
+          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .notes-quick-templates {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .quick-tpl-label {
+          font-size: 0.74rem;
+          font-weight: 700;
+          color: #64748b;
+        }
+        .btn-quick-tpl {
+          padding: 3px 8px;
+          border-radius: 6px;
+          border: 1px dashed #cbd5e1;
+          background: #f8fafc;
+          color: #475569;
+          font-size: 0.74rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .btn-quick-tpl:hover {
+          background: #eef2ff;
+          border-color: #6366f1;
+          color: #4338ca;
+        }
+        .notes-edit-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+        }
+        .btn-tpl-action {
+          padding: 5px 10px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          color: #64748b;
+          font-size: 0.76rem;
+          cursor: pointer;
+        }
+        .btn-tpl-action:hover {
+          background: #e2e8f0;
+          color: #334155;
+        }
+        .btn-cancel-notes {
+          padding: 6px 14px;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          background: #ffffff;
+          color: #475569;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .btn-save-notes {
+          padding: 6px 16px;
+          border-radius: 8px;
+          border: none;
+          background: #4f46e5;
+          color: #ffffff;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .btn-save-notes:hover {
+          background: #4338ca;
+        }
+
+        /* Ekran Görünümü için İmza Blokları */
+        .official-signatures {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 24px;
+          padding: 16px 24px;
+          background: var(--bg-elevated, #fff);
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          border-radius: var(--radius-lg, 12px);
+        }
+        .sig-block {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          min-width: 200px;
+          text-align: center;
+        }
+        .sig-role {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: var(--text-primary, #0f172a);
+        }
+        .sig-subrole {
+          font-size: 0.85rem;
+          color: var(--text-muted, #64748b);
+        }
+        .sig-space {
+          height: 48px;
+        }
+        .sig-name {
+          font-size: 0.85rem;
+          color: var(--text-muted, #64748b);
+          border-top: 1px dashed var(--border-default, #cbd5e1);
+          padding-top: 6px;
+          width: 100%;
         }
       `}</style>
     </div>

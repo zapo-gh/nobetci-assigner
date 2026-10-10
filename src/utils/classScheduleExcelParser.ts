@@ -33,219 +33,320 @@ function detectPeriodColumns(headerRow) {
   return mapping;
 }
 
+export function matchTeacherAbbr(abbr, fullName) {
+  if (!abbr || !fullName) return false;
+  const cleanAbbr = String(abbr).trim().toLocaleUpperCase('tr-TR');
+  const cleanFull = String(fullName).trim().toLocaleUpperCase('tr-TR');
+  
+  if (cleanAbbr === cleanFull) return true;
+  
+  const fullParts = cleanFull.split(/\s+/);
+  const fullLastName = fullParts[fullParts.length - 1];
+  const fullFirstInitial = fullParts[0].charAt(0);
+
+  if (cleanAbbr.includes('.')) {
+    const dotIdx = cleanAbbr.lastIndexOf('.');
+    const initial = cleanAbbr.substring(0, dotIdx).replace(/[^A-ZÇĞİÖŞÜ]/g, '').charAt(0);
+    const lastName = cleanAbbr.substring(dotIdx + 1).trim();
+
+    const lastNameMatch = (lastName === fullLastName) ||
+      (lastName.length >= 4 && fullLastName.startsWith(lastName)) ||
+      (fullLastName.length >= 4 && lastName.startsWith(fullLastName));
+
+    if (lastNameMatch) {
+      if (!initial || initial === fullFirstInitial) return true;
+    }
+    return false;
+  }
+
+  // Without dot: e.g. "KAYALAR" or full name match
+  if (cleanAbbr === fullLastName) return true;
+  if (cleanAbbr.length >= 5 && fullLastName.startsWith(cleanAbbr)) return true;
+
+  return false;
+}
+
 export async function parseClassLocationsFromExcel(file, teacherSchedules, teachersList) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
-        
-        const classLocations = {}; // className -> { day: { period: location } }
-        const uniqueSubjectCodes = new Set<string>();
-        
-        // Find all "Dersler\nGünler" headers to identify schedule blocks
-        const headerRows = [];
-        jsonData.forEach((row, index) => {
-          if (row[0] && String(row[0]).includes('Günler')) {
-            headerRows.push(index);
-          }
+  let arrayBuffer;
+  if (file && typeof file.arrayBuffer === 'function') {
+    arrayBuffer = await file.arrayBuffer();
+  } else if (file && file._buffer) {
+    arrayBuffer = file._buffer;
+  } else if (file instanceof Uint8Array || (typeof Buffer !== 'undefined' && Buffer.isBuffer(file))) {
+    arrayBuffer = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength);
+  } else {
+    arrayBuffer = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[sheetName];
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+  const classLocations = {};
+  const globalSubjectMap = {};
+
+  // Find all "Dersler\nGünler" headers to identify schedule blocks
+  const headerRows = [];
+  jsonData.forEach((row, index) => {
+    if (row && row[0] && String(row[0]).includes('Günler')) {
+      headerRows.push(index);
+    }
+  });
+
+  headerRows.forEach((gunlerRowIndex, blockIdx) => {
+    const nextHeaderRow = headerRows[blockIdx + 1] || jsonData.length;
+    const periodColumns = detectPeriodColumns(jsonData[gunlerRowIndex]);
+
+    // Find where schedule table ends (at the 'Sr' table header or next block)
+    let srRowIndex = nextHeaderRow;
+    for (let r = gunlerRowIndex + 1; r < nextHeaderRow; r++) {
+      const firstCell = String((jsonData[r] || [])[0] || '').trim().toLowerCase();
+      if (firstCell === 'sr') {
+        srRowIndex = r;
+        break;
+      }
+    }
+
+    // Extract the 'Sr' table for this specific block
+    const blockSubjectDetails = {}; // code -> { name, teacher, location }
+    if (srRowIndex < nextHeaderRow) {
+      const srHeader = jsonData[srRowIndex] || [];
+      let codeCol = -1, nameCol = -1, teacherCol = -1, yerCol = -1;
+      for (let c = 0; c < srHeader.length; c++) {
+        const hVal = String(srHeader[c] || '').replace(/\n/g, ' ').trim().toLowerCase();
+        if (hVal.includes('ders kodu') || hVal === 'kodu') codeCol = c;
+        if (hVal.includes('ders adı') || hVal === 'dersin adı') nameCol = c;
+        if (hVal.includes('öğretmen') || hVal.includes('ogretmen')) teacherCol = c;
+        if (hVal.includes('yer')) yerCol = c;
+      }
+      if (codeCol === -1) codeCol = 1;
+      if (nameCol === -1) nameCol = 3;
+      if (teacherCol === -1) teacherCol = 10;
+      if (yerCol === -1) yerCol = 15;
+
+      for (let r = srRowIndex + 1; r < nextHeaderRow; r++) {
+        const row = jsonData[r];
+        if (!row || !row[0] || isNaN(Number(row[0]))) break;
+        const code = String(row[codeCol] || '').trim();
+        const name = String(row[nameCol] || row[2] || '').trim();
+        const teacher = String(row[teacherCol] || row[5] || '').trim();
+        const yer = String(row[yerCol] || row[6] || '').trim();
+        if (code) {
+          blockSubjectDetails[code] = {
+            name: name || code,
+            teacher: teacher || '',
+            location: yer ? yer.split('-')[0].trim() : ''
+          };
+          if (name) globalSubjectMap[code] = name;
+        }
+      }
+    }
+
+    // Find all day rows dynamically between gunlerRowIndex + 1 and srRowIndex
+    const dayRows = [];
+    for (let r = gunlerRowIndex + 1; r < srRowIndex; r++) {
+      const row = jsonData[r];
+      if (!row) continue;
+      const firstCell = String(row[0] || '').trim().toLowerCase();
+      if (dayMapping[firstCell]) {
+        dayRows.push({
+          dayKey: dayMapping[firstCell],
+          dayName: firstCell,
+          rowIndex: r
+        });
+      }
+    }
+
+    const blockSchedule = {};
+    const collectedCandidates = [];
+
+    dayRows.forEach(({ dayKey, rowIndex }) => {
+      blockSchedule[dayKey] = {};
+      const dayRow = jsonData[rowIndex];
+      const prevRow = jsonData[rowIndex - 1];
+
+      // Check if previous row contains subject codes (e.g. 3-row day layout)
+      const prevRowIsCodes = prevRow && rowIndex - 1 > gunlerRowIndex &&
+        !dayMapping[String(prevRow[0] || '').trim().toLowerCase()] &&
+        Object.values(periodColumns).some(col => {
+          const val = String(prevRow[col] || '').trim();
+          return val.length > 0 && !val.includes(':');
         });
 
-        headerRows.forEach((gunlerRowIndex) => {
-          const periodColumns = detectPeriodColumns(jsonData[gunlerRowIndex]);
-          const blockSchedule = {};
-          let detectedClassId = null;
+      Object.entries(periodColumns).forEach(([periodNum, colIndex]) => {
+        const col = Number(colIndex);
+        if (col >= dayRow.length) return;
 
-          // Process 5 days
-          for (let dayOffset = 1; dayOffset <= 5; dayOffset++) {
-            const rowIndex = gunlerRowIndex + dayOffset;
-            if (rowIndex >= jsonData.length) continue;
-            
-            const dayRow = jsonData[rowIndex];
-            if (!dayRow) continue;
-            
-            const dayName = String(dayRow[0] || '').trim().toLowerCase();
-            const dayKey = dayMapping[dayName];
-            if (!dayKey) continue;
-            
-            blockSchedule[dayKey] = {};
-            
-            Object.entries(periodColumns).forEach(([periodNum, colIndex]) => {
-              const col = Number(colIndex);
-              if (col < dayRow.length) {
-                const cellText = String(dayRow[col] || '').trim();
-                if (cellText && cellText.length > 3) {
-                  // Some cells might have full info on multiple lines
-                  const lines = cellText.split('\n').map(l => l.trim()).filter(Boolean);
-                  
-                  // Filter out time strings (e.g. 08:30-09:10 or 08:30 09:10) by replacing them, so we don't lose the whole line if they share it
-                  const contentLines = lines.map(l => l.replace(/\d{2}:\d{2}(?:\s*-\s*\d{2}:\d{2})?/g, '').trim()).filter(Boolean);
-                  const fullContent = contentLines.join(' ');
-                  const parts = fullContent.split(' ').filter(Boolean);
-                  
-                  if (parts.length >= 2) {
-                    let location = parts[parts.length - 1]; // e.g., A-01 or OTOM
-                    let subjectCode = parts[0];
-                    let teacherNamesStr = parts.slice(1, -1).join(' ');
-                    
-                    // If the location has a dot (e.g. H.KARATOS) it is likely a teacher, meaning location is missing
-                    if (location.includes('.') || (!location.match(/[0-9]/) && location.length > 5 && !['OTOM', 'LAB', 'ATÖLYE'].includes(location.toUpperCase()))) {
-                       teacherNamesStr = parts.slice(1).join(' ');
-                       location = ''; // Set location to empty string, but keep it in blockSchedule so UI renders it correctly!
-                    }
-                    
-                    if (!detectedClassId) {
-                      // Let's try to extract from the header above the table FIRST!
-                      for (let i = Math.max(0, gunlerRowIndex - 5); i < gunlerRowIndex; i++) {
-                         const hRow = jsonData[i];
-                         if (hRow && Array.isArray(hRow)) {
-                            for (let j = 0; j < hRow.length; j++) {
-                               const cellVal = String(hRow[j] || '').trim();
-                               if (cellVal.includes('Sınıf :') || cellVal.includes('Sınıf:')) {
-                                  detectedClassId = cellVal.split(':')[1].trim();
-                                  break;
-                               }
-                               // Or if the cell just contains the class name (like AMP 9-A)
-                               if (cellVal.match(/(AMP|ATP|MESEM)\s*\d{1,2}[-\s\/]?[A-ZÇĞİÖŞÜ]+/i)) {
-                                  detectedClassId = cellVal;
-                                  break;
-                               }
-                            }
-                         }
-                         if (detectedClassId) break;
-                      }
+        let cellText = String(dayRow[col] || '').trim();
 
-                      // Fallback to deducing from teacher schedules
-                      if (!detectedClassId) {
-                        const possibleTeacherNames = teacherNamesStr.split(/[\/\-]/);
-                        for (const tName of possibleTeacherNames) {
-                          const cleanTName = tName.trim().toUpperCase();
-                          if (cleanTName.length > 2) {
-                            const teacher = teachersList?.find(t => t.teacherName.toUpperCase().includes(cleanTName) || cleanTName.includes(t.teacherName.split(' ').pop().toUpperCase()));
-                            if (teacher && teacherSchedules[teacher.teacherName] && teacherSchedules[teacher.teacherName][dayKey] && teacherSchedules[teacher.teacherName][dayKey][periodNum]) {
-                              detectedClassId = teacherSchedules[teacher.teacherName][dayKey][periodNum];
-                              break;
-                            } else {
-                              const exactKey = Object.keys(teacherSchedules || {}).find(k => k.toUpperCase().includes(cleanTName) || cleanTName.includes(k.split(' ').pop().toUpperCase()));
-                              if (exactKey && teacherSchedules[exactKey][dayKey] && teacherSchedules[exactKey][dayKey][periodNum]) {
-                                detectedClassId = teacherSchedules[exactKey][dayKey][periodNum];
-                                break;
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                    
-                    // Always add to blockSchedule even if location is empty, so it's not skipped!
-                    uniqueSubjectCodes.add(subjectCode);
-                    blockSchedule[dayKey][periodNum] = { location, subject: subjectCode, teacherNamesStr };
-                  }
-                }
-              }
-            });
+        // If previous row had course codes, prepend it
+        if (prevRowIsCodes && prevRow && prevRow[col]) {
+          const codeVal = String(prevRow[col]).trim();
+          if (codeVal && !cellText.includes(codeVal)) {
+            cellText = `${codeVal}\n${cellText}`;
           }
-
-          if (detectedClassId) {
-            if (!classLocations[detectedClassId]) {
-              classLocations[detectedClassId] = {};
-            }
-            Object.keys(blockSchedule).forEach(day => {
-              if (!classLocations[detectedClassId][day]) classLocations[detectedClassId][day] = {};
-              Object.keys(blockSchedule[day]).forEach(period => {
-                classLocations[detectedClassId][day][period] = blockSchedule[day][period];
-              });
-            });
-          }
-        });
-
-        // Map short codes to full names using the bottom tables in the Excel sheet
-        const subjectMap = {};
-        
-        // 1. Look for explicit headers
-        let codeCol = -1;
-        let nameCol = -1;
-        jsonData.forEach((row) => {
-            if (!row || !Array.isArray(row)) return;
-            const strRow = row.map(c => String(c || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase());
-            
-            let tempCodeCol = -1;
-            let tempNameCol = -1;
-            
-            for (let i = 0; i < strRow.length; i++) {
-                const cell = strRow[i];
-                if (cell === 'ders' || cell === 'kısa adı' || cell === 'kodu' || cell === 'ders kodu') tempCodeCol = i;
-                if (cell === 'ders adı' || cell === 'dersin adı' || cell === 'uzun adı' || cell === 'ders ad' || cell === 'ders adi' || cell === 'dersin adi') tempNameCol = i;
-            }
-            
-            if (tempCodeCol !== -1 && tempNameCol !== -1) {
-                codeCol = tempCodeCol;
-                nameCol = tempNameCol;
-            } else if (codeCol !== -1 && nameCol !== -1) {
-                const code = String(row[codeCol] || '').trim();
-                const name = String(row[nameCol] || '').trim();
-                if (code && name && uniqueSubjectCodes.has(code) && code.toLowerCase() !== 'ders' && code.toLowerCase() !== 'kısa adı') {
-                    subjectMap[code] = name;
-                }
-            }
-        });
-        
-        // 2. Fallback heuristic: Scan all rows.
-        if (Object.keys(subjectMap).length === 0) {
-            jsonData.forEach((row) => {
-                if (!row || !Array.isArray(row)) return;
-                
-                // Find if any cell exactly matches a known short code
-                let foundCode = '';
-                for (let i = 0; i < row.length; i++) {
-                    const cellVal = String(row[i] || '').trim();
-                    if (uniqueSubjectCodes.has(cellVal)) {
-                        foundCode = cellVal;
-                        break;
-                    }
-                }
-                
-                if (foundCode) {
-                    // The row contains the short code. Let's find the subject name in the same row.
-                    // Usually, the subject name is the longest string in the row, or the string immediately after.
-                    let bestMatch = foundCode;
-                    for (let i = 0; i < row.length; i++) {
-                        const cellVal = String(row[i] || '').trim();
-                        // Ignore the code itself, ignore numbers/empty strings
-                        // Also ignore strings with a dot (like S.KESEKLE) because those are teacher names!
-                        if (cellVal !== foundCode && cellVal.length > bestMatch.length && isNaN(Number(cellVal)) && !cellVal.includes('.')) {
-                             bestMatch = cellVal;
-                        }
-                    }
-                    if (bestMatch !== foundCode) {
-                        subjectMap[foundCode] = bestMatch;
-                    }
-                }
-            });
         }
 
-        // Apply subject mapping
-        Object.keys(classLocations).forEach(cId => {
-            Object.keys(classLocations[cId]).forEach(day => {
-                Object.keys(classLocations[cId][day]).forEach(period => {
-                    const lesson = classLocations[cId][day][period];
-                    if (lesson && lesson.subject && subjectMap[lesson.subject]) {
-                        lesson.subject = subjectMap[lesson.subject];
-                    }
-                });
-            });
-        });
+        if (cellText && cellText.length > 2) {
+          const lines = cellText.split('\n').map(l => l.trim()).filter(Boolean);
+          // Filter out time strings like 08:30-09:10
+          const contentLines = lines.map(l => l.replace(/\d{2}:\d{2}(?:\s*-\s*\d{2}:\d{2})?/g, '').trim()).filter(Boolean);
+          const fullContent = contentLines.join(' ').replace(/\s+/g, ' ').trim();
 
-        resolve(classLocations);
-      } catch (err) {
-        reject(err);
+          // Match against known subject codes from this block's Sr table (longest code first)
+          let matchedCode = null;
+          const sortedCodes = Object.keys(blockSubjectDetails).sort((a, b) => b.length - a.length);
+          for (const code of sortedCodes) {
+            if (fullContent.startsWith(code) || (contentLines[0] && contentLines[0] === code) || fullContent.includes(code)) {
+              matchedCode = code;
+              break;
+            }
+          }
+
+          let subject = '';
+          let teacherNamesStr = '';
+          let location = '';
+
+          if (matchedCode) {
+            subject = blockSubjectDetails[matchedCode].name;
+            // Extract remaining text after matchedCode
+            let remainder = fullContent.replace(matchedCode, '').trim();
+            const rParts = remainder.split(' ').filter(Boolean);
+            if (rParts.length > 0) {
+              const lastPart = rParts[rParts.length - 1];
+              // Check if last part is location
+              if (!lastPart.includes('.') && (lastPart.match(/[0-9]/) || ['OTOM', 'LAB', 'ATÖLYE'].includes(lastPart.toUpperCase()))) {
+                if (rParts.length >= 2 && ['OTOM', 'LAB', 'BİLİŞİM', 'MOTOR'].includes(rParts[rParts.length - 2].toUpperCase())) {
+                  location = `${rParts[rParts.length - 2]} ${lastPart}`;
+                  teacherNamesStr = rParts.slice(0, -2).join(' ');
+                } else {
+                  location = lastPart;
+                  teacherNamesStr = rParts.slice(0, -1).join(' ');
+                }
+              } else {
+                teacherNamesStr = remainder;
+              }
+            }
+
+            if (!location && blockSubjectDetails[matchedCode].location) {
+              location = blockSubjectDetails[matchedCode].location;
+            }
+            if (!teacherNamesStr && blockSubjectDetails[matchedCode].teacher) {
+              teacherNamesStr = blockSubjectDetails[matchedCode].teacher;
+            }
+          } else {
+            // General parsing fallback
+            const parts = fullContent.split(' ').filter(Boolean);
+            if (parts.length >= 2) {
+              location = parts[parts.length - 1];
+              subject = parts[0];
+              teacherNamesStr = parts.slice(1, -1).join(' ');
+
+              if (location.includes('.') || (!location.match(/[0-9]/) && location.length > 5 && !['OTOM', 'LAB', 'ATÖLYE'].includes(location.toUpperCase()))) {
+                teacherNamesStr = parts.slice(1).join(' ');
+                location = '';
+              }
+            } else if (parts.length === 1) {
+              subject = parts[0];
+            }
+          }
+
+          blockSchedule[dayKey][periodNum] = { location, subject, teacherNamesStr };
+          if (teacherNamesStr) {
+            collectedCandidates.push({ teacherNamesStr, dayKey, periodNum });
+          }
+        }
+      });
+    });
+
+    // Detect Class ID
+    let detectedClassId = null;
+    // 1. From header rows above table
+    for (let i = Math.max(0, gunlerRowIndex - 5); i < gunlerRowIndex; i++) {
+      const hRow = jsonData[i];
+      if (hRow && Array.isArray(hRow)) {
+        for (let j = 0; j < hRow.length; j++) {
+          const cellVal = String(hRow[j] || '').trim();
+          if (cellVal.includes('Sınıf :') || cellVal.includes('Sınıf:')) {
+            detectedClassId = cellVal.split(':')[1].trim();
+            break;
+          }
+          if (cellVal.match(/(AMP|ATP|MESEM)\s*\d{1,2}[-\s\/]?[A-ZÇĞİÖŞÜ]+/i)) {
+            detectedClassId = cellVal;
+            break;
+          }
+        }
       }
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsArrayBuffer(file);
+      if (detectedClassId) break;
+    }
+
+    // 2. Fallback to deducing from teacher schedules using voting across candidate lessons
+    if (!detectedClassId) {
+      const classVotes = {};
+      for (const cand of collectedCandidates) {
+        const possibleTeacherNames = cand.teacherNamesStr.split(/[\/\-]/);
+        for (const tName of possibleTeacherNames) {
+          const cleanTName = tName.trim();
+          if (cleanTName.length > 2) {
+            // Check in teachersList
+            if (teachersList && teachersList.length > 0) {
+              const matchedTeachers = teachersList.filter(t => matchTeacherAbbr(cleanTName, t.teacherName));
+              for (const mt of matchedTeachers) {
+                const cName = teacherSchedules[mt.teacherName]?.[cand.dayKey]?.[cand.periodNum];
+                if (cName) {
+                  classVotes[cName] = (classVotes[cName] || 0) + 1;
+                }
+              }
+            }
+            // Check directly in teacherSchedules keys
+            for (const tSchedKey of Object.keys(teacherSchedules || {})) {
+              if (matchTeacherAbbr(cleanTName, tSchedKey)) {
+                const cName = teacherSchedules[tSchedKey]?.[cand.dayKey]?.[cand.periodNum];
+                if (cName) {
+                  classVotes[cName] = (classVotes[cName] || 0) + 1;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const sortedVotes = Object.entries(classVotes).sort((a, b) => b[1] - a[1]);
+      if (sortedVotes.length > 0) {
+        detectedClassId = sortedVotes[0][0];
+      }
+    }
+
+    if (detectedClassId) {
+      if (!classLocations[detectedClassId]) {
+        classLocations[detectedClassId] = {};
+      }
+      Object.keys(blockSchedule).forEach(day => {
+        if (!classLocations[detectedClassId][day]) classLocations[detectedClassId][day] = {};
+        Object.keys(blockSchedule[day]).forEach(period => {
+          classLocations[detectedClassId][day][period] = blockSchedule[day][period];
+        });
+      });
+    }
   });
+
+  // Apply global subject mapping for any subjects that were not mapped
+  Object.keys(classLocations).forEach(cId => {
+    Object.keys(classLocations[cId]).forEach(day => {
+      Object.keys(classLocations[cId][day]).forEach(period => {
+        const lesson = classLocations[cId][day][period];
+        if (lesson && lesson.subject && globalSubjectMap[lesson.subject]) {
+          lesson.subject = globalSubjectMap[lesson.subject];
+        }
+      });
+    });
+  });
+
+  return classLocations;
 }

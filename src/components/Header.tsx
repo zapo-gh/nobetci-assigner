@@ -1,32 +1,31 @@
 // @ts-nocheck
-import React from 'react';
+import React, { useMemo } from 'react';
 import styles from '../components/Tabs.module.css';
 import Icon from '../components/Icon.jsx';
 import { DAYS } from '../constants/index.js';
+import { getWeekDatesForOffset } from '../utils/helpers.js';
 
 function Header({
   theme,
   toggleTheme,
   day,
   handleDayChange,
+  weekOffset = 0,
+  goToNextWeek,
+  goToPrevWeek,
 }) {
-  const today = new Date();
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const dateString = today.toLocaleDateString('tr-TR', options);
+  const today = useMemo(() => new Date(), []);
+  const weekDates = useMemo(() => getWeekDatesForOffset(weekOffset, today), [weekOffset, today]);
 
-  // Helper to get dates for the current week (Mon-Fri)
-  const getWeekDates = () => {
-    const curr = new Date();
-    const first = curr.getDate() - curr.getDay() + 1; // First day is the day of the month - the day of the week
-    const dates = [];
-    for (let i = 0; i < 5; i++) {
-      const next = new Date(curr.getTime());
-      next.setDate(first + i);
-      dates.push(next.getDate());
-    }
-    return dates;
-  };
-  const weekDates = getWeekDates();
+  // Seçili günün Türkçe tam tarihi
+  const selectedDayIdx = DAYS.findIndex(d => d.key === day);
+  const selectedDate = weekDates[selectedDayIdx >= 0 ? selectedDayIdx : 0] || today;
+  const dateString = selectedDate.toLocaleDateString('tr-TR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
   return (
     <header className="app-header">
@@ -40,22 +39,49 @@ function Header({
         </div>
       </div>
 
+      {/* Sade & Bütünleşik Gün ve Hafta Seçici */}
       <div className="day-switcher">
+        <button 
+          type="button"
+          className="day-nav-btn" 
+          onClick={goToPrevWeek} 
+          title="Önceki Hafta"
+          aria-label="Önceki Hafta"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
         {DAYS.map((dayObj, i) => {
-          const isToday = today.getDay() === i + 1; // 0 is Sunday, 1 is Monday. i=0 is Monday.
+          const dateObj = weekDates[i];
+          const isToday = dateObj && dateObj.toDateString() === today.toDateString();
           return (
             <button
               key={dayObj.key}
+              type="button"
               className={`day-pill ${isToday ? 'is-today' : ''}`}
               aria-selected={day === dayObj.key}
               onClick={() => handleDayChange(dayObj.key)}
-              title={dayObj.label}
+              title={`${dayObj.label} (${dateObj?.getDate()} ${dateObj?.toLocaleDateString('tr-TR', { month: 'long' })})`}
             >
               {dayObj.short}
-              <span className="day-num">{weekDates[i]}</span>
+              <span className="day-num">{dateObj?.getDate()}</span>
             </button>
           );
         })}
+
+        <button 
+          type="button"
+          className="day-nav-btn" 
+          onClick={goToNextWeek} 
+          title="Sonraki Hafta"
+          aria-label="Sonraki Hafta"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
       </div>
     </header>
   );

@@ -10,7 +10,31 @@ const getTodayKey = () => {
 };
 
 export function useUI() {
-    const [day, setDay] = useState(getTodayKey());
+    const [day, setDayState] = useState(() => {
+        try {
+            const saved = localStorage.getItem("selected_day");
+            if (saved && ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(saved)) {
+                return saved;
+            }
+        } catch {}
+        return getTodayKey();
+    });
+
+    const setDay = useCallback((newDay) => {
+        setDayState(prev => {
+            const val = typeof newDay === 'function' ? newDay(prev) : newDay;
+            try {
+                if (val) localStorage.setItem("selected_day", val);
+            } catch {}
+            return val;
+        });
+    }, []);
+
+    const [weekOffset, setWeekOffset] = useState(0);
+
+    const goToNextWeek = useCallback(() => setWeekOffset(prev => prev + 1), []);
+    const goToPrevWeek = useCallback(() => setWeekOffset(prev => prev - 1), []);
+    const goToCurrentWeek = useCallback(() => setWeekOffset(0), []);
 
     const [theme, setTheme] = useState(() => {
         try {
@@ -20,7 +44,24 @@ export function useUI() {
         }
     });
 
-    const [activeSection, setActiveSection] = useState("teachers");
+    const [activeSection, setActiveSectionState] = useState(() => {
+        try {
+            const saved = localStorage.getItem("active_section");
+            if (saved) return saved;
+        } catch {}
+        return "teachers";
+    });
+
+    const setActiveSection = useCallback((sec) => {
+        setActiveSectionState(prev => {
+            const val = typeof sec === 'function' ? sec(prev) : sec;
+            try {
+                if (val) localStorage.setItem("active_section", val);
+            } catch {}
+            return val;
+        });
+    }, []);
+
     const [toolbarExpanded, setToolbarExpanded] = useState(false);
 
     const [modals, setModals] = useState({
@@ -141,6 +182,11 @@ export function useUI() {
     return {
         day,
         setDay,
+        weekOffset,
+        setWeekOffset,
+        goToNextWeek,
+        goToPrevWeek,
+        goToCurrentWeek,
         theme,
         toggleTheme,
         activeSection,

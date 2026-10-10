@@ -502,33 +502,46 @@ const DutyTeacherExcelImportModal = ({ isOpen, onClose, onImport, teachers }) =>
         .btn-import {
           display: inline-flex;
           align-items: center;
-          padding: 10px 20px;
+          padding: 10px 22px;
           border: none;
-          border-radius: 6px;
+          border-radius: 10px;
           cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s ease;
+          font-size: 0.92rem;
+          font-weight: 600;
+          font-family: inherit;
+          transition: all 0.15s ease;
         }
 
         .btn-cancel {
-          background: #f5f5f5;
-          color: #6c757d;
-          border: 1px solid #e1e5e9;
+          background: #ffffff;
+          color: #374151;
+          border: 1.5px solid #d1d5db;
         }
 
         .btn-cancel:hover {
-          background: #e9ecef;
+          background: #f8fafc;
+          border-color: #9ca3af;
+          color: #111827;
+        }
+
+        .btn-cancel:active {
+          transform: scale(0.98);
         }
 
         .btn-import {
-          background: #667eea;
+          background: #4338ca;
           color: white;
+          box-shadow: 0 2px 6px rgba(67, 56, 202, 0.25);
         }
 
         .btn-import:hover {
-          background: #5a6fd8;
+          background: #3730a3;
           transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(67, 56, 202, 0.35);
+        }
+
+        .btn-import:active {
+          transform: translateY(0) scale(0.98);
         }
 
         .import-icon {

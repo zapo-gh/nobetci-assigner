@@ -1,0 +1,634 @@
+/* ==========================================================
+   ModernAbsenteeList.module.css
+   Modern Card & Avatar-based Absentee Management UI
+   ========================================================== */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  padding: 18px 20px;
+  margin-top: 12px;
+  transition: all 0.25s ease;
+}
+
+/* ---------------- Top Toolbar & Filters ---------------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.searchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 260px;
+  max-width: 380px;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-faint, #94a3b8);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 9px 34px 9px 38px;
+  font-size: 0.88rem;
+  border: 1.5px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  color: var(--text, #0f1535);
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.searchInput:focus {
+  border-color: var(--primary, #4f46e5);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.clearSearchBtn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-faint, #94a3b8);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+
+.clearSearchBtn:hover {
+  color: var(--danger, #dc2626);
+}
+
+.filterChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #475569);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.filterChip:hover {
+  border-color: var(--primary, #4f46e5);
+  color: var(--primary, #4f46e5);
+  background: #ffffff;
+}
+
+.filterChip.active {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+}
+
+.filterBadge {
+  background: rgba(255, 255, 255, 0.25);
+  color: inherit;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.filterChip:not(.active) .filterBadge {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-muted, #475569);
+}
+
+/* ---------------- Metrics Summary Bar ---------------- */
+.metricsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.metricsPills {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.metricPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.metricPill strong {
+  color: #0f172a;
+}
+
+.metricBadgeDanger {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ---------------- Card List ---------------- */
+.cardsList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.cardHasLessons {
+  border-left: 4px solid #ef4444;
+}
+
+.cardFreeDay {
+  border-left: 4px solid #94a3b8;
+  opacity: 0.92;
+}
+
+/* ---------------- Card Header Row ---------------- */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.teacherIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+
+.nameBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teacherName {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Reason Badges */
+.reasonBadge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 2.5px 9px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reasonRaporlu {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.reasonSevkli {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.reasonIzinli {
+  background: #f0f9ff;
+  color: #075985;
+  border: 1px solid #bae6fd;
+}
+
+.reasonGorevliIzinli {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.reasonMazeretIzinli {
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+.reasonDiger {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+/* Time Slot Badges */
+.slotBadge {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.slotFull {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.slotMorning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.slotAfternoon {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+}
+
+/* Impact Badge */
+.impactBadgeDanger {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+  border: 1px solid #fca5a5;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.impactBadgeMuted {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------------- Card Right Actions ---------------- */
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggleDetailsBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.toggleDetailsBtn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.toggleDetailsBtnActive {
+  background: #eef2ff;
+  border-color: #6366f1;
+  color: #4338ca;
+}
+
+.deleteBtn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 !important;
+  margin: 0;
+  border-radius: 8px;
+  border: 1.5px solid #fee2e2;
+  background: #fef2f2;
+  color: #dc2626;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-sizing: border-box;
+}
+
+.deleteBtn svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.deleteBtn:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.25);
+}
+
+/* ---------------- Timeline Period Capsules ---------------- */
+.timelineContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.timelineLabel {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.capsulesRow {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .capsulesRow {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.capsule {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.15s ease;
+  min-height: 44px;
+}
+
+.capsulePeriodNum {
+  font-size: 0.68rem;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.capsuleClassLabel {
+  font-size: 0.76rem;
+  font-weight: 700;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Capsule status states */
+.capsuleAffected {
+  background: #fef2f2;
+  border: 1.5px solid #f87171;
+  color: #b91c1c;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.1);
+}
+
+.capsuleImes {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+}
+
+.capsuleImes .capsulePeriodNum {
+  color: #64748b;
+}
+
+.capsuleImes .capsuleClassLabel {
+  color: #334155;
+}
+
+.capsuleFree {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #94a3b8;
+}
+
+.capsuleOutOfScope {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #cbd5e1;
+  opacity: 0.55;
+}
+
+/* ---------------- Accordion Detail Panel ---------------- */
+.accordionPanel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detailTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.detailTable th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1.5px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.detailTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.detailTable tr:last-child td {
+  border-bottom: none;
+}
+
+.classChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  font-weight: 700;
+  border-radius: 6px;
+  font-size: 0.78rem;
+}
+
+.locationChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-weight: 500;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.statusChipWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-weight: 600;
+  border-radius: 12px;
+  font-size: 0.74rem;
+}
+
+/* ---------------- Empty State Inside Grid ---------------- */
+.noResultsBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+  gap: 8px;
+}
+
+.noResultsTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}

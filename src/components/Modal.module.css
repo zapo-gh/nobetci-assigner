@@ -392,21 +392,24 @@
   background: var(--primary);
   color: white;
   border: none;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-weight-medium);
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-default);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: 0.875rem;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 6px rgba(67, 56, 202, 0.25);
+  font-family: inherit;
 }
 
 .btnPrimary:hover {
   background: var(--primary-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.35);
 }
 
 .btnPrimary:active {
@@ -414,35 +417,39 @@
 }
 
 .btnPrimary:disabled {
-  background: var(--text-muted);
+  background: #cbd5e1;
+  color: #94a3b8;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
 .btnSecondary {
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-weight-medium);
+  background: #ffffff;
+  color: #374151;
+  border: 1.5px solid #d1d5db;
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-default);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: 0.875rem;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
 }
 
 .btnSecondary:hover {
-  background: var(--bg-hover);
-  border-color: var(--primary);
-  color: var(--primary);
+  background: #f8fafc;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
 .btnSecondary:active {
-  background: var(--bg-subtle);
+  background: #f1f5f9;
+  transform: scale(0.98);
 }
 
 .closeButton {

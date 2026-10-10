@@ -6,11 +6,11 @@ import { useAssignments } from './contexts/useAssignments';
 import { useTeacherManager } from './hooks/useTeacherManager';
 import { useClassManager } from './hooks/useClassManager';
 import { useAvailabilityManager } from './hooks/useAvailabilityManager';
-import { normalizeClassName } from './utils/classNameUtils';
+import { normalizeClassName, isImesLesson } from './utils/classNameUtils';
 import React, { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { DutyZone } from "./types.js";
 import Header from './components/Header.js';
-import Icon from './components/Icon.jsx';
+import Icon from './components/Icon';
 import { PERIODS, DAYS, REAL_DAY_KEYS } from './constants/index.js';
 import TeachersSection from './components/TeachersSection.jsx';
 import { assignDuties, MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID, applyFairnessAdjustments } from "./utils/assignDuty.js";
@@ -20,6 +20,8 @@ import { normalizeForComparison } from "./utils/nameNormalization.js";
 import {
   dateForSelectedDay,
   formatTRDate,
+  getWeekMonday,
+  formatDateKey,
   validateTeacherData,
   validateClassData,
   mapSetToArray,
@@ -44,6 +46,7 @@ import {
   deleteLocksByTeacher,
   deleteLocksByClass,
   upsertClassFree,
+  bulkUpsertClassFree,
   upsertTeacherFree,
   upsertClassAbsence,
   upsertLock,
@@ -67,6 +70,7 @@ import {
   useFreeTeachersByDay,
   useClassFreeForDay,
   useFilteredClassAbsence,
+  useFilteredClassFree,
 } from './hooks/useDerivedAvailability.js';
 import { useAbsentManager } from './hooks/useAbsentManager.js';
 import { useBulkDeleteActions } from './hooks/useBulkDeleteActions.js';
@@ -80,6 +84,7 @@ import { normalizeAbsentPeople } from './utils/migrations.js';
 import { useAutoSave } from './hooks/useAutoSave.js';
 import { useDataLoader } from './hooks/useDataLoader.js';
 import { usePdfExport } from './hooks/usePdfExport.js';
+import { useAssignmentHistory } from './hooks/useAssignmentHistory.js';
 
 import Tabs from "./components/Tabs.jsx";
 import ModernNotificationSystem from "./components/ModernNotificationSystem.jsx";
@@ -90,6 +95,7 @@ import CommonLessonModal from "./components/CommonLessonModal.jsx";
 
 import ConfirmationModal from "./components/ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./components/PdfScheduleImportModal.jsx";
+import EditTeacherModal from "./components/EditTeacherModal";
 const CourseScheduleSection = lazy(() => import('./components/CourseScheduleSection.jsx'));
 const ClassesSection = lazy(() => import('./components/ClassesSection.jsx'));
 const DutyZonesSection = lazy(() => import('./components/DutyZonesSection.jsx'));
@@ -404,6 +410,8 @@ export default function App() {
   const hydratedRef = useRef(false);
   const {
     day, setDay,
+    weekOffset, setWeekOffset,
+    goToNextWeek, goToPrevWeek, goToCurrentWeek,
     theme, toggleTheme,
     activeSection, setActiveSection,
     toolbarExpanded, setToolbarExpanded,
@@ -478,6 +486,44 @@ export default function App() {
 
   const addZone = (zone: DutyZone) => {
     setDutyZones(prev => [...prev, zone]);
+  };
+
+  const updateZone = (updatedZone: DutyZone, oldZoneName?: string) => {
+    setDutyZones(prev => prev.map(z => z.zoneId === updatedZone.zoneId ? updatedZone : z));
+    if (oldZoneName && oldZoneName !== updatedZone.name) {
+      setLocationZoneMapping(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.entries(next).forEach(([loc, zName]) => {
+          if (zName === oldZoneName) {
+            next[loc] = updatedZone.name;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+
+      setTeachers(prev => {
+        let changed = false;
+        const next = prev.map(t => {
+          if (!t.dutyLocations) return t;
+          const updatedLocs = { ...t.dutyLocations };
+          let tChanged = false;
+          Object.entries(updatedLocs).forEach(([dKey, zName]) => {
+            if (zName === oldZoneName) {
+              updatedLocs[dKey] = updatedZone.name;
+              tChanged = true;
+            }
+          });
+          if (tChanged) {
+            changed = true;
+            return { ...t, dutyLocations: updatedLocs };
+          }
+          return t;
+        });
+        return changed ? next : prev;
+      });
+    }
   };
 
   const deleteZone = (zoneId: string) => {
@@ -620,7 +666,11 @@ export default function App() {
         );
 
         setTeachers(supabaseData.teachers || []);
-        setClasses(supabaseData.classes || []);
+        const normalizedClasses = (supabaseData.classes || []).map((c: any) => ({
+          ...c,
+          className: normalizeClassName(c?.className || '') || c?.className || '',
+        }));
+        setClasses(normalizedClasses);
         setTeacherFree(teacherFreeSets);
         setClassFree(classFreeSets);
         setClassAbsence(classAbsenceMap);
@@ -738,41 +788,92 @@ export default function App() {
     teacherSchedulesHydrated,
   });
 
+  const recentNotificationsRef = useRef(new Map());
+
   // Bildirim sistemi (diğer fonksiyonlardan önce tanımlanmalı)
   const addNotification = useCallback((messageOrOpts, maybeType) => {
     // Supports: addNotification("msg", "success") OR addNotification({ message, type, duration, actionLabel, onAction })
     const opts = typeof messageOrOpts === 'string'
       ? { message: messageOrOpts, type: maybeType || 'info' }
-      : (messageOrOpts || {})
+      : (messageOrOpts || {});
 
-    const id = Date.now() + Math.random()
+    const message = opts.message || '';
+    const type = opts.type || 'info';
+    if (!message) return;
+
+    // Deduplication: Aynı mesaj ve tür 1.5 saniye içinde tekrar tetiklenirse yoksay
+    const key = `${type}:${message}`;
+    const now = Date.now();
+    const lastTime = recentNotificationsRef.current?.get(key) || 0;
+    if (now - lastTime < 1500) {
+      return;
+    }
+    if (recentNotificationsRef.current) {
+      recentNotificationsRef.current.set(key, now);
+      if (recentNotificationsRef.current.size > 20) {
+        for (const [k, t] of recentNotificationsRef.current.entries()) {
+          if (now - t > 10000) recentNotificationsRef.current.delete(k);
+        }
+      }
+    }
+
+    const id = Date.now() + Math.random();
     const n = {
       id,
-      message: opts.message || '',
-      type: opts.type || 'info',
-      timestamp: Date.now(),
+      message,
+      type,
+      timestamp: now,
       actionLabel: opts.actionLabel || '',
       onAction: typeof opts.onAction === 'function' ? opts.onAction : null,
-      duration: Number.isFinite(opts.duration) ? opts.duration : (opts.actionLabel ? 6000 : 4000)
-    }
-    setNotifications(prev => [...prev, n])
+      duration: Number.isFinite(opts.duration) ? opts.duration : (opts.actionLabel ? 6000 : 3500)
+    };
+    setNotifications(prev => {
+      // Ekranda en fazla 3 bildirim tut, aşırı yığılmayı önle
+      const trimmed = prev.length >= 3 ? prev.slice(prev.length - 2) : prev;
+      return [...trimmed, n];
+    });
     // Auto dismiss
     if (n.duration > 0) {
-      setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration)
+      setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration);
     }
-  }, [])
+  }, []);
+
+  // History stack for planning undo/redo
+  const { canUndo, canRedo, undo, redo, recordHistory } = useAssignmentHistory(locked, setLocked, addNotification);
+
   /* ===================== Manuel ekleme/silme işlemleri ===================== */
 
-  
+  // Aktif hafta ve gün tarihleri
+  const activeWeekMonday = useMemo(() => getWeekMonday(weekOffset), [weekOffset]);
+  const activeDate = useMemo(() => dateForSelectedDay(day, activeWeekMonday), [day, activeWeekMonday]);
+  const displayDate = useMemo(() => formatTRDate(activeDate), [activeDate]);
+  const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
+  const activeWeekKey = useMemo(() => formatDateKey(activeWeekMonday), [activeWeekMonday]);
+  const activeDateFormatted = useMemo(() => activeDate.toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    weekday: 'long'
+  }), [activeDate]);
 
   const absentPeopleForCurrentDay = useMemo(() => {
     if (!Array.isArray(absentPeople)) return [];
     return absentPeople.filter(person => {
       if (!person || typeof person !== 'object') return false;
       if (!Array.isArray(person.days) || person.days.length === 0) return true;
-      return person.days.includes(day);
+      if (!person.days.includes(day)) return false;
+
+      // Tarih veya Hafta filtresi
+      if (person.date) {
+        return person.date === activeDateKey;
+      }
+      if (person.weekKey) {
+        return person.weekKey === activeWeekKey;
+      }
+      // Tarih belirtilmemiş eski kayıtlar: varsayılan olarak mevcut haftada göster
+      return weekOffset === 0;
     });
-  }, [absentPeople, day]);
+  }, [absentPeople, day, activeDateKey, activeWeekKey, weekOffset]);
   const { addAbsent } = useAbsentManager({
     day,
     DAYS,
@@ -803,6 +904,7 @@ export default function App() {
     toggleClassFree,
     setAllTeachersFree,
     setAllClassesFree,
+    setTeacherPeriodsFree,
     handleSelectAbsence
   } = useAvailabilityManager();
 
@@ -815,6 +917,7 @@ export default function App() {
 
   const {
     addTeacher,
+    editTeacher,
     deleteTeacher,
     deleteAllPdfTeachers,
     importDutyTeachersData,
@@ -827,6 +930,8 @@ export default function App() {
     periods,
     replacePdfSchedule
   });
+
+  const [editingTeacher, setEditingTeacher] = useState<any>(null);
 
 
   const {
@@ -904,7 +1009,7 @@ export default function App() {
     refreshAbsenceData();
   }, [absenceRefreshState.isRefreshing, refreshAbsenceData, setToolbarExpanded]);
 
-  const teachersForCurrentDay = useDutyTeacherFilter(teachers, pdfSchedule, day);
+  const teachersForCurrentDay = useDutyTeacherFilter(teachers, pdfSchedule, day, dutyZones);
 
   // Nöbetçi öğretmenlerin boş saatlerini otomatik işaretle (referanslardan önce tanımlandı)
   const autoMarkDutyTeachersFree = useCallback(() => {
@@ -1149,8 +1254,7 @@ export default function App() {
     setNotifications((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
-  // Tarih metni
-  const displayDate = useMemo(() => formatTRDate(dateForSelectedDay(day)), [day]);
+  // Tarih metni (displayDate yukarıda activeDate ile hesaplanıyor)
 
   // Toggle yardımcıları
 
@@ -1660,15 +1764,7 @@ export default function App() {
       return next;
     });
 
-    setClasses(prevClasses => {
-      const filtered = prevClasses.filter(c => !classesToRemove.includes(c.classId));
-      if (classesToRemove.length > 0) {
-        addNotification(`${classesToRemove.length} sınıf otomatik kaldırıldı`, 'info');
-      }
-      return filtered;
-    });
-
-    addNotification("Mazeret siliniyor...", "info");
+    setClasses(prevClasses => prevClasses.filter(c => !classesToRemove.includes(c.classId)));
 
     // STEP 3: BATCH DELETE - Background cleanup (parallel)
     try {
@@ -1701,19 +1797,22 @@ export default function App() {
       // Execute all deletes in parallel
       await Promise.all(deletePromises);
 
-      // Update class_free in Supabase
+      // Update class_free in Firebase
       if (slotsToClear.length > 0) {
-        await Promise.all(
-          slotsToClear.map(({ dayKey, period, classId }) =>
-            upsertClassFree({ day: dayKey, period: Number(period), classId, isSelected: false })
-          )
+        await bulkUpsertClassFree(
+          slotsToClear.map(({ dayKey, period, classId }) => ({
+            day: dayKey,
+            period: Number(period),
+            classId,
+            isSelected: false,
+          }))
         );
       }
 
       addNotification("Mazeret kaydı silindi", "success");
     } catch (error) {
       logger.error('Batch delete error:', error);
-      // Sayfa reload yerine sadece Supabase'den taze veri çek
+      // Sayfa reload yerine sadece veritabanından taze veri çek
       // → Kullanıcının diğer değişiklikleri kaybolmaz
       addNotification('Silme işlemi tamamlanamadı, veriler yenileniyor', 'error');
       try {
@@ -1739,10 +1838,19 @@ export default function App() {
 
     const currentDayIndex = new Date().getDay();
     const todayAndFutureDayKeys = REAL_DAY_KEYS.slice(currentDayIndex);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
     if (Array.isArray(absentPeople) && absentPeople.length > 0) {
       const staleAbsents = absentPeople.filter(person => {
         if (!person?.absentId) return false;
+        // Tarihli kayıtlar için: yalnızca bugünden önceki günlerin kayıtlarını temizle
+        if (person.date) {
+          const personDate = new Date(person.date);
+          personDate.setHours(0, 0, 0, 0);
+          return personDate < startOfToday;
+        }
+        // Tarihi olmayan eski kayıtlar için:
         if (!Array.isArray(person.days) || person.days.length === 0) return true;
         return !person.days.some(d => todayAndFutureDayKeys.includes(d));
       });
@@ -1884,10 +1992,45 @@ export default function App() {
     absentIdsForCurrentDay,
   });
 
+  const filteredClassFree = useFilteredClassFree({
+    classFree,
+    classAbsence,
+    day,
+    periods,
+    absentIdsForCurrentDay,
+  });
+
+  const filteredCommonLessons = useMemo(() => {
+    const dayCommon = commonLessons?.[day];
+    if (!dayCommon || typeof dayCommon !== 'object') return commonLessons;
+    const dayAbsences = classAbsence?.[day] || {};
+    const filteredDay = {};
+
+    Object.entries(dayCommon).forEach(([p, classMap]) => {
+      if (!classMap || typeof classMap !== 'object') return;
+      const validClassMap = {};
+      Object.entries(classMap).forEach(([cid, tName]) => {
+        const rawAbs = dayAbsences?.[p]?.[cid];
+        if (rawAbs) {
+          const { commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs);
+          if (commonLessonOwnerId && !absentIdsForCurrentDay.has(commonLessonOwnerId)) {
+            return;
+          }
+        }
+        validClassMap[cid] = tName;
+      });
+      if (Object.keys(validClassMap).length > 0) {
+        filteredDay[p] = validClassMap;
+      }
+    });
+
+    return { ...commonLessons, [day]: filteredDay };
+  }, [commonLessons, day, classAbsence, absentIdsForCurrentDay]);
+
   const classesForCurrentDay = useMemo(() => {
     const includedIds = new Set();
 
-    const dayFree = classFree?.[day] || {};
+    const dayFree = filteredClassFree?.[day] || {};
     Object.values(dayFree).forEach((setOrArray) => {
       const ids = setOrArray instanceof Set ? Array.from(setOrArray) : Array.isArray(setOrArray) ? setOrArray : [];
       ids.forEach(id => includedIds.add(id));
@@ -1898,29 +2041,45 @@ export default function App() {
       Object.keys(classMap || {}).forEach(id => includedIds.add(id));
     });
 
-    return classes.filter(cls => includedIds.has(cls.classId));
-  }, [classes, classFree, filteredClassAbsence, day]);
+    return classes
+      .filter(cls => includedIds.has(cls.classId) && !isImesLesson(cls.className))
+      .map(cls => ({
+        ...cls,
+        className: normalizeClassName(cls.className) || cls.className,
+      }));
+  }, [classes, filteredClassFree, filteredClassAbsence, day]);
 
   const freeClassesByDay = useMemo(() => {
-    const validClassIds = new Set(classes.map((c) => c.classId));
+    const classById = new Map(classes.map((c) => [c.classId, c]));
     const dayFree = { [day]: {} };
 
     periods.forEach((p) => {
       const combined = new Set();
-      const freeSet = classFree?.[day]?.[p];
+      const freeSet = filteredClassFree?.[day]?.[p];
       if (freeSet instanceof Set) {
-        freeSet.forEach((cid) => validClassIds.has(cid) && combined.add(cid));
+        freeSet.forEach((cid) => {
+          const cls = classById.get(cid);
+          if (cls && !isImesLesson(cls.className)) {
+            combined.add(cid);
+          }
+        });
       } else if (Array.isArray(freeSet)) {
-        freeSet.forEach((cid) => validClassIds.has(cid) && combined.add(cid));
+        freeSet.forEach((cid) => {
+          const cls = classById.get(cid);
+          if (cls && !isImesLesson(cls.className)) {
+            combined.add(cid);
+          }
+        });
       }
 
-      const absenceMap = classAbsence?.[day]?.[p];
+      const absenceMap = filteredClassAbsence?.[day]?.[p];
       if (absenceMap && typeof absenceMap === 'object') {
         Object.entries(absenceMap).forEach(([classId, rawValue]) => {
           const { absentId, allowDuty } = decodeClassAbsenceValue(rawValue);
           if (!allowDuty) return;
           if (!absentIdsForCurrentDay.has(absentId)) return;
-          if (validClassIds.has(classId)) {
+          const cls = classById.get(classId);
+          if (cls && !isImesLesson(cls.className)) {
             combined.add(classId);
           }
         });
@@ -1930,7 +2089,7 @@ export default function App() {
     });
 
     return dayFree;
-  }, [classes, classFree, classAbsence, day, periods, absentIdsForCurrentDay]);
+  }, [classes, filteredClassFree, filteredClassAbsence, day, periods, absentIdsForCurrentDay]);
 
 
 
@@ -2069,6 +2228,56 @@ export default function App() {
     }
   }, [day, periods, teachersForCurrentDay, addNotification]);
 
+  // Boş/mazeretli olmayan veya ortak ders bulunmayan sınıflara ait yetim kilitleri otomatik temizle
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (!locked || Object.keys(locked).length === 0) return;
+
+    const dayLocks = Object.entries(locked).filter(([k]) => k.startsWith(`${day}|`));
+    if (dayLocks.length === 0) return;
+
+    const dayFree = freeClassesByDay?.[day] || {};
+    const dayCommon = commonLessons?.[day] || {};
+
+    const orphanLocks: { key: string; period: string | number; classId: string }[] = [];
+
+    dayLocks.forEach(([key]) => {
+      const parts = key.split('|');
+      if (parts.length < 3) return;
+      const period = parts[1];
+      const classId = parts[2];
+
+      const periodFreeSet = dayFree[period];
+      const isFree = periodFreeSet instanceof Set
+        ? periodFreeSet.has(classId)
+        : Array.isArray(periodFreeSet)
+          ? periodFreeSet.includes(classId)
+          : false;
+
+      const isCommon = Boolean(dayCommon?.[period]?.[classId]);
+
+      if (!isFree && !isCommon) {
+        orphanLocks.push({ key, period, classId });
+      }
+    });
+
+    if (orphanLocks.length > 0) {
+      setLocked(prev => {
+        const next = { ...prev };
+        orphanLocks.forEach(({ key }) => {
+          delete next[key];
+        });
+        return next;
+      });
+
+      orphanLocks.forEach(({ period, classId }) => {
+        upsertLock({ day, period: Number(period), classId, teacherId: null }).catch(err => {
+          logger.error('Orphan lock cleanup error:', err);
+        });
+      });
+    }
+  }, [day, locked, freeClassesByDay, commonLessons]);
+
   const { schedule: rawAssignment } = useMemo(
     () =>
       assignDuties({
@@ -2078,28 +2287,31 @@ export default function App() {
         freeClasses: freeClassesByDay,
         locked,
         options,
-        commonLessons,
+        commonLessons: filteredCommonLessons,
         classLocations,
-        locationZoneMapping
+        locationZoneMapping,
+        absentPeople: absentPeopleForCurrentDay,
       }),
-    [teachersForCurrentDay, classes, freeTeachersByDay, freeClassesByDay, options, locked, commonLessons, classLocations, locationZoneMapping]
+    [teachersForCurrentDay, classes, freeTeachersByDay, freeClassesByDay, options, locked, filteredCommonLessons, classLocations, locationZoneMapping, absentPeopleForCurrentDay]
   );
   const assignment = useMemo(
     () => applyFairnessAdjustments({
       baseSchedule: rawAssignment,
       day,
       periods,
+      classes,
       teachersForCurrentDay,
       freeTeachersByDay,
       freeClassesByDay,
-      commonLessons,
+      commonLessons: filteredCommonLessons,
       locked,
       options,
       teacherMap,
       classLocations,
-      locationZoneMapping
+      locationZoneMapping,
+      absentPeople: absentPeopleForCurrentDay,
     }),
-    [rawAssignment, day, periods, teachersForCurrentDay, freeTeachersByDay, freeClassesByDay, commonLessons, locked, options, teacherMap, classLocations, locationZoneMapping]
+    [rawAssignment, day, periods, classes, teachersForCurrentDay, freeTeachersByDay, freeClassesByDay, filteredCommonLessons, locked, options, teacherMap, classLocations, locationZoneMapping, absentPeopleForCurrentDay]
   );
 
   const unassignedForSelectedDay = useMemo(() => {
@@ -2123,6 +2335,12 @@ export default function App() {
         }
 
         const cls = classes.find((c) => c.classId === classId);
+
+        // Ortak ders / grup birleştirme olan dersler diğer grup öğretmeniyle devam eder, nöbetçi atanması gerekmez
+        if (filteredCommonLessons?.[day]?.[period]?.[classId]) {
+          return;
+        }
+
         items.push({
           period,
           classId,
@@ -2136,7 +2354,7 @@ export default function App() {
         a.period - b.period ||
         (a.className || '').localeCompare(b.className || '', 'tr', { sensitivity: 'base' })
     );
-  }, [assignment, freeClassesByDay, day, classes, periods, locked]);
+  }, [assignment, freeClassesByDay, day, classes, periods, locked, filteredCommonLessons]);
 
   useEffect(() => {
     const todaysAbsents = Array.isArray(absentPeopleForCurrentDay) ? absentPeopleForCurrentDay : [];
@@ -2440,6 +2658,7 @@ export default function App() {
     const toClass = classes.find((c) => c.classId === toClassId)
 
     setLocked(prev => {
+      recordHistory(prev)
       const next = { ...prev }
       const toKey = `${day}|${period}|${toClassId}`
 
@@ -2500,6 +2719,7 @@ export default function App() {
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
 
     setLocked((prev) => {
+      recordHistory(prev)
       if (prev?.[key] === MANUAL_EMPTY_TEACHER_ID) {
         return prev
       }
@@ -2512,11 +2732,11 @@ export default function App() {
       logger.error('Manual empty upsert error:', err)
     )
     addNotification({
-      message: `${dayLabel} ${period}. saat için ${classLabel} manuel olarak boş bırakıldı`,
+      message: `${dayLabel} ${period}. saat için ${classLabel} atama yapılmadı olarak ayarlandı`,
       type: 'info',
       duration: 2200,
     })
-  }, [classes, addNotification])
+  }, [classes, addNotification, recordHistory])
 
   const handleManualSetAdmin = useCallback(({ day, period, classId }) => {
     const key = `${day}|${period}|${classId}`
@@ -2525,6 +2745,7 @@ export default function App() {
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
 
     setLocked((prev) => {
+      recordHistory(prev)
       if (prev?.[key] === MANUAL_ADMIN_TEACHER_ID) {
         return prev
       }
@@ -2541,7 +2762,7 @@ export default function App() {
       type: 'info',
       duration: 2200,
     })
-  }, [classes, addNotification])
+  }, [classes, addNotification, recordHistory])
 
   const handleManualRelease = useCallback(({ day, period, classId }) => {
     const key = `${day}|${period}|${classId}`
@@ -2550,6 +2771,7 @@ export default function App() {
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
 
     setLocked((prev) => {
+      recordHistory(prev)
       if (!prev || !prev[key]) {
         return prev
       }
@@ -2566,7 +2788,7 @@ export default function App() {
       type: 'success',
       duration: 2200,
     })
-  }, [classes, addNotification])
+  }, [classes, addNotification, recordHistory])
 
   // JPEG export — usePdfExport hook'una taşındı
   const { exportJPG } = usePdfExport({ day, displayDate, addNotification });
@@ -2575,16 +2797,29 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e) => {
-      const isCtrlP = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p'
+      const isCtrlP = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p';
       if (isCtrlP) {
-        e.preventDefault()
-        setActiveSection('outputs')
-        setTimeout(() => window.print(), 50)
+        e.preventDefault();
+        setActiveSection('outputs');
+        setTimeout(() => window.print(), 50);
+        return;
       }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [setActiveSection])
+
+      if (activeSection === 'schedule') {
+        const isCtrlZ = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
+        const isCtrlY = (e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey));
+        if (isCtrlZ) {
+          e.preventDefault();
+          undo();
+        } else if (isCtrlY) {
+          e.preventDefault();
+          redo();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [setActiveSection, activeSection, undo, redo]);
 
   const hasOpenModal =
     modals.teacher ||
@@ -2608,6 +2843,10 @@ export default function App() {
         toggleTheme={toggleTheme}
         day={day}
         handleDayChange={handleDayChange}
+        weekOffset={weekOffset}
+        goToNextWeek={goToNextWeek}
+        goToPrevWeek={goToPrevWeek}
+        goToCurrentWeek={goToCurrentWeek}
       />
 
       {/* Sekmeler */}
@@ -2618,10 +2857,10 @@ export default function App() {
           { key: "courseSchedule", label: "Öğretmen Ders Programı", icon: "bookOpen", group: "Veri" },
           { key: "classSchedules", label: "Sınıf Programları", icon: "bookOpen", group: "Veri" },
           { key: "teachers", label: "Nöbetçi Öğretmenler", icon: "users", group: "Veri" },
-          { key: "classes", label: "Sınıflar", icon: "home", group: "Veri" },
+          { key: "dutyZones", label: "Nöbet Yerleri", icon: "mapPin", group: "Veri" },
           
-          { key: "dutyZones", label: "Nöbet Yerleri", icon: "mapPin", group: "Planlama" },
           { key: "absents", label: "Okula Gelemeyenler", icon: "userX", group: "Planlama" },
+          { key: "classes", label: "Sınıflar", icon: "home", group: "Planlama" },
           { key: "schedule", label: "Planlama", icon: "calendar", group: "Planlama" },
           
           { key: "outputs", label: "Çıktılar", icon: "printer", group: "Çıktı" }
@@ -2641,7 +2880,9 @@ export default function App() {
             dayOptions={DAYS}
             onToggleTeacherFree={toggleTeacherFree}
             onToggleAllTeachersFree={setAllTeachersFree}
+            onSetTeacherPeriodsFree={setTeacherPeriodsFree}
             onDeleteTeacher={deleteTeacher}
+            onEditTeacher={(teacher) => setEditingTeacher(teacher)}
             onOpenDutyTeacherExcelModal={handleOpenDutyTeacherExcelModal}
             onOpenPdfImport={() => setPdfImportModal(true)}
             onOpenAddTeacherModal={() => setModals((m) => ({ ...m, teacher: true }))}
@@ -2682,10 +2923,10 @@ export default function App() {
               classes={classes}
               classesForCurrentDay={classesForCurrentDay}
               periods={periods}
-              classFreeForCurrentDay={classFreeForCurrentDay}
+              classFreeForCurrentDay={filteredClassFree}
               absentPeopleForCurrentDay={absentPeopleForCurrentDay}
               filteredClassAbsence={filteredClassAbsence}
-              commonLessons={commonLessons}
+              commonLessons={filteredCommonLessons}
               day={day}
               onToggleClassFree={toggleClassFree}
               onSetAllClassesFree={setAllClassesFree}
@@ -2697,6 +2938,7 @@ export default function App() {
               teachers={teachers}
               onAddClass={() => setModals((m) => ({ ...m, class: true }))}
               onDeleteAllClasses={deleteAllClasses}
+              classLocations={classLocations}
               IconComponent={Icon}
             />
           )}
@@ -2711,6 +2953,7 @@ export default function App() {
               onSaveLocationZoneMapping={() => saveLocationZoneMapping(locationZoneMapping)}
               onAddZone={() => setModals((m) => ({ ...m, zone: true }))}
               onDeleteZone={deleteZone}
+              onUpdateZone={updateZone}
             />
           )}
 
@@ -2722,6 +2965,8 @@ export default function App() {
               onDeleteAbsent={deleteAbsent}
               onDeleteAllAbsents={deleteAllAbsents}
               IconComponent={Icon}
+              teacherSchedules={teacherSchedules}
+              classLocations={classLocations}
             />
           )}
 
@@ -2739,8 +2984,11 @@ export default function App() {
               assignmentInsights={assignmentInsights}
               balanceReport={balanceReport}
               unassignedForSelectedDay={unassignedForSelectedDay}
-              commonLessons={commonLessons}
+              commonLessons={filteredCommonLessons}
               classes={classes}
+              classLocations={classLocations}
+              locationZoneMapping={locationZoneMapping}
+              teacherSchedules={teacherSchedules}
               IconComponent={Icon}
               onOptionChange={handleOptionChange}
               onSetAllTeachersMaxDuty={setAllTeachersMaxDuty}
@@ -2749,6 +2997,10 @@ export default function App() {
               onManualClear={handleManualClear}
               onManualSetAdmin={handleManualSetAdmin}
               onManualRelease={handleManualRelease}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={undo}
+              onRedo={redo}
             />
           )}
 
@@ -2765,6 +3017,9 @@ export default function App() {
               filteredClassAbsence={filteredClassAbsence}
               absentPeopleForCurrentDay={absentPeopleForCurrentDay}
               commonLessons={commonLessons}
+              classLocations={classLocations}
+              locationZoneMapping={locationZoneMapping}
+              teacherSchedules={teacherSchedules}
               onExportJPG={exportJPG}
               onPrint={() => window.print()}
               IconComponent={Icon}
@@ -2784,6 +3039,9 @@ export default function App() {
             addZone={addZone}
             day={day}
             DAYS={DAYS}
+            currentDateFormatted={activeDateFormatted}
+            currentDateKey={activeDateKey}
+            currentWeekKey={activeWeekKey}
             scheduledTeacherOptions={scheduledTeacherOptions}
             handleCloseCommonLessonModal={handleCloseCommonLessonModal}
             handleSetCommonLesson={handleSetCommonLesson}
@@ -2810,8 +3068,23 @@ export default function App() {
             selectedTeacher={selectedTeacher}
             setSelectedTeacher={setSelectedTeacher}
             blockedAbsentTeacherNames={blockedAbsentTeacherNames}
+            dutyZones={dutyZones}
           />
         </Suspense>
+      )}
+
+      {editingTeacher && (
+        <EditTeacherModal
+          isOpen={!!editingTeacher}
+          teacher={editingTeacher}
+          dutyZones={dutyZones}
+          day={day}
+          onClose={() => setEditingTeacher(null)}
+          onSubmit={(data) => {
+            editTeacher(data.teacherId, data);
+            setEditingTeacher(null);
+          }}
+        />
       )}
 
       {/* Footer removed as per request */}

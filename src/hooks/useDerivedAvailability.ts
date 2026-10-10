@@ -46,10 +46,16 @@ export function useFilteredClassAbsence({ classAbsence, day, absentIdsForCurrent
     const dayAbsences = classAbsence?.[day] || {};
     Object.entries(dayAbsences).forEach(([periodKey, classesForPeriod]) => {
       const filtered = Object.entries(classesForPeriod || {}).reduce((acc, [classId, rawValue]) => {
-        const { absentId, allowDuty } = decodeClassAbsenceValue(rawValue);
+        const { absentId, allowDuty, commonLessonOwnerId } = decodeClassAbsenceValue(rawValue);
         const isCommonLesson = absentId === COMMON_LESSON_LABEL;
-        if (isCommonLesson || (allowDuty && absentIdsForCurrentDay.has(absentId))) {
-          acc[classId] = isCommonLesson ? COMMON_LESSON_LABEL : absentId;
+        if (isCommonLesson) {
+          // Ortak ders belirli bir mazeretliye bağlıysa, o mazeretli bugün izinli değilse filtrele
+          if (commonLessonOwnerId && !absentIdsForCurrentDay.has(commonLessonOwnerId)) {
+            return acc;
+          }
+          acc[classId] = COMMON_LESSON_LABEL;
+        } else if (allowDuty && absentIdsForCurrentDay.has(absentId)) {
+          acc[classId] = absentId;
         }
         return acc;
       }, {});
@@ -59,5 +65,44 @@ export function useFilteredClassAbsence({ classAbsence, day, absentIdsForCurrent
     });
     return result;
   }, [classAbsence, day, absentIdsForCurrentDay]);
+}
+
+export function useFilteredClassFree({ classFree, classAbsence, day, periods, absentIdsForCurrentDay }) {
+  return useMemo(() => {
+    const result = { [day]: {} };
+    const dayFree = classFree?.[day] || {};
+    const dayAbsences = classAbsence?.[day] || {};
+
+    periods.forEach((p) => {
+      const freeSet = dayFree[p];
+      const sourceIds = freeSet instanceof Set
+        ? Array.from(freeSet)
+        : Array.isArray(freeSet)
+          ? freeSet
+          : [];
+
+      const filteredSet = new Set();
+      sourceIds.forEach((classId) => {
+        const rawAbs = dayAbsences?.[p]?.[classId];
+        if (rawAbs) {
+          const { absentId, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs);
+          if (absentId === COMMON_LESSON_LABEL) {
+            // Başka bir tarihteki mazeretlinin ortak dersi bugün boş sayılmaz
+            if (commonLessonOwnerId && !absentIdsForCurrentDay.has(commonLessonOwnerId)) {
+              return;
+            }
+          } else if (absentId && !absentIdsForCurrentDay.has(absentId)) {
+            // Başka bir tarihteki mazeretlinin boş dersi bugün boş sayılmaz
+            return;
+          }
+        }
+        filteredSet.add(classId);
+      });
+
+      result[day][p] = filteredSet;
+    });
+
+    return result;
+  }, [classFree, classAbsence, day, periods, absentIdsForCurrentDay]);
 }
 

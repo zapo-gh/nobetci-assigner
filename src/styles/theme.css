@@ -123,11 +123,35 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 .app-title { font-size: 1.7rem; line-height: 1; color: #fff; margin: 0; }
 .app-subtitle { color: rgba(255, 255, 255, .85); font-size: 0.95rem; font-weight: 500; margin: 0; line-height: 1; }
 
-/* ================= GÃƒÂ¼n seÃƒÂ§ici (cam efekti, beyaz aktif) ================= */
+/* ================= Gün seçici (cam efekti, beyaz aktif) ================= */
 .day-switcher {
-  display: inline-flex; gap: var(--space-1); padding: var(--space-1);
-  background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35);
-  border-radius: var(--radius-pill); backdrop-filter: blur(8px);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: var(--radius-pill);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.day-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.day-nav-btn:hover {
+  background: rgba(255, 255, 255, .25);
+  transform: scale(1.08);
 }
 .day-pill {
   position: relative;
@@ -192,20 +216,39 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 }
 
 /* ================= Butonlar ================= */
-.btn {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  padding: 8px 16px; border-radius: var(--radius-sm);
-  font-weight: 700; border: 2px solid var(--border-strong);
-  font-size: 0.95rem;
-  background: var(--surface); color: var(--primary); cursor: pointer;
+.btn, .btn-primary, .btn-secondary, .btn-tertiary, .btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  padding: 8px 18px; border-radius: var(--radius-sm);
+  font-weight: 700; font-size: 0.95rem; cursor: pointer;
+  font-family: inherit;
   transition: background var(--transition-fast), transform var(--transition-fast),
               box-shadow var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
+.btn {
+  border: 2px solid var(--border-strong);
+  background: var(--surface); color: var(--primary);
+}
 .btn:hover { border-color: var(--primary); background: var(--primary-soft); }
-.btn:active { transform: scale(.97); }
-.btn-primary { background: var(--primary-gradient); color: #fff; border-color: transparent; box-shadow: var(--shadow-pill); }
+.btn:active, .btn-primary:active, .btn-secondary:active, .btn-tertiary:active, .btn-danger:active { transform: scale(.97); }
+
+.btn-primary {
+  background: var(--primary-gradient); color: #fff; border: 2px solid transparent; box-shadow: var(--shadow-pill);
+}
 .btn-primary:hover { color: #fff; background: var(--primary-gradient); filter: brightness(1.1); }
-.btn-danger { color: #fff; background: var(--danger); border-color: var(--danger); }
+
+.btn-secondary {
+  background: #fff; color: var(--text-muted); border: 2px solid var(--border-strong);
+}
+.btn-secondary:hover { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+
+.btn-tertiary {
+  background: transparent; color: var(--text-muted); border: 2px solid var(--border);
+}
+.btn-tertiary:hover { background: var(--bg-hover); color: var(--text); border-color: var(--border-strong); }
+
+.btn-danger {
+  color: #fff; background: var(--danger); border: 2px solid var(--danger); box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
 .btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
 
 /* ================= Form elemanlarÄ± (tek kenarlÄ±k) ================= */

@@ -1,0 +1,674 @@
+/* ==========================================================
+   ModernClassAvailabilityGrid.module.css
+   Interactive Time Capsules + Morning/Afternoon Split + Class Profiles
+   ========================================================== */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #c5cdf0);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15, 21, 53, 0.05);
+  padding: 16px;
+  margin-top: 12px;
+  transition: all 0.25s ease;
+}
+
+/* ---------------- Top Toolbar / Controls ---------------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.searchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 260px;
+  max-width: 380px;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-faint, #94a3b8);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 32px 8px 36px;
+  font-size: 0.88rem;
+  border: 1.5px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  color: var(--text, #0f1535);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: var(--primary, #4f46e5);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.clearSearchBtn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-faint, #94a3b8);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+
+.clearSearchBtn:hover {
+  color: var(--danger, #dc2626);
+}
+
+.filterChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted, #475569);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filterChip:hover {
+  background: var(--surface-2, #eef2ff);
+  border-color: var(--primary, #6366f1);
+  color: var(--primary, #4338ca);
+}
+
+.filterChipActive {
+  background: var(--primary, #4338ca) !important;
+  border-color: var(--primary, #4338ca) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(67, 56, 202, 0.25);
+}
+
+.filterChipWarning {
+  border-color: #f59e0b !important;
+  color: #b45309 !important;
+  background: #fef3c7 !important;
+}
+
+.filterChipWarningActive {
+  background: #d97706 !important;
+  border-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+}
+
+/* ---------------- Table Container & Styling ---------------- */
+.tableContainer {
+  position: relative;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: #ffffff;
+}
+
+.gridTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 980px;
+  text-align: left;
+}
+
+/* ---------------- Grouped Headers ---------------- */
+.superHeaderRow th {
+  background: var(--surface-2, #f1f5f9);
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #475569);
+  border-bottom: 1.5px solid var(--border, #cbd5e1);
+}
+
+.morningGroupHeader {
+  background: #fffbeb !important; /* warm sunrise tint */
+  color: #b45309 !important;
+  text-align: center;
+  border-bottom: 1.5px solid #fde68a !important;
+}
+
+.afternoonGroupHeader {
+  background: #eff6ff !important; /* calm afternoon sky tint */
+  color: #1d4ed8 !important;
+  text-align: center;
+  border-bottom: 1.5px solid #bfdbfe !important;
+}
+
+.subHeaderRow th {
+  background: var(--bg-subtle, #f8fafc);
+  padding: 10px 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, #0f1535);
+  border-bottom: 1.5px solid var(--border, #cbd5e1);
+}
+
+.periodHeaderBtn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  transition: all 0.2s ease;
+  color: inherit;
+}
+
+.periodHeaderBtn:hover {
+  background: var(--surface-2, #e2e8f0);
+}
+
+.periodHeaderNum {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-family: monospace;
+}
+
+.periodHeaderCount {
+  font-size: 0.72rem;
+  color: var(--text-faint, #64748b);
+  font-weight: 500;
+}
+
+/* Divider separating Morning (period 5) and Afternoon (period 6) */
+.dividerRight {
+  border-right: 2.5px solid #93c5fd !important;
+}
+
+/* ---------------- Sticky Left Column ---------------- */
+.stickyCol {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #ffffff;
+  border-right: 1px solid var(--border, #e2e8f0);
+  width: 260px;
+  min-width: 260px;
+  max-width: 290px;
+}
+
+.superHeaderRow .stickyCol,
+.subHeaderRow .stickyCol {
+  background: var(--surface-2, #f1f5f9);
+}
+
+.stuckShadow {
+  box-shadow: 4px 0 10px rgba(15, 23, 42, 0.05);
+}
+
+/* ---------------- Class Profile Card ---------------- */
+.classCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  gap: 10px;
+}
+
+.classMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.classAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+
+.classMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.className {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text, #0f1535);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.classroomChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.classActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.freeCountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.freeCountActive {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.freeCountZero {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.deleteBtn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-faint, #94a3b8);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.deleteBtn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  transform: scale(1.05);
+}
+
+/* ---------------- Interactive Time Capsule Cell ---------------- */
+.timeCapsuleCell {
+  text-align: center;
+  padding: 8px 4px;
+  vertical-align: top;
+}
+
+.cellContentWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
+}
+
+.timeCapsule {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  border: none;
+  padding: 0;
+  outline: none;
+  position: relative;
+}
+
+.timeCapsule:focus-visible {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
+}
+
+/* Capsule Active State (Boş Ders / Mazeretli) */
+.capsuleActive {
+  background: var(--primary-gradient, linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%));
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(79, 70, 229, 0.35);
+}
+
+.capsuleActive:hover {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.45);
+}
+
+.capsuleActive:active {
+  transform: scale(0.96);
+}
+
+/* Capsule Inactive State (Ders Var / Normal) */
+.capsuleInactive {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1.5px dashed #cbd5e1;
+  color: #64748b;
+}
+
+.capsuleInactive:hover {
+  background: #eef2ff;
+  border-color: #818cf8;
+  color: #4338ca;
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 3px 8px rgba(99, 102, 241, 0.15);
+}
+
+.capsuleInactive:active {
+  transform: scale(0.96);
+}
+
+.capsuleNumber {
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-family: inherit;
+}
+
+.capsuleStatusIcon {
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.capsuleStatusDash {
+  font-size: 0.75rem;
+  opacity: 0.4;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+/* ---------------- Absent Dropdown & Badges Under Capsule ---------------- */
+.dropdownContainer {
+  position: relative;
+  width: 100%;
+  max-width: 88px;
+  margin-top: 2px;
+}
+
+.modernSelect {
+  width: 100%;
+  padding: 3px 14px 3px 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 6px;
+  border: 1px solid var(--border, #cbd5e1);
+  background-color: #ffffff;
+  color: var(--text, #0f1535);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modernSelect:focus {
+  outline: none;
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+}
+
+.selectError {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  color: #dc2626 !important;
+}
+
+.selectArrow {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid var(--text-muted, #64748b);
+}
+
+.absentBadgeChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 84px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.badgeRapor { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
+.badgeSevk { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+.badgeIzin { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+.badgeGorev { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.badgeMazeret { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.badgeCommon { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
+.badgeMuted { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+.warningMissingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #dc2626;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-top: 2px;
+  animation: pulseWarning 2s infinite ease-in-out;
+}
+
+@keyframes pulseWarning {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+/* ---------------- Table Row Hover ---------------- */
+.gridTable tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.gridTable tbody tr:hover {
+  background-color: var(--surface-2, #f8fafc);
+}
+
+.gridTable tbody tr:hover .stickyCol {
+  background-color: var(--surface-2, #f8fafc);
+}
+
+.gridTable tbody tr td {
+  border-bottom: 1px solid var(--border, #f1f5f9);
+}
+
+/* ---------------- Footer Styling ---------------- */
+.footerRow td {
+  background: var(--surface-2, #f1f5f9);
+  padding: 10px 6px;
+  border-top: 2px solid var(--border, #cbd5e1);
+  vertical-align: middle;
+}
+
+.footerRow .stickyCol {
+  background: var(--surface-2, #f1f5f9);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text, #0f1535);
+  padding-left: 16px;
+}
+
+.footerPeriodStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.footerCount {
+  font-family: monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text, #0f1535);
+}
+
+.progressBarTrack {
+  width: 100%;
+  max-width: 44px;
+  height: 5px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.bgError { background-color: var(--danger, #dc2626); }
+.bgWarning { background-color: var(--warning, #d97706); }
+.bgSuccess { background-color: var(--success, #15803d); }
+
+.footerPercent {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+/* ---------------- Guide Card at Bottom ---------------- */
+.guideCard {
+  background: #f8fafc;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.guideTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text, #0f1535);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guideList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #475569);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guideItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------------- Empty State ---------------- */
+.emptyStateContainer {
+  padding: 48px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.emptyStateTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text, #0f1535);
+}
+
+.emptyStateDesc {
+  font-size: 0.88rem;
+  color: var(--text-muted, #64748b);
+  max-width: 420px;
+}

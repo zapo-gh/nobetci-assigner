@@ -3,6 +3,7 @@ import { useAssignments } from '../contexts/useAssignments';
 import { insertClass, deleteClassById, deleteClassAbsenceByClass, deleteCommonLessonsByClass, deleteLocksByClass } from '../services/firebaseDataService';
 import { sanitizeInputAdvanced } from '../utils/security';
 import { validateClassData, normalizeClassLabel } from '../utils/helpers';
+import { normalizeClassName } from '../utils/classNameUtils';
 import { logger } from '../utils/logger';
 
 export function useClassManager({ addNotification }) {
@@ -11,6 +12,7 @@ export function useClassManager({ addNotification }) {
 
   const addClass = async (data) => {
     data.className = sanitizeInputAdvanced(data.className);
+    data.className = normalizeClassName(data.className) || data.className;
     const errs = validateClassData({ classId: 'temp', className: data.className });
     if (errs.length) {
       addNotification(errs.join(", "), "error");

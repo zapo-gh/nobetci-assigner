@@ -98,7 +98,7 @@ function Tabs({ items, active, onChange, IconComponent }) {
               
               let dataGroup = "data"; // Default
               if (groupName === "Planlama") dataGroup = "plan";
-              if (groupName === "Çıktılar") dataGroup = "output";
+              if (groupName === "Çıktılar" || groupName === "Çıktı") dataGroup = "output";
 
               return (
                 <button

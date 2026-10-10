@@ -15,6 +15,50 @@ export function mondayOfWeek(base: Date = new Date()): Date {
   return d;
 }
 
+export function getWeekMonday(offset: number = 0, base: Date = new Date()): Date {
+  const mon = mondayOfWeek(base);
+  mon.setDate(mon.getDate() + (offset * 7));
+  return mon;
+}
+
+export function getWeekDatesForOffset(offset: number = 0, base: Date = new Date()): Date[] {
+  const mon = getWeekMonday(offset, base);
+  return [0, 1, 2, 3, 4].map(i => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    return d;
+  });
+}
+
+export function formatWeekRangeTR(dates: Date[]): string {
+  const start = dates[0];
+  const end = dates[4];
+  if (!start || !end) return '';
+
+  const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const startMonth = months[start.getMonth()] ?? '';
+  const endMonth = months[end.getMonth()] ?? '';
+
+  if (start.getFullYear() !== end.getFullYear()) {
+    return `${start.getDate()} ${startMonth} ${start.getFullYear()} - ${end.getDate()} ${endMonth} ${end.getFullYear()}`;
+  }
+  if (start.getMonth() !== end.getMonth()) {
+    return `${start.getDate()} ${startMonth} - ${end.getDate()} ${endMonth} ${end.getFullYear()}`;
+  }
+  return `${start.getDate()} - ${end.getDate()} ${startMonth} ${end.getFullYear()}`;
+}
+
+export function formatDateKey(d: Date): string {
+  try {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    return '';
+  }
+}
+
 export function dateForSelectedDay(dayKey: string, base: Date = new Date()): Date {
   const mon = mondayOfWeek(base);
   const idx = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].indexOf(dayKey);

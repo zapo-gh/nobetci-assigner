@@ -1,377 +1,662 @@
 // @ts-nocheck
-import React from 'react'
-import EmptyState from './EmptyState';
+import React, { memo, useState, useMemo } from 'react';
+import styles from './ModernClassAvailabilityGrid.module.css';
+import EmptyState from './EmptyState.jsx';
+import { normalizeClassName, compareClassNames, getClassroomName, isImesLesson } from '../utils/classNameUtils.js';
 
-export default function ModernClassAvailabilityGrid({
-  classes,
-  periods,
-  classFree,
+function getClassBadgeColor(className = '') {
+  const match = className.match(/(\d+)/);
+  if (match) {
+    const grade = match[1];
+    if (grade === '9') return 'linear-gradient(135deg, #ea580c 0%, #f97316 100%)';
+    if (grade === '10') return 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)';
+    if (grade === '11') return 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)';
+    if (grade === '12') return 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)';
+  }
+  return 'linear-gradient(135deg, #334155 0%, #64748b 100%)';
+}
+
+function getClassAvatarLabel(className = '') {
+  const trimmed = className.trim();
+  const match = trimmed.match(/(\d+)\s*[-/]?\s*([A-Za-zÇĞİÖŞÜçğıöşü]+)/i);
+  if (match) {
+    const grade = match[1];
+    const branch = match[2] ? match[2].charAt(0).toUpperCase() : '';
+    return `${grade}${branch}`;
+  }
+  const numOnly = trimmed.match(/(\d+)/);
+  if (numOnly) return numOnly[1];
+  return trimmed.slice(0, 3).toUpperCase();
+}
+
+function ModernClassAvailabilityGrid({
+  classes = [],
+  periods = [],
+  classFree = {},
   onToggleClassFree,
-  //onSetAllClassesFree,
-  absentPeople,
-  classAbsence,
+  onSetAllClassesFree,
+  absentPeople = [],
+  classAbsence = {},
   onSelectAbsence,
-  commonLessons,
+  commonLessons = {},
   onOpenCommonLessonModal,
   onDelete,
-  day,
+  day = 'Mon',
   IconComponent,
   teachers = [],
+  classLocations = {},
   onDropdownStateChange,
 }) {
-  const getAbsentInfo = (absentId) => absentPeople.find(a => a.absentId === absentId)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'free' | 'full' | 'missing'
 
-  const getCommonLessonInfo = (day, period, classId) => {
-    const teacherVal = commonLessons?.[day]?.[period]?.[classId]
-    if (!teacherVal) return null
-    // Check if it's a teacher ID and resolve to name
-    const teacher = teacherMap.get(teacherVal)
-    return teacher?.teacherName || teacherVal
-  }
+  // Split periods into Morning (<= 5) and Afternoon (> 5)
+  const morningPeriods = useMemo(
+    () => periods.filter((p) => Number(p) <= 5),
+    [periods]
+  );
+  const afternoonPeriods = useMemo(
+    () => periods.filter((p) => Number(p) > 5),
+    [periods]
+  );
 
-  const teacherMap = React.useMemo(() => {
-    if (!Array.isArray(teachers)) return new Map()
-    return new Map(teachers.map(t => [t.teacherId, t]))
-  }, [teachers])
+  const dividerPeriod = useMemo(() => {
+    if (morningPeriods.length > 0) {
+      return morningPeriods[morningPeriods.length - 1];
+    }
+    return 5;
+  }, [morningPeriods]);
 
-  const normalizeWhiteSpace = (value = '') => value.trim().replace(/\s+/g, ' ')
+  // Classroom mappings by class ID
+  const classroomByClassId = useMemo(() => {
+    const map = new Map();
+    (classes || []).forEach((cls) => {
+      const cName = cls?.className || '';
+      if (!cName) return;
+      const room = getClassroomName(classLocations, cName, day);
+      if (room) {
+        map.set(cls.classId, room);
+      }
+    });
+    return map;
+  }, [classes, classLocations, day]);
 
-  const removeTrailingHyphen = (value = '') => value.replace(/[-\s]+$/, '')
+  const teacherMap = useMemo(() => {
+    if (!Array.isArray(teachers)) return new Map();
+    return new Map(teachers.map((t) => [t.teacherId, t]));
+  }, [teachers]);
+
+  const getAbsentInfo = (absentId) => {
+    return absentPeople.find((a) => a.absentId === absentId);
+  };
+
+  const getCommonLessonInfo = (dayKey, period, classId) => {
+    const teacherVal = commonLessons?.[dayKey]?.[period]?.[classId];
+    if (!teacherVal) return null;
+    const teacher = teacherMap.get(teacherVal);
+    return teacher?.teacherName || teacherVal;
+  };
+
+  const normalizeWhiteSpace = (value = '') => value.trim().replace(/\s+/g, ' ');
+  const removeTrailingHyphen = (value = '') => value.replace(/[-\s]+$/, '');
 
   const formatTeacherName = (name = '', teacherId) => {
-    const fromTeacher = teacherId ? teacherMap.get(teacherId)?.teacherName : ''
-    const base = removeTrailingHyphen(normalizeWhiteSpace(fromTeacher || name))
-    if (!base) return ''
+    const fromTeacher = teacherId ? teacherMap.get(teacherId)?.teacherName : '';
+    const base = removeTrailingHyphen(normalizeWhiteSpace(fromTeacher || name));
+    if (!base) return '';
 
-    const parts = base.split(' ')
-    if (parts.length === 0) return ''
+    const parts = base.split(' ');
+    if (parts.length === 0) return '';
 
-    const first = parts[0]
-    const last = parts.length > 1 ? parts[parts.length - 1] : ''
+    const first = parts[0];
+    const last = parts.length > 1 ? parts[parts.length - 1] : '';
 
-    const firstInitial = first.charAt(0)
-      ? first.charAt(0).toLocaleUpperCase('tr-TR')
-      : ''
-
-    const lastFormatted = last
-      ? last.toLocaleUpperCase('tr-TR')
-      : ''
+    const firstInitial = first.charAt(0) ? first.charAt(0).toLocaleUpperCase('tr-TR') : '';
+    const lastFormatted = last ? last.toLocaleUpperCase('tr-TR') : '';
 
     if (!lastFormatted) {
-      return `${firstInitial}.`
+      return `${firstInitial}.`;
     }
 
-    return `${firstInitial}. ${lastFormatted}`
-  }
+    return `${firstInitial}. ${lastFormatted}`;
+  };
 
-  const getAbsentBadgeColor = (reason) => {
-    const colorMap = {
-      raporlu: 'badge-info',
-      sevkli: 'badge-info',
-      izinli: 'badge-success',
-      'gorevli-izinli': 'badge-warning',
-      'mazeret-izinli': 'badge-warning',
-      diger: 'badge-muted'
-    }
-    return colorMap[reason?.toLowerCase()] || 'badge-muted'
-  }
+  const getAbsentBadgeClass = (reason) => {
+    const r = (reason || '').toLowerCase();
+    if (r.includes('rapor')) return styles.badgeRapor;
+    if (r.includes('sevk')) return styles.badgeSevk;
+    if (r.includes('izin')) return styles.badgeIzin;
+    if (r.includes('gorev') || r.includes('görev')) return styles.badgeGorev;
+    if (r.includes('mazeret')) return styles.badgeMazeret;
+    return styles.badgeMuted;
+  };
+
+  const getProgressBarColor = (percentage) => {
+    if (percentage < 30) return styles.bgSuccess;
+    if (percentage < 70) return styles.bgWarning;
+    return styles.bgError;
+  };
+
+  // Sort classes naturally (9-A, 9-B, 10-A...)
+  const sortedClasses = useMemo(() => {
+    return [...(classes || [])].sort((a, b) => {
+      const nameA = normalizeClassName(a.className || '') || a.className || '';
+      const nameB = normalizeClassName(b.className || '') || b.className || '';
+      return compareClassNames(nameA, nameB);
+    });
+  }, [classes]);
+
+  // Calculate free periods count for a class
+  const getClassFreeCount = (classId) => {
+    return periods.reduce((count, p) => {
+      const s = classFree?.[day]?.[p] || new Set();
+      const selectedAbsent = classAbsence?.[day]?.[p]?.[classId];
+      const isSelected = s.has(classId) || !!selectedAbsent;
+      return count + (isSelected ? 1 : 0);
+    }, 0);
+  };
+
+  // Check if class has missing absent assignments
+  const hasMissingAbsentSelection = (classId) => {
+    return periods.some((p) => {
+      const s = classFree?.[day]?.[p] || new Set();
+      const selectedAbsent = classAbsence?.[day]?.[p]?.[classId] ?? '';
+      const isSelected = s.has(classId) || Boolean(selectedAbsent);
+      const isCommon = selectedAbsent === 'COMMON_LESSON';
+      return isSelected && !selectedAbsent && !isCommon;
+    });
+  };
+
+  // Per-period free count across all classes
+  const getPeriodFreeCount = (period) => {
+    return classes.reduce((count, cls) => {
+      const s = classFree?.[day]?.[period] || new Set();
+      const selectedAbsent = classAbsence?.[day]?.[period]?.[cls.classId];
+      const isSelected = s.has(cls.classId) || !!selectedAbsent;
+      return count + (isSelected ? 1 : 0);
+    }, 0);
+  };
+
+  // Filter classes based on search query and status chip
+  const filteredClasses = useMemo(() => {
+    return sortedClasses.filter((cls) => {
+      const displayName = normalizeClassName(cls.className) || cls.className || '';
+      const room = classroomByClassId.get(cls.classId) || '';
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = displayName.toLowerCase().includes(q);
+        const matchRoom = room.toLowerCase().includes(q);
+        if (!matchName && !matchRoom) return false;
+      }
+
+      if (filterStatus !== 'all') {
+        const freeCount = getClassFreeCount(cls.classId);
+        if (filterStatus === 'free' && freeCount === 0) return false;
+        if (filterStatus === 'full' && freeCount > 0) return false;
+        if (filterStatus === 'missing' && !hasMissingAbsentSelection(cls.classId)) return false;
+      }
+
+      return true;
+    });
+  }, [sortedClasses, searchQuery, filterStatus, classFree, classAbsence, day, periods, classroomByClassId]);
+
+  // Statistics for top filter chips
+  const stats = useMemo(() => {
+    let free = 0;
+    let full = 0;
+    let missing = 0;
+
+    classes.forEach((cls) => {
+      const count = getClassFreeCount(cls.classId);
+      if (count > 0) free++;
+      else full++;
+      if (hasMissingAbsentSelection(cls.classId)) missing++;
+    });
+
+    return { total: classes.length, free, full, missing };
+  }, [classes, classFree, classAbsence, day, periods]);
 
   return (
-    <div className="table-container">
-      <div className="scrollX">
-        <table className="tbl">
+    <div className={styles.container}>
+      {/* ---------------- Top Toolbar / Filters ---------------- */}
+      <div className={styles.toolbar}>
+        {/* Search input */}
+        <div className={styles.searchBox}>
+          <span className={styles.searchIcon}>
+            {IconComponent ? <IconComponent name="search" size={16} /> : '🔍'}
+          </span>
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Sınıf veya derslik ara (örn: 9-A, B-05)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className={styles.clearSearchBtn}
+              onClick={() => setSearchQuery('')}
+              title="Aramayı Temizle"
+            >
+              {IconComponent ? <IconComponent name="x" size={14} /> : '×'}
+            </button>
+          )}
+        </div>
+
+        {/* Filter Chips */}
+        <div className={styles.filterChips}>
+          <button
+            type="button"
+            className={`${styles.filterChip} ${filterStatus === 'all' ? styles.filterChipActive : ''}`}
+            onClick={() => setFilterStatus('all')}
+          >
+            Tümü ({stats.total})
+          </button>
+          <button
+            type="button"
+            className={`${styles.filterChip} ${filterStatus === 'free' ? styles.filterChipActive : ''}`}
+            onClick={() => setFilterStatus('free')}
+            title="Boş dersi olan sınıflar"
+          >
+            Boş Dersi Olanlar ({stats.free})
+          </button>
+          <button
+            type="button"
+            className={`${styles.filterChip} ${filterStatus === 'full' ? styles.filterChipActive : ''}`}
+            onClick={() => setFilterStatus('full')}
+            title="Tüm saatleri dolu olan sınıflar"
+          >
+            Dolu Sınıflar ({stats.full})
+          </button>
+          {stats.missing > 0 && (
+            <button
+              type="button"
+              className={`${styles.filterChip} ${styles.filterChipWarning} ${
+                filterStatus === 'missing' ? styles.filterChipWarningActive : ''
+              }`}
+              onClick={() => setFilterStatus('missing')}
+              title="Boş dersi olup gelmeyen öğretmeni seçilmeyen sınıflar"
+            >
+              ⚠️ Öğretmen Seçilmeyen ({stats.missing})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ---------------- Table Container ---------------- */}
+      <div className={styles.tableContainer}>
+        <table className={styles.gridTable}>
           <thead>
-            <tr>
-              <th className="text-left sticky-col stuck-shadow w-[200px]">
-                <div className="flex items-center gap-2">
-                  <span>Sınıf</span>
-                  <span className="badge badge-info text-xs">{classes.length}</span>
+            {/* Level 1 Group Header: Sabah vs Öğle distinction */}
+            <tr className={styles.superHeaderRow}>
+              <th className={`${styles.stickyCol} ${styles.stuckShadow}`}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Sınıf Bilgisi &amp; Derslik</span>
+                  <span className="badge badge-info" style={{ fontSize: '0.72rem' }}>
+                    {filteredClasses.length} {filteredClasses.length !== classes.length ? `/ ${classes.length}` : ''}
+                  </span>
                 </div>
               </th>
-              <th className="text-center min-w-20">İşlem</th>
-              {periods.map(p => (
-                <th key={p} className="text-center min-w-32">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="font-mono">{p}. Saat</span>
 
-                  </div>
+              {morningPeriods.length > 0 && (
+                <th
+                  colSpan={morningPeriods.length}
+                  className={`${styles.morningGroupHeader} ${styles.dividerRight}`}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    {IconComponent ? <IconComponent name="sun" size={14} /> : '☀️'}
+                    <strong>Sabah Grubu (1 - {dividerPeriod}. Saat)</strong>
+                  </span>
                 </th>
-              ))}
+              )}
+
+              {afternoonPeriods.length > 0 && (
+                <th colSpan={afternoonPeriods.length} className={styles.afternoonGroupHeader}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    {IconComponent ? <IconComponent name="sun" size={14} /> : '🌤️'}
+                    <strong>
+                      Öğleden Sonra ({Number(dividerPeriod) + 1} - {periods[periods.length - 1]}. Saat)
+                    </strong>
+                  </span>
+                </th>
+              )}
+            </tr>
+
+            {/* Level 2 Sub-Header: Individual period columns with quick toggle */}
+            <tr className={styles.subHeaderRow}>
+              <th className={`${styles.stickyCol} ${styles.stuckShadow}`}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-faint, #64748b)', fontWeight: '500' }}>
+                  Sınıf &amp; Konum
+                </span>
+              </th>
+
+              {periods.map((p) => {
+                const freeCount = getPeriodFreeCount(p);
+                const totalCount = classes.length;
+                const isAllFree = totalCount > 0 && freeCount === totalCount;
+                const isDivider = p === dividerPeriod;
+
+                return (
+                  <th
+                    key={p}
+                    className={`${isDivider ? styles.dividerRight : ''}`}
+                    style={{ textAlign: 'center', minWidth: '70px', padding: '6px 2px' }}
+                  >
+                    <button
+                      type="button"
+                      className={styles.periodHeaderBtn}
+                      onClick={() => onSetAllClassesFree?.(day, p, !isAllFree)}
+                      title={`${p}. saat için tüm sınıfları ${isAllFree ? 'dolu yap' : 'boş ders yap'}`}
+                    >
+                      <span className={styles.periodHeaderNum}>{p}</span>
+                      <span className={styles.periodHeaderCount}>
+                        {freeCount} boş
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
+
           <tbody>
-            {classes.length === 0 ? (
+            {filteredClasses.length === 0 ? (
               <tr>
-                <td colSpan={periods.length + 2} style={{ padding: '48px 0' }}>
-                  <EmptyState
-                    IconComponent={IconComponent}
-                    icon="home"
-                    title="Henüz Sınıf Eklenmedi"
-                    description='Yeni bir sınıf eklemek için yukarıdaki "Yeni Sınıf Ekle" butonunu kullanabilirsiniz.'
-                  />
+                <td colSpan={periods.length + 1}>
+                  {classes.length === 0 ? (
+                    <div className={styles.emptyStateContainer}>
+                      <EmptyState
+                        IconComponent={IconComponent}
+                        icon="home"
+                        title="Henüz Sınıf Eklenmedi"
+                        description='Yeni bir sınıf eklemek için yukarıdaki "Yeni Sınıf Ekle" butonunu kullanabilirsiniz.'
+                      />
+                    </div>
+                  ) : (
+                    <div className={styles.emptyStateContainer}>
+                      <div className={styles.emptyStateTitle}>Aramaya Uygun Sınıf Bulunamadı</div>
+                      <div className={styles.emptyStateDesc}>
+                        &quot;{searchQuery}&quot; aramasına veya seçili filtreye uygun sınıf bulunmuyor.
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.filterChip}
+                        style={{ marginTop: '8px' }}
+                        onClick={() => {
+                          setSearchQuery('');
+                          setFilterStatus('all');
+                        }}
+                      >
+                        Filtreleri Temizle
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ) : (
-              classes.map(cls => {
-                const selectedCount = periods.reduce((count, p) => {
-                  const s = classFree?.[day]?.[p] || new Set()
-                  const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId]
-                  const isSelected = s.has(cls.classId) || !!selectedAbsent
-                  return count + (isSelected ? 1 : 0)
-                }, 0)
+              filteredClasses.map((cls) => {
+                const displayName = normalizeClassName(cls.className) || cls.className || '';
+                const classroom = classroomByClassId.get(cls.classId);
+                const freeCount = getClassFreeCount(cls.classId);
+                const isFree = freeCount > 0;
 
                 return (
-                  <tr key={cls.classId} className="hover:bg-secondary transition-colors">
-                    <td className="text-center sticky-col">
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="font-medium overflow-hidden text-ellipsis whitespace-nowrap flex-shrink-0">{cls.className}</span>
+                  <tr key={cls.classId}>
+                    {/* Sticky Class Profile Column */}
+                    <td className={`${styles.stickyCol} ${styles.stuckShadow}`}>
+                      <div className={styles.classCard}>
+                        <div className={styles.classMain}>
+                          {/* Grade-level colored avatar */}
+                          <div
+                            className={styles.classAvatar}
+                            style={{ background: getClassBadgeColor(displayName) }}
+                            title={displayName}
+                          >
+                            {getClassAvatarLabel(displayName)}
+                          </div>
+
+                          <div className={styles.classMeta}>
+                            <span className={styles.className} title={displayName}>
+                              {displayName}
+                            </span>
+
+                            {isImesLesson(displayName) ? (
+                              <span
+                                className={styles.classroomChip}
+                                style={{
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  color: '#b45309',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  fontWeight: 600,
+                                }}
+                                title="İşletmelerde Mesleki Eğitim (Okul dışı görev - Nöbetçi atanmaz)"
+                              >
+                                <span>🏢</span>
+                                <span>Okul Dışı (İMES)</span>
+                              </span>
+                            ) : classroom ? (
+                              <span className={styles.classroomChip} title={`Derslik / Konum: ${classroom}`}>
+                                <span>📍</span>
+                                <span>{classroom}</span>
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Free count badge & Delete button */}
+                        <div className={styles.classActions}>
+                          <span
+                            className={`${styles.freeCountBadge} ${
+                              isFree ? styles.freeCountActive : styles.freeCountZero
+                            }`}
+                            title={`${freeCount} boş ders`}
+                          >
+                            {isFree ? `${freeCount} boş` : 'Dolu'}
+                          </span>
+
+                          {onDelete && (
+                            <button
+                              type="button"
+                              className={styles.deleteBtn}
+                              onClick={() => onDelete(cls.classId)}
+                              title={`${displayName} sınıfını sil`}
+                              aria-label={`${displayName} sınıfını sil`}
+                            >
+                              {IconComponent && <IconComponent name="trash" size={14} />}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center justify-center gap-2">
-                        {selectedCount > 0 && (
-                          <span className="badge badge-info text-xs flex-shrink-0">{selectedCount} boş ders</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="text-center p-2">
-                      {onDelete && (
-                        <button
-                          className="btn-danger btn-sm"
-                          onClick={() => onDelete(cls.classId)}
-                          title={`${cls.className} sınıfını sil`}
-                          aria-label={`${cls.className} sınıfını sil`}
-                        >
-                          {IconComponent && <IconComponent name="trash" size={14} />}
-                        </button>
-                      )}
                     </td>
 
-                    {periods.map(p => {
-                      const set = classFree?.[day]?.[p] || new Set()
-                      const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId] ?? ''
-                      const isSelected = set.has(cls.classId) || Boolean(selectedAbsent)
-                      const isCommonLesson = selectedAbsent === "COMMON_LESSON"
-                      const needsAbsentSelection = isSelected && !selectedAbsent && !isCommonLesson
-                      const absentInfo = selectedAbsent && !isCommonLesson ? getAbsentInfo(selectedAbsent) : null
+                    {/* Interactive Time Capsules & Absentee Dropdowns */}
+                    {periods.map((p) => {
+                      const set = classFree?.[day]?.[p] || new Set();
+                      const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId] ?? '';
+                      const isSelected = set.has(cls.classId) || Boolean(selectedAbsent);
+                      const isCommonLesson = selectedAbsent === 'COMMON_LESSON';
+                      const needsAbsentSelection = isSelected && !selectedAbsent && !isCommonLesson;
+                      const absentInfo = selectedAbsent && !isCommonLesson ? getAbsentInfo(selectedAbsent) : null;
+                      const commonTeacherName = isCommonLesson ? getCommonLessonInfo(day, p, cls.classId) : null;
+                      const isDivider = p === dividerPeriod;
 
                       return (
                         <td
                           key={p}
-                          className="text-center p-2 dnd-target"
-                          onMouseDown={(e) => {
-                            const target = e.target
-                            if (target?.closest?.('select') || target?.closest?.('button')) {
-                              e.stopPropagation()
-                            }
-                          }}
-                          onClick={(e) => {
-                            const target = e.target
-                            if (target?.closest?.('select') || target?.closest?.('button')) {
-                              e.stopPropagation()
-                            }
-                          }}
+                          className={`${styles.timeCapsuleCell} ${isDivider ? styles.dividerRight : ''} dnd-target`}
                         >
-                          <div className="flex flex-col items-center gap-2">
-                            {/* Checkbox */}
-                            <label className="inline-flex items-center cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onClick={() => onToggleClassFree(day, p, cls.classId)}
-                                readOnly
-                                className="rounded transition-all hover:scale-110"
-                              />
-                            </label>
+                          <div className={styles.cellContentWrapper}>
+                            {/* Interactive Time Capsule */}
+                            <button
+                              type="button"
+                              className={`${styles.timeCapsule} ${
+                                isSelected ? styles.capsuleActive : styles.capsuleInactive
+                              }`}
+                              onClick={() => onToggleClassFree?.(day, p, cls.classId)}
+                              title={`${displayName} - ${p}. saat (${
+                                isSelected ? 'Boş Ders / Mazeretli' : 'Ders Var / Dolu'
+                              })`}
+                              aria-pressed={isSelected}
+                              aria-label={`${displayName} ${p}. saat ${isSelected ? 'boş ders' : 'dolu'}`}
+                            >
+                              <span className={styles.capsuleNumber}>{p}</span>
+                              {isSelected ? (
+                                <span className={styles.capsuleStatusIcon}>✓</span>
+                              ) : (
+                                <span className={styles.capsuleStatusDash}>-</span>
+                              )}
+                            </button>
 
-                            {/* Absent dropdown */}
+                            {/* Dropdown & Absent Info under Capsule when selected */}
                             {isSelected && (
-                              <div className="relative w-32">
+                              <div className={styles.dropdownContainer}>
                                 <select
                                   value={selectedAbsent}
-                                  onChange={e => {
-                                    const value = e.target.value
-                                    if (value === "COMMON_LESSON") {
-                                      onOpenCommonLessonModal(day, p, cls.classId)
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === 'COMMON_LESSON') {
+                                      onOpenCommonLessonModal?.(day, p, cls.classId);
                                     } else {
-                                      onSelectAbsence(day, p, cls.classId, value)
+                                      onSelectAbsence?.(day, p, cls.classId, value);
                                     }
-                                    onDropdownStateChange?.(false)
+                                    onDropdownStateChange?.(false);
                                   }}
-                                  className={`
-                                    modern-select
-                                    ${needsAbsentSelection
-                                      ? 'modern-select-error'
-                                      : ''
-                                    }
-                                  `}
+                                  className={`${styles.modernSelect} ${
+                                    needsAbsentSelection ? styles.selectError : ''
+                                  }`}
                                   title={needsAbsentSelection ? 'Gelmeyen öğretmen seçimi zorunlu!' : ''}
                                   onFocus={() => onDropdownStateChange?.(true)}
                                   onBlur={() => {
-                                    setTimeout(() => onDropdownStateChange?.(false), 50)
+                                    setTimeout(() => onDropdownStateChange?.(false), 50);
                                   }}
                                 >
-                                  <option value="">— Öğretmen Seç —</option>
-                                  <option value="COMMON_LESSON">📚 Ders Birleştirilecek</option>
-                                  {absentPeople.map(absent => (
+                                  <option value="">— Mazeret Seç —</option>
+                                  {!isImesLesson(cls.className) && (
+                                    <option value="COMMON_LESSON">📚 Birleştir</option>
+                                  )}
+                                  {absentPeople.map((absent) => (
                                     <option key={absent.absentId} value={absent.absentId}>
-                                      {formatTeacherName(absent.name, absent.teacherId)}
+                                      {formatTeacherName(absent.name, absent.teacherId)} ({absent.reason})
                                     </option>
                                   ))}
                                 </select>
-                                <div className="modern-select-arrow"></div>
-                              </div>
-                            )}
+                                <div className={styles.selectArrow} />
 
-                            {/* Selected Absent Info */}
-                            {absentInfo && (
-                              <div className="mt-1">
-                                <span className={`badge ${getAbsentBadgeColor(absentInfo.reason)} text-xs`}>
-                                  {absentInfo.reason.charAt(0).toUpperCase() + absentInfo.reason.slice(1).toLowerCase()}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Fallback for missing absent info */}
-                            {selectedAbsent && !isCommonLesson && !absentInfo && (
-                              <div className="mt-1">
-                                <span className="badge badge-muted text-xs">{selectedAbsent}</span>
-                              </div>
-                            )}
-
-
-                            {/* Common Lesson Info */}
-                            {selectedAbsent === "COMMON_LESSON" && (
-                              <div className="mt-1">
-                                <span className="badge badge-info text-xs">
-                                  📚 Ders Birleştirilecek
-                                </span>
-                                {getCommonLessonInfo(day, p, cls.classId) && (
-                                  <div className="mt-1 text-center">
-                                    <span className="text-xs text-primary font-medium">
-                                      {getCommonLessonInfo(day, p, cls.classId)}
-                                    </span>
-                                  </div>
+                                {/* Selected Absent Reason Badge */}
+                                {absentInfo && (
+                                  <span
+                                    className={`${styles.absentBadgeChip} ${getAbsentBadgeClass(absentInfo.reason)}`}
+                                    title={`Mazeret: ${absentInfo.reason}`}
+                                  >
+                                    {absentInfo.reason.charAt(0).toUpperCase() + absentInfo.reason.slice(1).toLowerCase()}
+                                  </span>
                                 )}
-                              </div>
-                            )}
 
-                            {/* Warning for missing selection */}
-                            {needsAbsentSelection && (
-                              <div className="mt-1">
-                                <span className="text-xs text-error">⚠️ Zorunlu</span>
+                                {/* Fallback absent badge */}
+                                {selectedAbsent && !isCommonLesson && !absentInfo && (
+                                  <span
+                                    className={`${styles.absentBadgeChip} ${styles.badgeMuted}`}
+                                    title={selectedAbsent}
+                                  >
+                                    {selectedAbsent}
+                                  </span>
+                                )}
+
+                                {/* Common Lesson Badge */}
+                                {isCommonLesson && (
+                                  <span
+                                    className={`${styles.absentBadgeChip} ${styles.badgeCommon}`}
+                                    title={`Ders Birleştirildi: ${commonTeacherName || ''}`}
+                                  >
+                                    📚 {commonTeacherName ? formatTeacherName(commonTeacherName) : 'Birleştir'}
+                                  </span>
+                                )}
+
+                                {/* Warning for Missing Selection */}
+                                {needsAbsentSelection && (
+                                  <span className={styles.warningMissingBadge} title="Lütfen mazeretli öğretmeni seçin">
+                                    ⚠️ Seçin
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
                         </td>
-                      )
+                      );
                     })}
                   </tr>
-                )
+                );
               })
             )}
           </tbody>
 
-          {/* Özet */}
+          {/* Table Footer: Column Summary */}
+          {filteredClasses.length > 0 && (
+            <tfoot>
+              <tr className={styles.footerRow}>
+                <td className={`${styles.stickyCol} ${styles.stuckShadow}`}>
+                  <span>Ders Başına Boş Sınıf</span>
+                </td>
+
+                {periods.map((p) => {
+                  const freeCount = getPeriodFreeCount(p);
+                  const totalCount = classes.length;
+                  const percentage = totalCount > 0 ? Math.round((freeCount / totalCount) * 100) : 0;
+                  const progressBarColor = getProgressBarColor(percentage);
+                  const isDivider = p === dividerPeriod;
+
+                  return (
+                    <td
+                      key={p}
+                      className={`${isDivider ? styles.dividerRight : ''}`}
+                      style={{ textAlign: 'center', padding: '8px 2px' }}
+                    >
+                      <div className={styles.footerPeriodStat}>
+                        <span className={styles.footerCount}>
+                          {freeCount}/{totalCount}
+                        </span>
+                        <div className={styles.progressBarTrack}>
+                          <div
+                            className={`${styles.progressBarFill} ${progressBarColor}`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className={styles.footerPercent}>%{percentage}</span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
-      {/* Yardım */}
-      <div className="mt-4 p-3 bg-secondary rounded-lg border border-subtle">
-        <h4 className="font-medium mb-2">📋 Kullanım Rehberi:</h4>
-        <ul className="text-sm text-secondary space-y-1 list-disc list-inside">
-          <li>Boş ders saatlerini işaretlemek için checkbox'ları kullanın</li>
-          <li>Her işaretlenen saat için gelmeyen öğretmen seçimi zorunludur</li>
-          <li>Kırmızı kenarlı seçimler eksik öğretmen seçimini gösterir</li>
+      {/* Guide Card at Bottom */}
+      <div className={styles.guideCard}>
+        <div className={styles.guideTitle}>
+          <span>💡</span>
+          <span>Sınıf Boş Ders Kullanım Rehberi</span>
+        </div>
+        <ul className={styles.guideList}>
+          <li className={styles.guideItem}>
+            <span>•</span>
+            <span>Boş ders saatini açıp kapatmak için <strong>zaman kapsüllerine</strong> tıklayın.</span>
+          </li>
+          <li className={styles.guideItem}>
+            <span>•</span>
+            <span>Boş ders işaretlenen saatler için altındaki menüden <strong>gelmeyen öğretmeni</strong> seçin.</span>
+          </li>
+          <li className={styles.guideItem}>
+            <span>•</span>
+            <span>İki sınıf aynı saatte birleşiyorsa <strong>&quot;📚 Birleştir&quot;</strong> seçeneğini kullanın.</span>
+          </li>
         </ul>
       </div>
-
-      <style>{`
-        .table-container { width: 100%; }
-        .scrollX { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .text-left { text-align: left; }
-        .text-center { text-align: center; }
-        .text-xs { font-size: 0.75rem; }
-        .text-sm { font-size: 0.875rem; }
-        .text-muted { color: var(--text-muted); }
-        .text-secondary { color: var(--text-secondary); }
-        .font-medium { font-weight: 500; }
-        .font-mono { font-family: monospace; }
-        .p-1 { padding: 0.25rem; }
-        .p-2 { padding: 0.5rem; }
-        .p-3 { padding: 0.75rem; }
-        .p-4 { padding: var(--space-4); } /* Yeni */
-        .mt-1 { margin-top: 0.25rem; }
-        .mt-4 { margin-top: 1rem; }
-        .mb-2 { margin-bottom: 0.5rem; }
-        .ml-2 { margin-left: 0.5rem; }
-        .inline-flex { display: inline-flex; }
-        .cursor-pointer { cursor: pointer; }
-
-        .modern-select {
-          min-width: 32px;
-          width: 100%;
-          max-width: 128px;
-          padding: 0.4rem 0.75rem;
-          border-radius: 8px;
-          border: 1px solid var(--border-default);
-          background-color: var(--bg-secondary);
-          color: var(--text-primary);
-          font-size: 0.8rem;
-          appearance: none;
-          -webkit-appearance: none;
-          -moz-appearance: none;
-          cursor: pointer;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .modern-select:focus {
-          outline: none;
-          border-color: var(--primary);
-          box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
-        }
-
-        .modern-select option {
-          background-color: var(--bg-secondary);
-          color: var(--text-primary);
-          padding: 8px 12px;
-        }
-
-        .modern-select-error {
-          border-color: var(--error) !important;
-          background-color: var(--error-bg) !important;
-          color: var(--error) !important;
-        }
-
-        .relative { position: relative; }
-        .modern-select-arrow {
-          position: absolute;
-          right: 8px;
-          top: 50%;
-          transform: translateY(-50%);
-          pointer-events: none;
-          width: 0;
-          height: 0;
-          border-left: 4px solid transparent;
-          border-right: 4px solid transparent;
-          border-top: 4px solid var(--text-muted);
-        }
-
-        /* Mobil responsive */
-        @media (max-width: 768px) {
-          .modern-select {
-            max-width: 100px;
-            font-size: 0.7rem;
-            padding: 0.3rem 0.5rem;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .modern-select {
-            max-width: 80px;
-            font-size: 0.65rem;
-            padding: 0.25rem 0.4rem;
-          }
-        }
-      `}</style>
     </div>
-  )
+  );
 }
+
+export default memo(ModernClassAvailabilityGrid);

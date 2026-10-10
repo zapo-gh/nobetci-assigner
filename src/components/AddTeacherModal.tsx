@@ -11,6 +11,19 @@ const S = {
     borderRadius: '10px', outline: 'none', boxSizing: 'border-box' as const,
     background: '#fff', color: '#111827', fontFamily: 'inherit',
   }),
+  select: (hasError: boolean) => ({
+    width: '100%',
+    padding: '10px 14px',
+    fontSize: '0.95rem',
+    border: hasError ? '2px solid #ef4444' : '1.5px solid #d1d5db',
+    borderRadius: '10px',
+    outline: 'none',
+    boxSizing: 'border-box' as const,
+    background: '#fff',
+    color: '#111827',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  }),
   hint: { margin: '5px 0 0', fontSize: '0.78rem', color: '#6b7280', lineHeight: 1.4 } as React.CSSProperties,
   error: { margin: '5px 0 0', fontSize: '0.78rem', color: '#ef4444' } as React.CSSProperties,
   actions: { display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid #e5e7eb', marginTop: '4px' } as React.CSSProperties,
@@ -18,8 +31,18 @@ const S = {
   btnSubmit: { padding: '10px 22px', borderRadius: '10px', border: 'none', background: '#4338ca', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'inherit' } as React.CSSProperties,
 };
 
-export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
-  const [formData, setFormData] = useState({ teacherName: '', maxDutyPerDay: '6' });
+const systemDayMap: Record<string, string> = {
+  Sun: 'sunday',
+  Mon: 'monday',
+  Tue: 'tuesday',
+  Wed: 'wednesday',
+  Thu: 'thursday',
+  Fri: 'friday',
+  Sat: 'saturday',
+};
+
+export default function AddTeacherModal({ isOpen, onClose, onSubmit, dutyZones = [], day = 'Mon' }) {
+  const [formData, setFormData] = useState({ teacherName: '', dutyLocation: '', maxDutyPerDay: '6' });
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
@@ -29,8 +52,9 @@ export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
   };
 
   const validate = () => {
-    const newErrors = {};
+    const newErrors: Record<string, string> = {};
     if (!formData.teacherName.trim()) newErrors.teacherName = 'Öğretmen adı zorunludur';
+    if (!formData.dutyLocation.trim()) newErrors.dutyLocation = 'Nöbet yeri seçimi zorunludur';
     const max = parseInt(formData.maxDutyPerDay, 10);
     if (!Number.isFinite(max) || max < 1 || max > 9) newErrors.maxDutyPerDay = 'Günlük görev limiti 1-9 arasında olmalıdır';
     return newErrors;
@@ -40,14 +64,24 @@ export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
     e.preventDefault();
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
-    onSubmit({ teacherName: formData.teacherName.trim(), maxDutyPerDay: parseInt(formData.maxDutyPerDay, 10) });
-    setFormData({ teacherName: '', maxDutyPerDay: '6' });
+
+    const sysDay = systemDayMap[day] || (typeof day === 'string' ? day.toLowerCase() : 'monday');
+    onSubmit({
+      teacherName: formData.teacherName.trim(),
+      maxDutyPerDay: parseInt(formData.maxDutyPerDay, 10),
+      dutyLocation: formData.dutyLocation.trim(),
+      dutyLocations: {
+        [sysDay]: formData.dutyLocation.trim(),
+        [day]: formData.dutyLocation.trim(),
+      },
+    });
+    setFormData({ teacherName: '', dutyLocation: '', maxDutyPerDay: '6' });
     setErrors({});
     onClose();
   };
 
   const handleClose = () => {
-    setFormData({ teacherName: '', maxDutyPerDay: '6' });
+    setFormData({ teacherName: '', dutyLocation: '', maxDutyPerDay: '6' });
     setErrors({});
     onClose();
   };
@@ -65,6 +99,24 @@ export default function AddTeacherModal({ isOpen, onClose, onSubmit }) {
             style={S.input(!!errors.teacherName)}
           />
           {errors.teacherName && <p style={S.error}>{errors.teacherName}</p>}
+        </div>
+
+        <div>
+          <label style={S.label}>Nöbet Yeri <span style={{ color: '#ef4444' }}>*</span></label>
+          <select
+            id="dutyLocation" name="dutyLocation"
+            value={formData.dutyLocation} onChange={handleChange}
+            style={S.select(!!errors.dutyLocation)}
+          >
+            <option value="">-- Nöbet Yeri Seçin --</option>
+            {dutyZones.map((z) => (
+              <option key={z.zoneId || z.name} value={z.name}>
+                {z.name}
+              </option>
+            ))}
+          </select>
+          {errors.dutyLocation && <p style={S.error}>{errors.dutyLocation}</p>}
+          <p style={S.hint}>Bu öğretmenin görev yapacağı nöbet bölgesini seçin</p>
         </div>
 
         <div>

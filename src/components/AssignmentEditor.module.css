@@ -1,186 +1,1050 @@
-.dndTarget { 
-  transition: background-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease; 
-}
-.dragOver { 
-  background-color: rgba(var(--primary-rgb), 0.1); 
-  box-shadow: inset 0 0 0 2px var(--primary); 
-}
-.dropFlash { 
-  animation: dropFlash var(--transition-slow) ease; 
-}
-@keyframes dropFlash { 
-  from { background-color: rgba(var(--success-rgb), 0.2); } 
-  to { background-color: transparent; } 
+/* ==========================================================
+   AssignmentEditor.module.css
+   Modern Planning Grid with Duty Cards, Morning/Afternoon Split,
+   and Unified Aesthetics
+   ========================================================== */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #c5cdf0);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15, 21, 53, 0.05);
+  padding: 16px;
+  margin-top: 6px;
+  transition: all 0.25s ease;
 }
 
-.common-lesson-teacher-row {
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--primary);
+/* ---------------- Top Toolbar / Filters ---------------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
 }
 
-.common-lesson-teacher-row .sticky-col {
-  background: var(--bg-secondary);
+.searchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 260px;
+  max-width: 380px;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-faint, #94a3b8);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 8px 32px 8px 36px;
+  font-size: 0.88rem;
+  border: 1.5px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  color: var(--text, #0f1535);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: var(--primary, #4f46e5);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.clearSearchBtn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-faint, #94a3b8);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+
+.clearSearchBtn:hover {
+  color: var(--danger, #dc2626);
+}
+
+.filterChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted, #475569);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filterChip:hover {
+  background: var(--surface-2, #eef2ff);
+  border-color: var(--primary, #6366f1);
+  color: var(--primary, #4338ca);
+}
+
+.filterChipActive {
+  background: var(--primary, #4338ca) !important;
+  border-color: var(--primary, #4338ca) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(67, 56, 202, 0.25);
+}
+
+.filterChipWarning {
+  border-color: #fca5a5 !important;
+  color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+.filterChipWarningActive {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+/* ---------------- Table Container ---------------- */
+.tableContainer {
+  position: relative;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: #ffffff;
+}
+
+.assignmentTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1080px;
+  text-align: left;
+}
+
+/* ---------------- Table Header ---------------- */
+.headerRow th {
+  background: var(--surface-2, #f1f5f9);
+  padding: 12px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text, #0f1535);
+  border-bottom: 2px solid var(--border, #cbd5e1);
+  border-right: 1px solid var(--border, #e2e8f0);
+  text-align: center;
+}
+
+.headerRow th:last-child {
+  border-right: none;
+}
+
+.headerRow .stickyCol {
+  text-align: left;
+}
+
+.periodHeaderTh {
+  min-width: 155px;
+  width: 155px;
+}
+
+.periodHeaderContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.periodHeaderNum {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-family: monospace;
+}
+
+.periodHeaderCount {
+  font-size: 0.72rem;
+  color: var(--text-faint, #64748b);
+  font-weight: 500;
+}
+
+/* ---------------- Sticky Left Column ---------------- */
+.stickyCol {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: #ffffff;
+  border-right: 1px solid var(--border, #e2e8f0);
+  width: 250px;
+  min-width: 250px;
+  max-width: 280px;
+}
+
+.superHeaderRow .stickyCol,
+.subHeaderRow .stickyCol {
+  background: var(--surface-2, #f1f5f9);
+}
+
+.stuckShadow {
+  box-shadow: 4px 0 10px rgba(15, 23, 42, 0.05);
+}
+
+/* ---------------- Class Profile Card ---------------- */
+.classCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  gap: 10px;
+}
+
+.classMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.classAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.92rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+
+.classMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.className {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text, #0f1535);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.classroomChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dutyCountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dutyCountActive {
+  background: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #a5b4fc;
+}
+
+.dutyCountCommon {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+
+.dutyCountZero {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+/* ---------------- Table Body & Cells ---------------- */
+.assignmentTable tbody tr td {
+  border-bottom: 1px solid var(--border, #f1f5f9);
+  border-right: 1px solid var(--border, #e2e8f0);
+  padding: 10px 10px;
+  vertical-align: middle;
+  min-width: 155px;
+  text-align: center;
+}
+
+.assignmentTable tbody tr td:last-child {
+  border-right: none;
 }
 
 .cellContent {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   align-items: center;
   justify-content: center;
-  text-align: center;
+  min-height: 64px;
+  gap: 4px;
+  width: 100%;
+}
+
+/* ---------------- Duty Assigned Card ---------------- */
+.dutyCard {
+  width: 100%;
+  max-width: 130px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
-.lockBadge {
-  align-self: flex-end;
-  font-size: 0.68rem;
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: var(--radius-pill, 999px);
-  border: 1px solid var(--border-default);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-weight: var(--font-weight-semibold);
+.dutyCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.16);
+  border-color: #818cf8;
 }
 
-.teacherRow {
+.teacherHeader {
   display: flex;
   align-items: center;
+  gap: 6px;
+  width: 100%;
   justify-content: center;
 }
 
+.teacherAvatarMini {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
 .teacherNameText {
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.01em;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f1535;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: grab;
 }
 
 .teacherDraggable {
   cursor: grab;
 }
 
-.manualEmptyLabel {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  font-style: italic;
+.teacherDraggable:active {
+  cursor: grabbing;
 }
 
-.manualAdminLabel {
-  font-size: 0.85rem;
-  color: var(--primary);
-  font-weight: var(--font-weight-semibold);
+.dutyLocationBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editBtn {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+  color: var(--text-muted, #475569);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.editBtn:hover {
+  background: #ffffff;
+  border-color: #6366f1;
+  color: #4338ca;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.15);
+}
+
+/* ---------------- Common Lesson Card ---------------- */
+.commonLessonCard {
+  width: 100%;
+  max-width: 130px;
+  margin: 0 auto;
+  background: #f5f3ff;
+  border: 1.5px solid #ddd6fe;
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.08);
+}
+
+.commonLessonTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.commonLessonTeacher {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4c1d95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* ---------------- Unassigned Slot ---------------- */
+.unassignedSlot {
+  width: 100%;
+  max-width: 130px;
+  margin: 0 auto;
+  background: #fef2f2;
+  border: 1.5px dashed #fca5a5;
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  animation: pulseSlot 2s infinite ease-in-out;
+}
+
+@keyframes pulseSlot {
+  0%, 100% { border-color: #fca5a5; }
+  50% { border-color: #ef4444; }
+}
+
+.unassignedBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.assignManualBtn {
+  background: #ffffff;
+  border: 1px solid #f87171;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.assignManualBtn:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+/* ---------------- Empty Slot ---------------- */
+.emptySlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+}
+
+/* ---------------- Lock / Admin Badges ---------------- */
+.lockBadge {
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
 }
 
 .adminCheckboxLabel {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #475569;
   cursor: pointer;
   user-select: none;
 }
 
 .adminCheckboxLabel input {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--primary);
+  accent-color: var(--primary, #4338ca);
 }
 
+.manualEmptyLabel {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.manualAdminLabel {
+  font-size: 0.75rem;
+  color: #4338ca;
+  font-weight: 600;
+}
+
+/* ---------------- Drag and Drop Feedback ---------------- */
+.dndTarget {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dragOver {
+  background-color: #e0e7ff !important;
+  box-shadow: inset 0 0 0 2px #4f46e5;
+}
+
+.dropFlash {
+  animation: dropFlashAnim 0.6s ease;
+}
+
+@keyframes dropFlashAnim {
+  0% { background-color: #bbf7d0; }
+  100% { background-color: transparent; }
+}
+
+/* ---------------- Manual Popup Editor ---------------- */
+/* ---------------- Manual Popup Editor ---------------- */
 .manualEditor {
   position: fixed;
-  padding: 8px;
-  border-radius: var(--radius-md);
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background-color: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #c5cdf0);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  max-height: calc(100vh - 20px);
-  overflow-y: auto;
+  z-index: 1050;
+  box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(15, 23, 42, 0.08);
+  max-height: calc(100vh - 30px);
+  overflow: hidden;
+  animation: popupFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.manualEditorControls {
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.manualEditorHeader {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, rgba(79, 70, 229, 0.08) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+}
+
+.headerTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.headerIcon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.headerClassTitle {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+  display: flex;
+  align-items: center;
   gap: 6px;
+  line-height: 1.2;
+}
+
+.headerClassroomBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4338ca;
+  background: #e0e7ff;
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: -0.2px;
+}
+
+.headerSubtitle {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #64748b);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.quickActionsBar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
+}
+
+.quickActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.quickActionBtn:hover {
+  border-color: #6366f1;
+  color: #4338ca;
+  background: #f5f3ff;
+}
+
+.quickActionActive {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+  border-color: #4338ca !important;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.searchWrapper {
+  padding: 8px 12px 4px;
+  position: relative;
+  display: flex;
   align-items: center;
 }
 
-.manualSelect {
-  min-width: 160px;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-default);
-  background-color: var(--bg-default);
-  color: var(--text-primary);
-}
-
-.manualHint {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.assignmentTable {
-  border-collapse: separate;
-  border-spacing: 0;
-  box-shadow: inset 0 0 0 1px var(--border-default);
-  background-color: var(--bg-elevated);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.assignmentTable thead th {
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
+.searchIcon {
+  position: absolute;
+  left: 20px;
   font-size: 0.8rem;
-  font-weight: var(--font-weight-semibold);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 6px 28px 6px 28px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: var(--text, #0f172a);
+  font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.searchInput:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.searchClearBtn {
+  position: absolute;
+  right: 20px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.teacherListContainer {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 320px;
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid var(--border-default);
+  letter-spacing: 0.3px;
+  color: var(--text-muted, #475569);
 }
 
-.assignmentTable tbody tr:nth-child(odd) td {
-  background: var(--bg-default);
+.groupDot {
+  font-size: 0.7rem;
+  line-height: 1;
 }
 
-.assignmentTable tbody tr:nth-child(even) td {
-  background: rgba(var(--primary-rgb), 0.04);
+.groupTitle {
+  flex: 1;
 }
 
-.assignmentTable tbody td {
-  border-left: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: var(--space-3) var(--space-2);
-  min-width: 120px;
-  min-height: 68px;
-  position: relative;
-  vertical-align: top;
+.groupCountBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: #475569;
 }
 
-.assignmentTable tbody td:first-child {
-  border-left: none;
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.emptyGroupNotice {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  font-style: italic;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+  text-align: center;
 }
 
-.assignmentTable tbody tr:last-child td {
-  border-bottom: none;
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.assignmentTable :global(.sticky-col) {
-  background: var(--bg-elevated);
-  box-shadow: inset -1px 0 0 0 var(--border-subtle);
+.teacherCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  user-select: none;
 }
 
-.assignmentTable tbody tr:hover td {
-  background: rgba(var(--primary-rgb), 0.08);
+.teacherCard:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
-.assignmentTable tbody tr:hover td:first-child {
-  background: rgba(var(--primary-rgb), 0.12);
+.teacherCardSelected {
+  background: #eef2ff !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25) !important;
 }
+
+.teacherCardBusy {
+  background: #fffbeb;
+}
+
+.teacherCardBusy:hover {
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.teacherAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.teacherInfoCol {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.teacherNameRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.teacherName {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectedCheckBadge {
+  color: #4338ca;
+  font-weight: 900;
+  font-size: 0.78rem;
+}
+
+.teacherDutySub {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.noLocationText {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.teacherBadgeCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.busyLessonBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 5px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.proximityBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.proximitySameFloor {
+  color: #047857;
+  background: #d1fae5;
+  border: 1px solid #a7f3d0;
+}
+
+.proximityOtherFloor {
+  color: #4338ca;
+  background: #e0e7ff;
+  border: 1px solid #c7d2fe;
+}
+
+.dutyCountBadge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 0.5px 4px;
+}
+
+.manualEditorFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  background: var(--bg-subtle, #f8fafc);
+}
+
+.saveBtn {
+  background: var(--primary-gradient, linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%));
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+.cancelBtn {
+  background: #ffffff;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelBtn:hover {
+  background: #f1f5f9;
+  color: #0f1535;
+}
+
+/* History Undo / Redo Buttons */
+.historyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  user-select: none;
+  font-family: inherit;
+}
+
+.historyBtn:hover:not(:disabled) {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #eef2ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.15);
+}
+
+.historyBtn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+@media (max-width: 800px) {
+  .historyBtnLabel {
+    display: none;
+  }
+}
+
