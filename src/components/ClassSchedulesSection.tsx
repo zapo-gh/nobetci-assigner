@@ -232,6 +232,36 @@ export default function ClassSchedulesSection({
     };
   }, [selectedClass, classSchedulesMap]);
 
+  // Navigation for class schedule modal
+  const navigationClasses = useMemo(() => {
+    if (selectedClass && filteredClasses.includes(selectedClass)) {
+      return filteredClasses;
+    }
+    return allClassNames;
+  }, [filteredClasses, allClassNames, selectedClass]);
+
+  const currentClassIndex = useMemo(() => {
+    if (!selectedClass) return -1;
+    return navigationClasses.indexOf(selectedClass);
+  }, [navigationClasses, selectedClass]);
+
+  const hasPrevClass = currentClassIndex > 0;
+  const hasNextClass = currentClassIndex >= 0 && currentClassIndex < navigationClasses.length - 1;
+
+  const handlePrevClass = () => {
+    if (hasPrevClass) {
+      setSelectedClass(navigationClasses[currentClassIndex - 1]);
+    }
+  };
+
+  const handleNextClass = () => {
+    if (hasNextClass) {
+      setSelectedClass(navigationClasses[currentClassIndex + 1]);
+    }
+  };
+
+  const classNavLabel = currentClassIndex >= 0 ? `${currentClassIndex + 1} / ${navigationClasses.length}` : '';
+
   const getLevelAvatarStyle = (level: string) => {
     if (level === '9') return styles.avatar9;
     if (level === '10') return styles.avatar10;
@@ -444,6 +474,11 @@ export default function ClassSchedulesSection({
         onClose={() => setSelectedClass('')}
         title={`${selectedClass} - Haftalık Sınıf Ders Programı`}
         size="xlarge"
+        onPrev={hasPrevClass ? handlePrevClass : undefined}
+        onNext={hasNextClass ? handleNextClass : undefined}
+        hasPrev={hasPrevClass}
+        hasNext={hasNextClass}
+        navLabel={classNavLabel}
       >
         <div className={styles.modalBody}>
           {/* Top Summary Stats */}

@@ -8,9 +8,25 @@ interface ModalProps {
   title?: React.ReactNode;
   children?: React.ReactNode;
   size?: 'small' | 'medium' | 'large' | 'xlarge' | string;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  navLabel?: string;
 }
 
-const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'medium' }: ModalProps) {
+const Modal = memo(function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'medium',
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+  navLabel,
+}: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   const stopPropagation = useCallback((event: React.MouseEvent) => {
@@ -48,6 +64,27 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
+
+  // Arrow key navigation (Left/Right)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleNavKeys = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) {
+        return;
+      }
+      if (e.key === 'ArrowLeft' && onPrev && (hasPrev === undefined || hasPrev)) {
+        e.preventDefault();
+        onPrev();
+      } else if (e.key === 'ArrowRight' && onNext && (hasNext === undefined || hasNext)) {
+        e.preventDefault();
+        onNext();
+      }
+    };
+    window.addEventListener('keydown', handleNavKeys);
+    return () => window.removeEventListener('keydown', handleNavKeys);
+  }, [isOpen, onPrev, onNext, hasPrev, hasNext]);
 
   useEffect(() => {
     if (isOpen && modalRef.current) {
@@ -131,15 +168,48 @@ const Modal = memo(function Modal({ isOpen, onClose, title, children, size = 'me
         tabIndex={0}
       >
         <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>{title}</h3>
-          <button
-            className={styles.modalClose}
-            onClick={onClose}
-            aria-label="Kapat"
-            type="button"
-          >
-            ✕
-          </button>
+          <div className={styles.modalTitleWrapper}>
+            <h3 className={styles.modalTitle}>{title}</h3>
+          </div>
+          <div className={styles.modalHeaderActions}>
+            {(onPrev || onNext) && (
+              <div className={styles.modalNavGroup}>
+                <button
+                  className={styles.modalNavBtn}
+                  onClick={onPrev}
+                  disabled={hasPrev === false || !onPrev}
+                  title="Önceki (← Sol Ok)"
+                  aria-label="Önceki"
+                  type="button"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                {navLabel && <span className={styles.modalNavLabel}>{navLabel}</span>}
+                <button
+                  className={styles.modalNavBtn}
+                  onClick={onNext}
+                  disabled={hasNext === false || !onNext}
+                  title="Sonraki (→ Sağ Ok)"
+                  aria-label="Sonraki"
+                  type="button"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <button
+              className={styles.modalClose}
+              onClick={onClose}
+              aria-label="Kapat"
+              type="button"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className={styles.modalBody}>{memoizedChildren}</div>
       </div>

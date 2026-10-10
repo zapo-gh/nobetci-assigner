@@ -25,7 +25,15 @@ const CLASS_DOT_COLORS = [
   '#0891b2',
 ];
 
-const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComponent: Icon = null }) => {
+const TeacherScheduleModal = ({
+  isOpen,
+  onClose,
+  teacherName,
+  schedule,
+  IconComponent: Icon = null,
+  teacherSchedulesList = [],
+  onSelectTeacher,
+}) => {
   if (!schedule || !teacherName) return null;
 
   const dayLabels = {
@@ -138,8 +146,44 @@ const TeacherScheduleModal = ({ isOpen, onClose, teacherName, schedule, IconComp
     return Object.values(schedule).filter((day) => Object.keys(day).length > 0).length;
   }, [schedule]);
 
+  const currentTeacherIndex = useMemo(() => {
+    if (!teacherName || !Array.isArray(teacherSchedulesList) || teacherSchedulesList.length === 0) {
+      return -1;
+    }
+    return teacherSchedulesList.findIndex(([name]) => name === teacherName);
+  }, [teacherName, teacherSchedulesList]);
+
+  const hasPrevTeacher = currentTeacherIndex > 0;
+  const hasNextTeacher = currentTeacherIndex >= 0 && currentTeacherIndex < teacherSchedulesList.length - 1;
+
+  const handlePrevTeacher = () => {
+    if (hasPrevTeacher && onSelectTeacher) {
+      const [prevName, prevSchedule] = teacherSchedulesList[currentTeacherIndex - 1];
+      onSelectTeacher(prevName, prevSchedule);
+    }
+  };
+
+  const handleNextTeacher = () => {
+    if (hasNextTeacher && onSelectTeacher) {
+      const [nextName, nextSchedule] = teacherSchedulesList[currentTeacherIndex + 1];
+      onSelectTeacher(nextName, nextSchedule);
+    }
+  };
+
+  const teacherNavLabel = currentTeacherIndex >= 0 ? `${currentTeacherIndex + 1} / ${teacherSchedulesList.length}` : '';
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${teacherName} - Haftalık Ders Programı`} size="large">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`${teacherName} - Haftalık Ders Programı`}
+      size="large"
+      onPrev={hasPrevTeacher ? handlePrevTeacher : undefined}
+      onNext={hasNextTeacher ? handleNextTeacher : undefined}
+      hasPrev={hasPrevTeacher}
+      hasNext={hasNextTeacher}
+      navLabel={teacherNavLabel}
+    >
       <div className={styles.modalBody}>
         {/* Top Summary Stats */}
         <div className={styles.summaryRow}>

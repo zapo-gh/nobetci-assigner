@@ -3067,6 +3067,7 @@ export default function App() {
             loadDutyTeachersFromExcel={loadDutyTeachersFromExcel}
             selectedTeacher={selectedTeacher}
             setSelectedTeacher={setSelectedTeacher}
+            teacherSchedulesList={teacherSchedulesList}
             blockedAbsentTeacherNames={blockedAbsentTeacherNames}
             dutyZones={dutyZones}
           />

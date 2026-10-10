@@ -47,6 +47,7 @@ export default function GlobalModals({
     loadDutyTeachersFromExcel,
     selectedTeacher,
     setSelectedTeacher,
+    teacherSchedulesList = [],
     blockedAbsentTeacherNames = new Set(),
     dutyZones = [],
 }) {
@@ -183,6 +184,8 @@ export default function GlobalModals({
                 teacherName={selectedTeacher?.name}
                 schedule={selectedTeacher?.schedule}
                 IconComponent={Icon}
+                teacherSchedulesList={teacherSchedulesList}
+                onSelectTeacher={(name, sched) => setSelectedTeacher({ name, schedule: sched })}
             />
         </>
     );

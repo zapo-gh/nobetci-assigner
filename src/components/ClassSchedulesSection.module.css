@@ -575,6 +575,7 @@
 .teacherNameSub {
   font-size: 0.68rem;
   font-weight: 600;
+  font-style: italic;
   opacity: 0.95;
   line-height: 1.1;
   white-space: nowrap;
