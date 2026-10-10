@@ -2164,6 +2164,7 @@ export default function App() {
   // Gün veya görev listesi değiştiğinde, o güne ait kilitleri ve teacherFree setlerini aktif nöbetçilere göre temizle
   useEffect(() => {
     if (!hydratedRef.current) return;
+    if (!teachersForCurrentDay || teachersForCurrentDay.length === 0) return;
 
     const activeTeacherIds = new Set(
       (teachersForCurrentDay || [])
@@ -2238,6 +2239,7 @@ export default function App() {
 
     const dayFree = freeClassesByDay?.[day] || {};
     const dayCommon = commonLessons?.[day] || {};
+    if (Object.keys(dayFree).length === 0 && Object.keys(dayCommon).length === 0) return;
 
     const orphanLocks: { key: string; period: string | number; classId: string }[] = [];
 
@@ -2247,14 +2249,14 @@ export default function App() {
       const period = parts[1];
       const classId = parts[2];
 
-      const periodFreeSet = dayFree[period];
+      const periodFreeSet = dayFree[period] || dayFree[Number(period)];
       const isFree = periodFreeSet instanceof Set
         ? periodFreeSet.has(classId)
         : Array.isArray(periodFreeSet)
           ? periodFreeSet.includes(classId)
           : false;
 
-      const isCommon = Boolean(dayCommon?.[period]?.[classId]);
+      const isCommon = Boolean(dayCommon?.[period]?.[classId] || dayCommon?.[Number(period)]?.[classId]);
 
       if (!isFree && !isCommon) {
         orphanLocks.push({ key, period, classId });
@@ -2651,6 +2653,21 @@ export default function App() {
     };
   }, [assignment, teachersForCurrentDay])
 
+  const syncLockedToLocalStorage = useCallback((nextLocked: any) => {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.locked = nextLocked;
+        parsed.lastSaved = Date.now();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+    } catch (e) {
+      logger.warn('Immediate localStorage lock save error:', e);
+    }
+  }, [STORAGE_KEY]);
+
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
 
@@ -2683,6 +2700,7 @@ export default function App() {
       }
 
       next[toKey] = teacherId
+      syncLockedToLocalStorage(next)
 
       upsertLock({ day, period, classId: toClassId, teacherId }).catch(err =>
         logger.error('Lock upsert error:', err)
@@ -2698,7 +2716,7 @@ export default function App() {
       type: 'success',
       duration: 2200,
     })
-  }, [addNotification, classes, teachers])
+  }, [addNotification, classes, teachers, syncLockedToLocalStorage, recordHistory])
 
   const handleManualAssign = useCallback(({ day, period, classId, teacherId }) => {
     if (!teacherId || !classId) {
@@ -2725,6 +2743,7 @@ export default function App() {
       }
       const next = { ...(prev || {}) }
       next[key] = MANUAL_EMPTY_TEACHER_ID
+      syncLockedToLocalStorage(next)
       return next
     })
 
@@ -2736,7 +2755,7 @@ export default function App() {
       type: 'info',
       duration: 2200,
     })
-  }, [classes, addNotification, recordHistory])
+  }, [classes, addNotification, recordHistory, syncLockedToLocalStorage])
 
   const handleManualSetAdmin = useCallback(({ day, period, classId }) => {
     const key = `${day}|${period}|${classId}`
@@ -2751,6 +2770,7 @@ export default function App() {
       }
       const next = { ...(prev || {}) }
       next[key] = MANUAL_ADMIN_TEACHER_ID
+      syncLockedToLocalStorage(next)
       return next
     })
 
@@ -2762,7 +2782,7 @@ export default function App() {
       type: 'info',
       duration: 2200,
     })
-  }, [classes, addNotification, recordHistory])
+  }, [classes, addNotification, recordHistory, syncLockedToLocalStorage])
 
   const handleManualRelease = useCallback(({ day, period, classId }) => {
     const key = `${day}|${period}|${classId}`
@@ -2777,6 +2797,7 @@ export default function App() {
       }
       const next = { ...prev }
       delete next[key]
+      syncLockedToLocalStorage(next)
       return next
     })
 
@@ -2788,7 +2809,7 @@ export default function App() {
       type: 'success',
       duration: 2200,
     })
-  }, [classes, addNotification, recordHistory])
+  }, [classes, addNotification, recordHistory, syncLockedToLocalStorage])
 
   // JPEG export — usePdfExport hook'una taşındı
   const { exportJPG } = usePdfExport({ day, displayDate, addNotification });

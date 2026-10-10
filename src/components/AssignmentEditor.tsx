@@ -346,7 +346,7 @@ function AssignmentEditor({
     ) {
       initialValue = AUTO_OPTION;
     }
-    setEditingContext({ key, period, classId });
+    setEditingContext({ key, period, classId, initialValue });
     setEditSelection(initialValue);
     setTeacherSearch('');
     onManualEditorStateChange?.(true);
@@ -383,14 +383,28 @@ function AssignmentEditor({
     };
   }, [onManualEditorStateChange]);
 
-  // Close editor when clicking outside
+  // Close or save editor when clicking outside, or on Escape/Enter key
   useEffect(() => {
     if (!editingContext) return;
 
     const handleClickOutside = (e) => {
       const isEditBtn = e.target.closest('[data-action="edit-cell"]') || e.target.closest('button')?.textContent?.includes('Düzenle');
       if (editorRef.current && !editorRef.current.contains(e.target) && !isEditBtn) {
+        if (editSelection && editSelection !== editingContext.initialValue) {
+          handleManualSave(editSelection);
+        } else {
+          closeEditor();
+        }
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
         closeEditor();
+      } else if (e.key === 'Enter') {
+        if (editSelection) {
+          handleManualSave(editSelection);
+        }
       }
     };
 
@@ -407,15 +421,17 @@ function AssignmentEditor({
     updatePosition();
 
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('scroll', updatePosition, true);
     window.addEventListener('resize', updatePosition);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('scroll', updatePosition, true);
       window.removeEventListener('resize', updatePosition);
     };
-  }, [editingContext, closeEditor, calculateEditorPosition]);
+  }, [editingContext, closeEditor, calculateEditorPosition, editSelection, handleManualSave]);
 
   useLayoutEffect(() => {
     if (!editingContext || !editorRef.current) return;
@@ -820,10 +836,12 @@ function AssignmentEditor({
                       const cell = (assignment?.[day]?.[p] || []).find((a) => a.classId === cls.classId);
                       const k = getKey(p, cls.classId);
                       const lockValue = locked?.[k];
-                      let teacherId = cell?.teacherId || '';
+                      let teacherId = '';
 
-                      if (!teacherId && lockValue && lockValue !== MANUAL_EMPTY_TEACHER_ID && teacherById[lockValue]) {
+                      if (lockValue && lockValue !== MANUAL_EMPTY_TEACHER_ID && lockValue !== MANUAL_ADMIN_TEACHER_ID && teacherById[lockValue]) {
                         teacherId = lockValue;
+                      } else if (!lockValue) {
+                        teacherId = cell?.teacherId || '';
                       }
 
                       const t = teacherId ? teacherById[teacherId] : null;
@@ -1044,7 +1062,10 @@ function AssignmentEditor({
                                   className={`${styles.quickActionBtn} ${
                                     editSelection === AUTO_OPTION ? styles.quickActionActive : ''
                                   }`}
-                                  onClick={() => setEditSelection(AUTO_OPTION)}
+                                  onClick={() => {
+                                    setEditSelection(AUTO_OPTION);
+                                    handleManualSave(AUTO_OPTION);
+                                  }}
                                   title="Otomatik algoritmaya bırak"
                                 >
                                   <span>🔄</span>
@@ -1055,7 +1076,10 @@ function AssignmentEditor({
                                   className={`${styles.quickActionBtn} ${
                                     editSelection === MANUAL_EMPTY_TEACHER_ID ? styles.quickActionActive : ''
                                   }`}
-                                  onClick={() => setEditSelection(MANUAL_EMPTY_TEACHER_ID)}
+                                  onClick={() => {
+                                    setEditSelection(MANUAL_EMPTY_TEACHER_ID);
+                                    handleManualSave(MANUAL_EMPTY_TEACHER_ID);
+                                  }}
                                   title="Bu ders için nöbetçi görevlendirmesi yapılmaz"
                                 >
                                   <span>🚫</span>
@@ -1066,7 +1090,10 @@ function AssignmentEditor({
                                   className={`${styles.quickActionBtn} ${
                                     editSelection === MANUAL_ADMIN_TEACHER_ID ? styles.quickActionActive : ''
                                   }`}
-                                  onClick={() => setEditSelection(MANUAL_ADMIN_TEACHER_ID)}
+                                  onClick={() => {
+                                    setEditSelection(MANUAL_ADMIN_TEACHER_ID);
+                                    handleManualSave(MANUAL_ADMIN_TEACHER_ID);
+                                  }}
                                   title="İdare kontrolünde nöbet"
                                 >
                                   <span>🛡️</span>
@@ -1124,9 +1151,12 @@ function AssignmentEditor({
                                             className={`${styles.teacherCard} ${
                                               isSelected ? styles.teacherCardSelected : ''
                                             }`}
-                                            onClick={() => setEditSelection(teacher.teacherId)}
+                                            onClick={() => {
+                                              setEditSelection(teacher.teacherId);
+                                              handleManualSave(teacher.teacherId);
+                                            }}
                                             onDoubleClick={() => handleManualSave(teacher.teacherId)}
-                                            title="Seçmek için tıklayın (Kaydetmek için çift tıklayın)"
+                                            title="Görevi bu öğretmene ata ve kaydet"
                                           >
                                             <div
                                               className={styles.teacherAvatar}
@@ -1204,9 +1234,12 @@ function AssignmentEditor({
                                             className={`${styles.teacherCard} ${styles.teacherCardBusy} ${
                                               isSelected ? styles.teacherCardSelected : ''
                                             }`}
-                                            onClick={() => setEditSelection(teacher.teacherId)}
+                                            onClick={() => {
+                                              setEditSelection(teacher.teacherId);
+                                              handleManualSave(teacher.teacherId);
+                                            }}
                                             onDoubleClick={() => handleManualSave(teacher.teacherId)}
-                                            title="Seçmek için tıklayın (Kaydetmek için çift tıklayın)"
+                                            title="Dersi olmasına rağmen görevi bu öğretmene ata ve kaydet"
                                           >
                                             <div
                                               className={styles.teacherAvatar}
