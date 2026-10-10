@@ -4,6 +4,7 @@ import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
 import PrintNotesCard from './PrintNotesCard';
 import OfficialSignatures from './OfficialSignatures';
+import EmptyState from './EmptyState';
 
 const TR_DAYS = { Mon: "Pazartesi", Tue: "Salı", Wed: "Çarşamba", Thu: "Perşembe", Fri: "Cuma" };
 const REASON_LABELS = {
@@ -29,7 +30,8 @@ export default function PrintableDailyList({
   notes = "",
   notesEnabled = true,
   onNotesChange,
-  onNotesEnabledChange
+  onNotesEnabledChange,
+  IconComponent
 }) {
   const classNameById = useMemo(
     () => Object.fromEntries((classes || []).map(c => [c.classId, c.className])),
@@ -131,9 +133,16 @@ export default function PrintableDailyList({
             {activeDutyTeachers.length === 0 ? (
               <tr>
                 <td colSpan={periods.length + 1} className="empty-table-cell">
-                  <div className="empty-state-inner">
-                    <span className="empty-state-icon">📋</span>
-                    <span>Bu günde görevi olan öğretmen bulunmuyor.</span>
+                  <div className="table-empty-state-screen no-print">
+                    <EmptyState
+                      IconComponent={IconComponent}
+                      icon="clipboard"
+                      title="Bu günde görevi olan öğretmen bulunmuyor."
+                      description="Seçili gün için henüz herhangi bir nöbet veya görevlendirme kaydı bulunmamaktadır."
+                    />
+                  </div>
+                  <div className="table-empty-state-print print-only">
+                    Bu günde görevi olan öğretmen bulunmuyor.
                   </div>
                 </td>
               </tr>
@@ -343,22 +352,38 @@ export default function PrintableDailyList({
         .nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .empty-table-cell {
-          padding: 32px 16px !important;
+          padding: 16px !important;
           text-align: center !important;
-          background: #f8fafc !important;
+          background: #ffffff !important;
         }
-        .empty-state-inner {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          color: #64748b;
-          font-size: 0.9rem;
-          font-weight: 500;
+        .table-empty-state-screen {
+          display: block;
         }
-        .empty-state-icon {
+        .table-empty-state-screen .empty-state {
+          padding: 32px 16px !important;
+          margin: 0 auto !important;
+        }
+        .table-empty-state-screen .empty-state-icon {
+          width: 76px;
+          height: 76px;
+          margin: 0 auto 16px;
+          display: grid;
+          place-items: center;
+        }
+        .table-empty-state-screen .empty-state h3 {
           font-size: 1.1rem;
-          opacity: 0.85;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0 0 6px 0;
+        }
+        .table-empty-state-screen .empty-state p {
+          font-size: 0.88rem;
+          color: #64748b;
+          margin: 0 auto;
+          max-width: 460px;
+        }
+        .table-empty-state-print {
+          display: none;
         }
 
         .assign-table-wrap {
@@ -564,18 +589,21 @@ export default function PrintableDailyList({
             z-index: auto !important;
           }
 
+          .table-empty-state-screen {
+            display: none !important;
+          }
+          .table-empty-state-print {
+            display: block !important;
+            color: #000 !important;
+            font-size: 9pt !important;
+            margin: 0 !important;
+            text-align: center !important;
+          }
           .empty-table-cell {
-            padding: 6mm 2mm !important;
+            padding: 5mm 2mm !important;
             background: transparent !important;
             color: #000 !important;
             border: 0.8pt solid #000 !important;
-          }
-          .empty-state-inner {
-            color: #000 !important;
-            font-size: 9pt !important;
-          }
-          .empty-state-icon {
-            display: none !important;
           }
 
           td.cell { }

@@ -563,6 +563,7 @@ export default function OutputsSection({
           notesEnabled={notesEnabled}
           onNotesChange={handleNotesChange}
           onNotesEnabledChange={handleNotesEnabledChange}
+          IconComponent={IconComponent}
         />
       ) : (
         <PrintableAssignmentList
@@ -583,6 +584,7 @@ export default function OutputsSection({
           notesEnabled={notesEnabled}
           onNotesChange={handleNotesChange}
           onNotesEnabledChange={handleNotesEnabledChange}
+          IconComponent={IconComponent}
         />
       )}
 

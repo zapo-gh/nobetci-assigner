@@ -84,8 +84,9 @@ describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
       expect(screen.getByText('2. SAAT')).toBeInTheDocument();
 
       // Empty cell standardized
-      expect(screen.getByText('Bu günde görevi olan öğretmen bulunmuyor.')).toBeInTheDocument();
+      expect(screen.getAllByText('Bu günde görevi olan öğretmen bulunmuyor.').length).toBeGreaterThanOrEqual(1);
       expect(container.querySelector('.empty-table-cell')).toBeInTheDocument();
+      expect(container.querySelector('.table-empty-state-screen')).toBeInTheDocument();
 
       // Interactive notes card
       expect(screen.getByText('Çizelge Açıklamaları')).toBeInTheDocument();
@@ -130,9 +131,10 @@ describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
 
       // Empty cell standardized
       expect(
-        screen.getByText('Bu günde görevlendirme veya mazeretli öğretmen kaydı bulunmuyor.')
-      ).toBeInTheDocument();
+        screen.getAllByText('Bu günde görevlendirme veya mazeretli öğretmen kaydı bulunmuyor.').length
+      ).toBeGreaterThanOrEqual(1);
       expect(container.querySelector('.empty-table-cell')).toBeInTheDocument();
+      expect(container.querySelector('.table-empty-state-screen')).toBeInTheDocument();
 
       // Interactive notes card (previously missing on screen in Görev Listesi)
       expect(screen.getByText('Görev Listesi Açıklamaları')).toBeInTheDocument();
