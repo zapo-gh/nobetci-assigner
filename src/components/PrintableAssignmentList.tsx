@@ -3,6 +3,8 @@ import React, { useMemo } from 'react';
 import { MANUAL_ADMIN_TEACHER_ID, MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js';
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
 import { normalizeClassName, compareClassNames, getClassroomName } from '../utils/classNameUtils.js';
+import PrintNotesCard from './PrintNotesCard';
+import OfficialSignatures from './OfficialSignatures';
 
 const TR_DAYS = { Mon: 'Pazartesi', Tue: 'Salı', Wed: 'Çarşamba', Thu: 'Perşembe', Fri: 'Cuma' };
 const REASON_LABELS = {
@@ -296,8 +298,11 @@ export default function PrintableAssignmentList({
           <tbody>
             {listRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted p-4">
-                  Bu günde görevlendirme veya mazeretli öğretmen kaydı bulunmuyor.
+                <td colSpan={7} className="empty-table-cell">
+                  <div className="empty-state-inner">
+                    <span className="empty-state-icon">📋</span>
+                    <span>Bu günde görevlendirme veya mazeretli öğretmen kaydı bulunmuyor.</span>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -342,48 +347,64 @@ export default function PrintableAssignmentList({
         </table>
       </div>
 
-      {/* ---------------- Çizelge Açıklamalar Bölümü ---------------- */}
-      {notesEnabled && notes && notes.trim() && (
-        <div className="print-notes-card">
-          <div className="print-notes-title-print">AÇIKLAMALAR:</div>
-          <div className="print-notes-content-print">
-            {notes}
-          </div>
-        </div>
-      )}
+      {/* ---------------- Görev Listesi Açıklamalar Bölümü ---------------- */}
+      <PrintNotesCard
+        notes={notes}
+        notesEnabled={notesEnabled}
+        onNotesChange={onNotesChange}
+        onNotesEnabledChange={onNotesEnabledChange}
+        titlePrefix="Görev Listesi Açıklamaları"
+      />
 
-      {/* MEB Resmi Onay ve İmza Blokları */}
-      <div className="official-signatures">
-        <div className="sig-block">
-          <div className="sig-role">Nöbetçi Müdür Yardımcısı</div>
-          <div className="sig-space"></div>
-          <div className="sig-name">Adı Soyadı / İmza</div>
-        </div>
-        <div className="sig-block">
-          <div className="sig-role">UYGUNDUR</div>
-          <div className="sig-subrole">Okul Müdürü</div>
-          <div className="sig-space"></div>
-          <div className="sig-name">Mühür / İmza</div>
-        </div>
-      </div>
+      {/* ---------------- MEB Resmi Onay ve İmza Blokları ---------------- */}
+      <OfficialSignatures />
 
       <style>{`
-        .print-wrap { width: 100%; }
+        .print-wrap {
+          width: 100%;
+          margin-top: 16px;
+          background: #ffffff;
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          border-radius: 16px;
+          box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+          padding: 24px 28px;
+          box-sizing: border-box;
+        }
         .print-title { 
           text-align: center; 
           font-weight: 700; 
-          margin: 0 0 16px 0;
-          font-size: 1.1rem;
+          margin: 0 0 18px 0;
+          font-size: 1.15rem;
           color: var(--text-primary, #0f172a);
+          letter-spacing: -0.2px;
+        }
+
+        .empty-table-cell {
+          padding: 32px 16px !important;
+          text-align: center !important;
+          background: #f8fafc !important;
+        }
+        .empty-state-inner {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #64748b;
+          font-size: 0.9rem;
+          font-weight: 500;
+        }
+        .empty-state-icon {
+          font-size: 1.1rem;
+          opacity: 0.85;
         }
 
         .assign-list-table-wrap {
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           border: 1px solid var(--border-subtle, #e2e8f0);
-          border-radius: var(--radius-lg, 12px);
-          background: var(--bg-elevated, #ffffff);
-          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+          border-radius: 12px;
+          background: #ffffff;
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
         }
 
         .assign-list-table {
@@ -395,11 +416,12 @@ export default function PrintableAssignmentList({
         }
 
         .assign-list-table thead th {
-          background: var(--surface-2, #f8fafc);
-          color: var(--text-primary, #0f172a);
+          background: #f8fafc;
+          color: #0f172a;
           font-weight: 700;
           padding: 10px 12px;
-          border-bottom: 2px solid var(--border-default, #cbd5e1);
+          border: 1px solid #e2e8f0;
+          border-bottom: 2px solid #cbd5e1;
           text-align: center;
           font-size: 0.82rem;
           text-transform: uppercase;
@@ -408,7 +430,7 @@ export default function PrintableAssignmentList({
 
         .assign-list-table tbody td {
           padding: 9px 12px;
-          border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+          border: 1px solid #e2e8f0;
           vertical-align: middle;
         }
 
@@ -489,76 +511,22 @@ export default function PrintableAssignmentList({
           margin: 0 auto;
         }
 
-        /* Ekran Görünümü için Açıklamalar Kartı */
-        .print-notes-card {
-          margin-top: 18px;
-          padding: 14px 18px;
-          background: var(--bg-elevated, #fff);
-          border: 1px solid var(--border-subtle, #e2e8f0);
-          border-radius: var(--radius-lg, 12px);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-        }
-
-        .print-notes-title-print {
-          font-weight: 700;
-          font-size: 0.84rem;
-          color: var(--text-primary, #0f172a);
-          margin-bottom: 4px;
-          text-transform: uppercase;
-        }
-
-        .print-notes-content-print {
-          font-size: 0.82rem;
-          line-height: 1.5;
-          color: var(--text-muted, #475569);
-          white-space: pre-wrap;
-        }
-
-        /* Ekran Görünümü için İmza Blokları */
-        .official-signatures {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 24px;
-          padding: 16px 24px;
-          background: var(--bg-elevated, #fff);
-          border: 1px solid var(--border-subtle, #e2e8f0);
-          border-radius: var(--radius-lg, 12px);
-        }
-
-        .sig-block {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          min-width: 200px;
-          text-align: center;
-        }
-
-        .sig-role {
-          font-weight: 700;
-          font-size: 0.95rem;
-          color: var(--text-primary, #0f172a);
-        }
-
-        .sig-subrole {
-          font-size: 0.85rem;
-          color: var(--text-muted, #64748b);
-        }
-
-        .sig-space {
-          height: 48px;
-        }
-
-        .sig-name {
-          font-size: 0.85rem;
-          color: var(--text-muted, #64748b);
-          border-top: 1px dashed var(--border-default, #cbd5e1);
-          padding-top: 6px;
-          width: 100%;
+        @media (max-width: 900px) {
+          .print-wrap { padding: 16px; }
         }
 
         /* --- YAZDIRMA (PRINT) --- */
         @media print {
           @page { size: A4 landscape; margin: 5mm; }
+
+          .print-wrap {
+            margin-top: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100% !important;
+          }
 
           .print-title {
             margin-bottom: 3.5mm !important;
@@ -594,6 +562,20 @@ export default function PrintableAssignmentList({
             color: #000 !important;
           }
 
+          .empty-table-cell {
+            padding: 6mm 2mm !important;
+            background: transparent !important;
+            color: #000 !important;
+            border: 0.8pt solid #000 !important;
+          }
+          .empty-state-inner {
+            color: #000 !important;
+            font-size: 9pt !important;
+          }
+          .empty-state-icon {
+            display: none !important;
+          }
+
           .period-badge,
           .class-name-badge,
           .classroom-badge {
@@ -616,82 +598,7 @@ export default function PrintableAssignmentList({
             width: 90% !important;
           }
 
-          .print-notes-card {
-            display: block !important;
-            margin-top: 3.5mm !important;
-            margin-bottom: 2mm !important;
-            padding: 2.2mm 3.5mm !important;
-            border: 0.8pt solid #000 !important;
-            border-radius: 0 !important;
-            background: #fff !important;
-            color: #000 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            box-shadow: none !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-          }
-
-          .print-notes-title-print {
-            display: block !important;
-            font-weight: bold !important;
-            font-size: 8.5pt !important;
-            color: #000 !important;
-            margin-bottom: 1.5mm !important;
-            text-transform: uppercase !important;
-          }
-
-          .print-notes-content-print {
-            display: block !important;
-            font-size: 8pt !important;
-            line-height: 1.35 !important;
-            color: #000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            white-space: pre-wrap !important;
-          }
-
-          .official-signatures {
-            display: flex !important;
-            justify-content: space-between !important;
-            margin-top: 7mm !important;
-            padding: 0 15mm !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            border: none !important;
-            background: transparent !important;
-          }
-
-          .sig-block {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            min-width: 55mm !important;
-            text-align: center !important;
-          }
-
-          .sig-role {
-            font-weight: bold !important;
-            font-size: 9.5pt !important;
-            color: #000 !important;
-          }
-
-          .sig-subrole {
-            font-size: 8.5pt !important;
-            color: #000 !important;
-          }
-
-          .sig-space {
-            height: 14mm !important;
-          }
-
-          .sig-name {
-            font-size: 8.5pt !important;
-            color: #000 !important;
-            border-top: 0.8pt solid #000 !important;
-            padding-top: 2mm !important;
-            width: 100% !important;
-          }
+          .assign-list-table, .assign-list-table-wrap { break-inside: avoid !important; page-break-inside: avoid !important; }
         }
       `}</style>
     </div>

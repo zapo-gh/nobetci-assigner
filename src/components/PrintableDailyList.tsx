@@ -1,7 +1,9 @@
 // @ts-nocheck
-import React, { useMemo, useState, useEffect } from "react";
-import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js'
-import { decodeClassAbsenceValue } from '../utils/classAbsence.js'
+import React, { useMemo } from "react";
+import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
+import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
+import PrintNotesCard from './PrintNotesCard';
+import OfficialSignatures from './OfficialSignatures';
 
 const TR_DAYS = { Mon: "Pazartesi", Tue: "Salı", Wed: "Çarşamba", Thu: "Perşembe", Fri: "Cuma" };
 const REASON_LABELS = {
@@ -29,12 +31,6 @@ export default function PrintableDailyList({
   onNotesChange,
   onNotesEnabledChange
 }) {
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [editingText, setEditingText] = useState(notes || '');
-
-  useEffect(() => {
-    setEditingText(notes || '');
-  }, [notes]);
   const classNameById = useMemo(
     () => Object.fromEntries((classes || []).map(c => [c.classId, c.className])),
     [classes]
@@ -125,17 +121,20 @@ export default function PrintableDailyList({
         <table className="assign-table">
           <thead>
             <tr>
-              <th className="teacher-col text-center">Öğretmen</th>
+              <th className="teacher-col text-center">ÖĞRETMEN</th>
               {(periods || []).map(p => (
-                <th key={p} className="period-col text-center">{p}. Saat</th>
+                <th key={p} className="period-col text-center">{p}. SAAT</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {activeDutyTeachers.length === 0 ? (
               <tr>
-                <td colSpan={periods.length + 1} className="text-center text-muted p-4">
-                  Bu günde görevi olan öğretmen bulunmuyor.
+                <td colSpan={periods.length + 1} className="empty-table-cell">
+                  <div className="empty-state-inner">
+                    <span className="empty-state-icon">📋</span>
+                    <span>Bu günde görevi olan öğretmen bulunmuyor.</span>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -308,202 +307,67 @@ export default function PrintableDailyList({
       </div>
 
       {/* ---------------- Çizelge Açıklamalar Bölümü ---------------- */}
-      <div className={`print-notes-card ${!notesEnabled || !notes?.trim() ? 'notes-hidden-in-print' : ''}`}>
-        {/* Yazdırmada Görünen Resmi Başlık ve İçerik */}
-        <div className="print-notes-title-print">AÇIKLAMALAR:</div>
-        <div className="print-notes-content-print">
-          {notes && notes.trim() ? notes : ''}
-        </div>
+      <PrintNotesCard
+        notes={notes}
+        notesEnabled={notesEnabled}
+        onNotesChange={onNotesChange}
+        onNotesEnabledChange={onNotesEnabledChange}
+        titlePrefix="Çizelge Açıklamaları"
+      />
 
-        {/* Ekran Görünümünde (no-print) Başlık ve Kontroller */}
-        <div className="print-notes-header-screen no-print">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.1rem' }}>📝</span>
-            <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary, #0f172a)' }}>
-              Çizelge Açıklamaları
-            </strong>
-            {notesEnabled && notes?.trim() ? (
-              <span className="notes-status-badge badge-active">Çıktıda Görünür</span>
-            ) : (
-              <span className="notes-status-badge badge-inactive">Çıktıda Gizli</span>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <label className="notes-toggle-label">
-              <input
-                type="checkbox"
-                checked={notesEnabled}
-                onChange={(e) => onNotesEnabledChange?.(e.target.checked)}
-              />
-              <span>Çıktıda Göster</span>
-            </label>
-
-            {!isEditingNotes && (
-              <button
-                type="button"
-                className="btn-edit-notes"
-                onClick={() => {
-                  setEditingText(notes || '');
-                  setIsEditingNotes(true);
-                }}
-              >
-                <span>✏️</span>
-                <span>Düzenle</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Ekran Görünümünde Metin Önizlemesi */}
-        {!isEditingNotes && (
-          <div className="print-notes-screen-preview no-print">
-            {notes && notes.trim() ? (
-              <div className="notes-rendered-text">
-                {notes.split('\n').map((line, idx) => (
-                  <div key={idx} className="notes-line">
-                    {line}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="notes-empty-notice">
-                Henüz bir açıklama eklenmedi. Çıktı çizelgesinin altında yer almasını istediğiniz not veya kuralları eklemek için "Düzenle" butonuna tıklayabilirsiniz.
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Ekran Görünümünde Düzenleme Alanı */}
-        {isEditingNotes && (
-          <div className="print-notes-edit-panel no-print">
-            <textarea
-              className="notes-textarea"
-              rows={4}
-              placeholder="Çıktıda yer almasını istediğiniz açıklamaları yazın... (Her satır ayrı bir madde olarak yazdırılır)"
-              value={editingText}
-              onChange={(e) => setEditingText(e.target.value)}
-              autoFocus
-            />
-
-            {/* Hızlı Şablon Butonları */}
-            <div className="notes-quick-templates">
-              <span className="quick-tpl-label">Hızlı Ekle:</span>
-              <button
-                type="button"
-                className="btn-quick-tpl"
-                onClick={() => {
-                  const item = 'Nöbetçi öğretmenler boş geçen derslere zamanında girmekle yükümlüdür.';
-                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
-                }}
-              >
-                + Boş Ders Kuralı
-              </button>
-              <button
-                type="button"
-                className="btn-quick-tpl"
-                onClick={() => {
-                  const item = 'Sınıf defteri ve yoklama fişleri nöbetçi öğretmen tarafından imzalanacaktır.';
-                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
-                }}
-              >
-                + Defter/Yoklama İmzası
-              </button>
-              <button
-                type="button"
-                className="btn-quick-tpl"
-                onClick={() => {
-                  const item = 'Birleştirilen gruplar belirtilen atölye/dersliklerde derse devam edecektir.';
-                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
-                }}
-              >
-                + Birleştirilen Gruplar
-              </button>
-              <button
-                type="button"
-                className="btn-quick-tpl"
-                onClick={() => {
-                  const item = 'Görevli öğretmenler okul idaresinin bilgisi dışında görev yerini terk edemezler.';
-                  setEditingText(prev => prev ? `${prev.trim()}\n${item}` : item);
-                }}
-              >
-                + Görev Yeri Kuralı
-              </button>
-            </div>
-
-            {/* Aksiyon Butonları */}
-            <div className="notes-edit-actions">
-              <button
-                type="button"
-                className="btn-tpl-action"
-                onClick={() => setEditingText('')}
-              >
-                Temizle
-              </button>
-              <button
-                type="button"
-                className="btn-tpl-action"
-                onClick={() => {
-                  setEditingText(`1. Nöbetçi öğretmenler boş geçen derslere zamanında girmekle yükümlüdür.
-2. Sınıf defteri ve yoklama fişleri ilgili ders saatinde nöbetçi öğretmen tarafından doldurulup imzalanacaktır.
-3. Görevli öğretmenler okul idaresinin bilgisi dışında görev yerini terk edemezler.`);
-                }}
-              >
-                Varsayılanı Yükle
-              </button>
-              <div style={{ flex: 1 }} />
-              <button
-                type="button"
-                className="btn-cancel-notes"
-                onClick={() => setIsEditingNotes(false)}
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                className="btn-save-notes"
-                onClick={() => {
-                  onNotesChange?.(editingText);
-                  setIsEditingNotes(false);
-                }}
-              >
-                Kaydet
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* MEB Resmi Onay ve İmza Blokları */}
-      <div className="official-signatures">
-        <div className="sig-block">
-          <div className="sig-role">Nöbetçi Müdür Yardımcısı</div>
-          <div className="sig-space"></div>
-          <div className="sig-name">Adı Soyadı / İmza</div>
-        </div>
-        <div className="sig-block">
-          <div className="sig-role">UYGUNDUR</div>
-          <div className="sig-subrole">Okul Müdürü</div>
-          <div className="sig-space"></div>
-          <div className="sig-name">Mühür / İmza</div>
-        </div>
-      </div>
+      {/* ---------------- MEB Resmi Onay ve İmza Blokları ---------------- */}
+      <OfficialSignatures />
 
       <style>{`
-        .print-wrap { width: 100%; }
-        .print-title { text-align: center; font-weight: var(--font-weight-bold); margin: 0 0 var(--space-2) 0; } /* Değiştirildi */
+        .print-wrap {
+          width: 100%;
+          margin-top: 16px;
+          background: #ffffff;
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          border-radius: 16px;
+          box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+          padding: 24px 28px;
+          box-sizing: border-box;
+        }
+        .print-title {
+          text-align: center;
+          font-weight: 700;
+          margin: 0 0 18px 0;
+          font-size: 1.15rem;
+          color: var(--text-primary, #0f172a);
+          letter-spacing: -0.2px;
+        }
         .text-center { text-align: center; }
         .text-left { text-align: left; }
-        .muted { color: var(--text-muted); }
+        .muted { color: var(--text-muted, #94a3b8); }
         .nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .p-4 { padding: var(--space-4); } /* Yeni */
+
+        .empty-table-cell {
+          padding: 32px 16px !important;
+          text-align: center !important;
+          background: #f8fafc !important;
+        }
+        .empty-state-inner {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #64748b;
+          font-size: 0.9rem;
+          font-weight: 500;
+        }
+        .empty-state-icon {
+          font-size: 1.1rem;
+          opacity: 0.85;
+        }
 
         .assign-table-wrap {
           overflow: auto;
           -webkit-overflow-scrolling: touch;
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-lg); /* Değiştirildi */
-          background: var(--bg-elevated);
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          border-radius: 12px;
+          background: #ffffff;
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
         }
         .assign-table {
           width: 100%;
@@ -514,55 +378,65 @@ export default function PrintableDailyList({
           font-size: 14px;
           line-height: 1.25;
         }
-        /* Tüm satırlar aynı yükseklikte olmalı - border-collapse ile otomatik */
         .assign-table tbody tr {
           height: auto;
         }
-        /* Tüm hücreler için TEK VE AYNI border ve padding tanımı */
-        thead th, tbody td { 
-          border: 1px solid var(--border-subtle);
-          padding: var(--space-2);
+        .assign-table tbody tr:hover {
+          background: #f8fafc;
+        }
+        .assign-table thead th,
+        .assign-table tbody td { 
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          padding: var(--space-2, 8px);
           vertical-align: middle;
           text-align: center;
           display: table-cell;
         }
-        thead th {
-          background: var(--bg-elevated);
+        .assign-table thead th {
+          background: #f8fafc;
+          color: #0f172a;
+          font-weight: 700;
+          padding: 10px 8px;
+          border-bottom: 2px solid #cbd5e1;
           position: sticky; 
           top: 0; 
           z-index: 2;
+          font-size: 0.82rem;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
         }
 
         .teacher-col { width: 220px; }
         .teacher-name { 
-          /* border-collapse: collapse ile satırdaki en yüksek hücreye göre yükseklik ayarlanır */
           vertical-align: middle;
         }
-        /* Öğretmen hücresindeki içeriği tek satır haline getir */
         .teacher-name strong,
         .teacher-name small {
           display: inline;
           line-height: inherit;
         }
 
-        /* Sütun sabitleme - sadece positioning */
-        .assign-table thead th:first-child,
+        /* Sütun sabitleme */
+        .assign-table thead th:first-child {
+          position: sticky;
+          left: 0;
+          background: #f8fafc;
+          z-index: 4;
+        }
         .assign-table tbody td:first-child {
           position: sticky;
           left: 0;
-          background: var(--bg-elevated);
+          background: #ffffff;
           z-index: 3;
         }
-        .assign-table thead th:first-child {
-          z-index: 4;
+        .assign-table tbody tr:hover td:first-child {
+          background: #f8fafc;
         }
 
-        td.cell { 
-          /* Özel stil yok, tüm hücreler aynı */
-        }
+        td.cell { }
         .cell-list {
           display: grid;
-          gap: var(--space-1); /* Değiştirildi */
+          gap: var(--space-1, 4px);
           justify-items: center;
           list-style: none;
           padding: 0;
@@ -572,13 +446,13 @@ export default function PrintableDailyList({
           display: grid;
           gap: 2px;
           justify-items: center;
-          padding: var(--space-1) var(--space-2); /* Değiştirildi */
-          background: var(--bg-primary);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md); /* Değiştirildi */
+          padding: var(--space-1, 4px) var(--space-2, 8px);
+          background: var(--bg-primary, #f8fafc);
+          border: 1px solid var(--border-subtle, #e2e8f0);
+          border-radius: var(--radius-md, 6px);
           max-width: 100%;
         }
-        .class { font-weight: var(--font-weight-bold); } /* Değiştirildi */
+        .class { font-weight: var(--font-weight-bold, 700); }
         .abs { font-size: .86em; opacity: .95; line-height: 1.18; text-align: center; }
         .absline {
           white-space: normal;
@@ -590,59 +464,70 @@ export default function PrintableDailyList({
         }
 
         .common-lesson-teacher-row {
-          background: var(--bg-secondary);
-          border-top: 1px solid var(--primary);
+          background: var(--bg-secondary, #f8fafc);
+          border-top: 1px solid var(--primary, #4f46e5);
         }
-
         .common-lesson-teacher-row .teacher-name {
-          background: var(--bg-secondary);
+          background: var(--bg-secondary, #f8fafc);
         }
 
         .admin-control-row {
-          background: var(--bg-secondary);
-          border-top: 1px solid var(--border-default);
+          background: var(--bg-secondary, #f8fafc);
+          border-top: 1px solid var(--border-default, #cbd5e1);
         }
-
         .admin-control-row .teacher-name {
-          background: var(--bg-secondary);
+          background: var(--bg-secondary, #f8fafc);
         }
 
         .common-lesson {
-          color: var(--primary);
+          color: var(--primary, #4f46e5);
           font-weight: 500;
         }
-
         .admin-control {
           color: var(--warning, #d97706);
           font-weight: 600;
         }
 
         @media (max-width: 900px) {
+          .print-wrap { padding: 16px; }
           .teacher-col { width: 180px; }
           .assign-table { min-width: 720px; }
           .cell-item { padding: 4px 5px; }
         }
 
-        
-
-        /* --- YAZDIRMA --- */
+        /* --- YAZDIRMA (PRINT) --- */
         @media print {
           @page { size: A4 landscape; margin: 5mm; }
 
-          .print-title { margin-bottom: 3mm; font-size: 11pt; }
+          .print-wrap {
+            margin-top: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100% !important;
+          }
+
+          .print-title { margin-bottom: 3mm !important; font-size: 11pt !important; color: #000 !important; }
+
+          .assign-table-wrap {
+            border: none !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+          }
 
           .assign-table {
-            border-collapse: collapse;
-            width: 100%;
-            font-size: 9.3pt;
-            line-height: 1.1;
-            min-width: auto;
+            border-collapse: collapse !important;
+            width: 100% !important;
+            font-size: 9.3pt !important;
+            line-height: 1.1 !important;
+            min-width: auto !important;
           }
-          /* Tüm satırlar aynı yükseklikte olmalı - border-collapse ile otomatik */
           .assign-table tbody tr {
-            height: auto;
+            height: auto !important;
           }
-          thead th, tbody td {
+          .assign-table thead th,
+          .assign-table tbody td {
             border: 0.8pt solid #000 !important;
             background: #fff !important;
             color: #000 !important;
@@ -651,7 +536,11 @@ export default function PrintableDailyList({
             text-align: center !important;
             display: table-cell !important;
           }
-          thead th { position: static !important; }
+          .assign-table thead th {
+            position: static !important;
+            background: #f1f5f9 !important;
+            font-weight: bold !important;
+          }
           .teacher-col { width: 170px !important; }
           .teacher-name { 
             vertical-align: middle !important;
@@ -668,7 +557,6 @@ export default function PrintableDailyList({
           }
           .teacher-name .teacher-id { display: none !important; }
 
-          /* Yazdırma için sabitlenmiş sütunları devre dışı bırak */
           .assign-table thead th:first-child,
           .assign-table tbody td:first-child {
             position: static !important;
@@ -676,315 +564,32 @@ export default function PrintableDailyList({
             z-index: auto !important;
           }
 
-          td.cell { 
-            /* Özel stil yok, tüm hücreler aynı */
+          .empty-table-cell {
+            padding: 6mm 2mm !important;
+            background: transparent !important;
+            color: #000 !important;
+            border: 0.8pt solid #000 !important;
           }
-          .cell-list { gap: 2px; }
+          .empty-state-inner {
+            color: #000 !important;
+            font-size: 9pt !important;
+          }
+          .empty-state-icon {
+            display: none !important;
+          }
+
+          td.cell { }
+          .cell-list { gap: 2px !important; }
           .cell-item {
             background: transparent !important;
             border: none !important;
             padding: 0 !important;
             border-radius: 0 !important;
           }
-          .class { font-weight: var(--font-weight-bold); }
-          .abs  { font-size: 8.5pt; }
+          .class { font-weight: var(--font-weight-bold, 700) !important; }
+          .abs  { font-size: 8.5pt !important; }
 
-          .assign-table, .assign-table-wrap { break-inside: avoid; page-break-inside: avoid; }
-
-          /* Açıklamalar Bölümü (Yazdırma) */
-          .print-notes-card {
-            display: block !important;
-            margin-top: 3.5mm !important;
-            margin-bottom: 2mm !important;
-            padding: 2.2mm 3.5mm !important;
-            border: 0.8pt solid #000 !important;
-            border-radius: 0 !important;
-            background: #fff !important;
-            color: #000 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            box-shadow: none !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-          }
-
-          .print-notes-card.notes-hidden-in-print {
-            display: none !important;
-          }
-
-          .print-notes-title-print {
-            display: block !important;
-            font-weight: bold !important;
-            font-size: 8.5pt !important;
-            color: #000 !important;
-            margin-bottom: 1.5mm !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.3px !important;
-          }
-
-          .print-notes-content-print {
-            display: block !important;
-            font-size: 8pt !important;
-            line-height: 1.35 !important;
-            color: #000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            white-space: pre-wrap !important;
-          }
-
-          .print-notes-header-screen,
-          .print-notes-screen-preview,
-          .print-notes-edit-panel,
-          .no-print {
-            display: none !important;
-          }
-
-          /* Resmi İmza Blokları (Yazdırma) */
-          .official-signatures {
-            display: flex !important;
-            justify-content: space-between !important;
-            margin-top: 8mm !important;
-            padding: 0 15mm !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-          .sig-block {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            min-width: 55mm !important;
-            text-align: center !important;
-          }
-          .sig-role {
-            font-weight: bold !important;
-            font-size: 9.5pt !important;
-            color: #000 !important;
-          }
-          .sig-subrole {
-            font-size: 8.5pt !important;
-            color: #000 !important;
-          }
-          .sig-space {
-            height: 14mm !important;
-          }
-          .sig-name {
-            font-size: 8.5pt !important;
-            color: #000 !important;
-            border-top: 0.8pt solid #000 !important;
-            padding-top: 2mm !important;
-            width: 100% !important;
-          }
-        }
-
-        /* Açıklamalar Bölümü (Ekran) */
-        .print-notes-card {
-          margin-top: 20px;
-          padding: 16px 20px;
-          background: var(--bg-elevated, #fff);
-          border: 1px solid var(--border-subtle, #e2e8f0);
-          border-radius: var(--radius-lg, 12px);
-          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
-        }
-        .print-notes-title-print,
-        .print-notes-content-print {
-          display: none;
-        }
-        .print-notes-header-screen {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid var(--border-subtle, #e2e8f0);
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-        .notes-status-badge {
-          font-size: 0.72rem;
-          font-weight: 700;
-          padding: 2px 8px;
-          border-radius: 999px;
-        }
-        .badge-active {
-          background: #dcfce7;
-          color: #166534;
-        }
-        .badge-inactive {
-          background: #f1f5f9;
-          color: #64748b;
-        }
-        .notes-toggle-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.82rem;
-          font-weight: 600;
-          color: var(--text-muted, #475569);
-          cursor: pointer;
-          user-select: none;
-        }
-        .btn-edit-notes {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 5px 12px;
-          border-radius: 8px;
-          border: 1px solid #cbd5e1;
-          background: #ffffff;
-          color: #334155;
-          font-size: 0.8rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-        .btn-edit-notes:hover {
-          background: #f8fafc;
-          border-color: #94a3b8;
-          color: #0f172a;
-        }
-        .notes-rendered-text {
-          font-size: 0.88rem;
-          color: var(--text-primary, #334155);
-          line-height: 1.6;
-        }
-        .notes-line {
-          padding: 2px 0;
-        }
-        .notes-empty-notice {
-          font-size: 0.82rem;
-          color: #94a3b8;
-          font-style: italic;
-          padding: 8px 0;
-        }
-        .print-notes-edit-panel {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .notes-textarea {
-          width: 100%;
-          padding: 10px 12px;
-          border-radius: 8px;
-          border: 1.5px solid #cbd5e1;
-          font-family: inherit;
-          font-size: 0.85rem;
-          line-height: 1.5;
-          color: var(--text-primary, #0f172a);
-          background: var(--bg-primary, #ffffff);
-          resize: vertical;
-          outline: none;
-          box-sizing: border-box;
-        }
-        .notes-textarea:focus {
-          border-color: #4f46e5;
-          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-        .notes-quick-templates {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 6px;
-        }
-        .quick-tpl-label {
-          font-size: 0.74rem;
-          font-weight: 700;
-          color: #64748b;
-        }
-        .btn-quick-tpl {
-          padding: 3px 8px;
-          border-radius: 6px;
-          border: 1px dashed #cbd5e1;
-          background: #f8fafc;
-          color: #475569;
-          font-size: 0.74rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-        .btn-quick-tpl:hover {
-          background: #eef2ff;
-          border-color: #6366f1;
-          color: #4338ca;
-        }
-        .notes-edit-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-top: 4px;
-        }
-        .btn-tpl-action {
-          padding: 5px 10px;
-          border-radius: 6px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          color: #64748b;
-          font-size: 0.76rem;
-          cursor: pointer;
-        }
-        .btn-tpl-action:hover {
-          background: #e2e8f0;
-          color: #334155;
-        }
-        .btn-cancel-notes {
-          padding: 6px 14px;
-          border-radius: 8px;
-          border: 1px solid #cbd5e1;
-          background: #ffffff;
-          color: #475569;
-          font-size: 0.8rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .btn-save-notes {
-          padding: 6px 16px;
-          border-radius: 8px;
-          border: none;
-          background: #4f46e5;
-          color: #ffffff;
-          font-size: 0.8rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-        .btn-save-notes:hover {
-          background: #4338ca;
-        }
-
-        /* Ekran Görünümü için İmza Blokları */
-        .official-signatures {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 24px;
-          padding: 16px 24px;
-          background: var(--bg-elevated, #fff);
-          border: 1px solid var(--border-subtle, #e2e8f0);
-          border-radius: var(--radius-lg, 12px);
-        }
-        .sig-block {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          min-width: 200px;
-          text-align: center;
-        }
-        .sig-role {
-          font-weight: 700;
-          font-size: 0.95rem;
-          color: var(--text-primary, #0f172a);
-        }
-        .sig-subrole {
-          font-size: 0.85rem;
-          color: var(--text-muted, #64748b);
-        }
-        .sig-space {
-          height: 48px;
-        }
-        .sig-name {
-          font-size: 0.85rem;
-          color: var(--text-muted, #64748b);
-          border-top: 1px dashed var(--border-default, #cbd5e1);
-          padding-top: 6px;
-          width: 100%;
+          .assign-table, .assign-table-wrap { break-inside: avoid !important; page-break-inside: avoid !important; }
         }
       `}</style>
     </div>
