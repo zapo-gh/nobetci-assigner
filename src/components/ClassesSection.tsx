@@ -15,6 +15,7 @@ export default function ClassesSection({
   onSetAllClassesFree,
   onSelectAbsence,
   onOpenCommonLessonModal,
+  onCancelCommonLesson,
   onDeleteClass,
   teachers = [],
   onAddClass,
@@ -55,6 +56,7 @@ export default function ClassesSection({
         onSelectAbsence={onSelectAbsence}
         commonLessons={commonLessons}
         onOpenCommonLessonModal={onOpenCommonLessonModal}
+        onCancelCommonLesson={onCancelCommonLesson}
         onDelete={onDeleteClass}
         day={day}
         IconComponent={IconComponent}

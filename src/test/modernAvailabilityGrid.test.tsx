@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import ModernAvailabilityGrid from '../components/ModernAvailabilityGrid';
 
 describe('ModernAvailabilityGrid layout and teacher row updates', () => {
@@ -52,4 +52,69 @@ describe('ModernAvailabilityGrid layout and teacher row updates', () => {
     expect(screen.queryByText('6/11')).toBeNull();
     expect(screen.queryByText('8/11')).toBeNull();
   });
+
+  it('renders common lessons as a clean interactive badge without duplicate select', async () => {
+    const { default: ModernClassAvailabilityGrid } = await import('../components/ModernClassAvailabilityGrid');
+
+    const mockClasses = [
+      { classId: 'cls-9i', className: 'AMP 9-I' },
+    ];
+    const mockTeachers = [
+      { teacherId: 't-bulent', teacherName: 'BÜLENT AYGÜN' },
+    ];
+    const periods = [6, 7];
+    const classFree = {
+      Tue: {
+        6: new Set(['cls-9i']),
+        7: new Set(['cls-9i']),
+      },
+    };
+    const classAbsence = {
+      Tue: {
+        6: { 'cls-9i': 'COMMON_LESSON::absent-mehmet' },
+        7: { 'cls-9i': 'COMMON_LESSON::absent-mehmet' },
+      },
+    };
+    const commonLessons = {
+      Tue: {
+        6: { 'cls-9i': 'BÜLENT AYGÜN' },
+        7: { 'cls-9i': 'BÜLENT AYGÜN' },
+      },
+    };
+
+    const onCancelCommonLesson = vi.fn();
+    render(
+      <ModernClassAvailabilityGrid
+        classes={mockClasses}
+        teachers={mockTeachers}
+        periods={periods}
+        classFree={classFree}
+        classAbsence={classAbsence}
+        commonLessons={commonLessons}
+        onCancelCommonLesson={onCancelCommonLesson}
+        day="Tue"
+      />
+    );
+
+    // Should display Grup Birleştirildi headers
+    const groupHeaders = screen.getAllByText(/Grup Birleştirildi/i);
+    expect(groupHeaders.length).toBe(2);
+
+    // Should display B. AYGÜN badges
+    const badges = screen.getAllByText(/B\. AYGÜN/i);
+    expect(badges.length).toBe(2);
+
+    // Should display İptal Et buttons
+    const cancelButtons = screen.getAllByRole('button', { name: /İptal Et/i });
+    expect(cancelButtons.length).toBe(2);
+
+    // Clicking cancel button should trigger onCancelCommonLesson
+    fireEvent.click(cancelButtons[0]);
+    expect(onCancelCommonLesson).toHaveBeenCalledWith('Tue', 6, 'cls-9i');
+
+    // Should NOT have any duplicate <select> element displaying "Birleştir" for common lesson
+    const selects = screen.queryAllByRole('combobox');
+    expect(selects.length).toBe(0);
+  });
 });
+

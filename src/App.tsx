@@ -56,6 +56,7 @@ import {
   bulkSaveClassFree,
   bulkSaveClassAbsence,
   bulkSaveTeacherFree,
+  bulkSaveLocks,
   clearAdminLocks,
   TEACHER_SCHEDULES_SNAPSHOT_KEY,
   saveLocationZoneMapping,
@@ -624,16 +625,20 @@ export default function App() {
     return trimmed;
   }, [teacherMap, teacherNameLookup, absentIdToNameMap]);
 
-  const sanitizeCommonLessonsMap = useCallback((lessons = {}) => {
+  const sanitizeCommonLessonsMap = useCallback((lessons = {}, currentClasses: any = null) => {
     let changed = false;
-    const next = {};
+    const next: Record<string, any> = {};
+
+    const classSet = currentClasses && Array.isArray(currentClasses) && currentClasses.length > 0
+      ? new Set(currentClasses.map((cls: any) => cls?.classId).filter(Boolean))
+      : validClassIdSet;
 
     Object.entries(lessons || {}).forEach(([dayKey, perMap]) => {
       if (!perMap) return;
-      Object.entries(perMap).forEach(([periodKey, byClass]) => {
+      Object.entries(perMap).forEach(([periodKey, byClass]: any) => {
         if (!byClass) return;
-        Object.entries(byClass).forEach(([classId, rawValue]) => {
-          if (!validClassIdSet.has(classId)) {
+        Object.entries(byClass).forEach(([classId, rawValue]: any) => {
+          if (classSet.size > 0 && !classSet.has(classId)) {
             changed = true;
             return;
           }
@@ -667,22 +672,60 @@ export default function App() {
           supabaseData.absents || [],
           classAbsenceMap || {},
         );
-        const { map: sanitizedCommonLessons } = sanitizeCommonLessonsMap(
-          supabaseData.commonLessons || {},
-        );
-
-        setTeachers(supabaseData.teachers || []);
         const normalizedClasses = (supabaseData.classes || []).map((c: any) => ({
           ...c,
           className: normalizeClassName(c?.className || '') || c?.className || '',
         }));
+
+        let { map: sanitizedCommonLessons } = sanitizeCommonLessonsMap(
+          supabaseData.commonLessons || {},
+          normalizedClasses
+        );
+
+        // Fallback: Eğer Firebase'deki commonLessons boşsa ama localStorage'da mevcutsa, yerel veriyi koru ve Firebase'e senkronla
+        if (Object.keys(sanitizedCommonLessons).length === 0 && typeof localStorage !== 'undefined') {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.commonLessons && Object.keys(parsed.commonLessons).length > 0) {
+                const { map: localSanitized } = sanitizeCommonLessonsMap(parsed.commonLessons, normalizedClasses);
+                if (Object.keys(localSanitized).length > 0) {
+                  sanitizedCommonLessons = localSanitized;
+                  saveCommonLessons(sanitizedCommonLessons).catch((e: any) => logger.warn('Sync commonLessons to Firestore failed:', e));
+                }
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        let loadedLocks = supabaseData.locked || {};
+        // Fallback: Eğer Firebase'deki kilitler boşsa ama localStorage'da kayıtlı kilitler varsa, koru ve senkronla
+        if (Object.keys(loadedLocks).length === 0 && typeof localStorage !== 'undefined') {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed.locked && Object.keys(parsed.locked).length > 0) {
+                loadedLocks = parsed.locked;
+                bulkSaveLocks(loadedLocks).catch((e: any) => logger.warn('Sync locks to Firestore failed:', e));
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        setTeachers(supabaseData.teachers || []);
         setClasses(normalizedClasses);
         setTeacherFree(teacherFreeSets);
         setClassFree(classFreeSets);
         setClassAbsence(classAbsenceMap);
         setAbsentPeople(normalizedAbsents);
         setCommonLessons(sanitizedCommonLessons);
-        setLocked(supabaseData.locked || {});
+        setLocked(loadedLocks);
         setPdfSchedule(supabaseData.pdfSchedule || {});
         if (supabaseData.locationZoneMapping) {
           setLocationZoneMapping(supabaseData.locationZoneMapping);
@@ -707,14 +750,14 @@ export default function App() {
               day,
               periods,
               teachers: supabaseData.teachers || [],
-              classes: supabaseData.classes || [],
+              classes: normalizedClasses,
               teacherFree: mapSetToArray(teacherFreeSets),
               classFree: mapSetToArray(classFreeSets),
               absentPeople: normalizedAbsents,
               classAbsence: classAbsenceMap,
               commonLessons: sanitizedCommonLessons,
               options,
-              locked: supabaseData.locked || {},
+              locked: loadedLocks,
               pdfSchedule: supabaseData.pdfSchedule || {},
               teacherSchedules: supabaseData.teacherSchedules || {},
               lastSaved: Date.now(),
@@ -1313,6 +1356,36 @@ export default function App() {
     }, 100);
   }, []);
 
+  const syncCommonLessonsToLocalStorage = useCallback((nextCommonLessons: any) => {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.commonLessons = nextCommonLessons;
+        parsed.lastSaved = Date.now();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+    } catch (e) {
+      logger.warn('Immediate localStorage commonLessons save error:', e);
+    }
+  }, [STORAGE_KEY]);
+
+  const syncLockedToLocalStorage = useCallback((nextLocked: any) => {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.locked = nextLocked;
+        parsed.lastSaved = Date.now();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+    } catch (e) {
+      logger.warn('Immediate localStorage lock save error:', e);
+    }
+  }, [STORAGE_KEY]);
+
   const handleSetCommonLesson = useCallback((day, period, classId, teacherName) => {
     setCommonLessons((prev) => {
       const next = { ...prev };
@@ -1334,9 +1407,11 @@ export default function App() {
           delete next[day];
         }
       }
+      syncCommonLessonsToLocalStorage(next);
+      saveCommonLessons(next).catch(err => logger.error('saveCommonLessons error:', err));
       return next;
     });
-  }, [normalizeCommonLessonTeacherName, updateClassAbsenceForCommonLesson]);
+  }, [normalizeCommonLessonTeacherName, updateClassAbsenceForCommonLesson, syncCommonLessonsToLocalStorage]);
 
 
   const handleOpenCommonLessonModal = useCallback((day, period, classId) => {
@@ -2261,16 +2336,9 @@ export default function App() {
       const period = parts[1];
       const classId = parts[2];
 
-      const periodFreeSet = dayFree[period] || dayFree[Number(period)];
-      const isFree = periodFreeSet instanceof Set
-        ? periodFreeSet.has(classId)
-        : Array.isArray(periodFreeSet)
-          ? periodFreeSet.includes(classId)
-          : false;
-
-      const isCommon = Boolean(dayCommon?.[period]?.[classId] || dayCommon?.[Number(period)]?.[classId]);
-
-      if (!isFree && !isCommon) {
+      // Yalnızca sınıf okul listesinden tamamen silinmişse yetim kilit olarak kabul et.
+      // Kullanıcının manuel atadığı geçerli kilitler asla geçici boşluk durumuna göre silinmez.
+      if (validClassIdSet.size > 0 && !validClassIdSet.has(classId)) {
         orphanLocks.push({ key, period, classId });
       }
     });
@@ -2281,16 +2349,12 @@ export default function App() {
         orphanLocks.forEach(({ key }) => {
           delete next[key];
         });
+        syncLockedToLocalStorage(next);
+        bulkSaveLocks(next).catch(err => logger.error('Orphan lock bulk save error:', err));
         return next;
       });
-
-      orphanLocks.forEach(({ period, classId }) => {
-        upsertLock({ day, period: Number(period), classId, teacherId: null }).catch(err => {
-          logger.error('Orphan lock cleanup error:', err);
-        });
-      });
     }
-  }, [day, locked, freeClassesByDay, commonLessons]);
+  }, [day, locked, validClassIdSet, syncLockedToLocalStorage]);
 
   const { schedule: rawAssignment } = useMemo(
     () =>
@@ -2665,20 +2729,7 @@ export default function App() {
     };
   }, [assignment, teachersForCurrentDay])
 
-  const syncLockedToLocalStorage = useCallback((nextLocked: any) => {
-    try {
-      if (typeof localStorage === 'undefined') return;
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        parsed.locked = nextLocked;
-        parsed.lastSaved = Date.now();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      }
-    } catch (e) {
-      logger.warn('Immediate localStorage lock save error:', e);
-    }
-  }, [STORAGE_KEY]);
+
 
   const dropAssign = useCallback(({ day, period, fromClassId, toClassId, teacherId }) => {
     if (!teacherId || !toClassId) return
@@ -2695,28 +2746,19 @@ export default function App() {
         const fromKey = `${day}|${period}|${fromClassId}`
         if (next[fromKey] === teacherId) {
           delete next[fromKey]
-          upsertLock({ day, period, classId: fromClassId, teacherId: null }).catch(err =>
-            logger.error('Lock remove error:', err)
-          )
         }
       } else {
         const prefix = `${day}|${period}|`
         const existingKeys = Object.keys(next).filter(key => key.startsWith(prefix) && next[key] === teacherId)
         existingKeys.forEach(k => {
           delete next[k]
-          const [, , removedCid] = k.split('|')
-          upsertLock({ day, period, classId: removedCid, teacherId: null }).catch(err =>
-            logger.error('Lock remove error:', err)
-          )
         })
       }
 
       next[toKey] = teacherId
       syncLockedToLocalStorage(next)
+      bulkSaveLocks(next).catch(err => logger.error('Lock bulk save error:', err))
 
-      upsertLock({ day, period, classId: toClassId, teacherId }).catch(err =>
-        logger.error('Lock upsert error:', err)
-      )
       return next
     })
 
@@ -2756,12 +2798,10 @@ export default function App() {
       const next = { ...(prev || {}) }
       next[key] = MANUAL_EMPTY_TEACHER_ID
       syncLockedToLocalStorage(next)
+      bulkSaveLocks(next).catch(err => logger.error('Lock bulk save error:', err))
       return next
     })
 
-    upsertLock({ day, period, classId, teacherId: MANUAL_EMPTY_TEACHER_ID }).catch((err) =>
-      logger.error('Manual empty upsert error:', err)
-    )
     addNotification({
       message: `${dayLabel} ${period}. saat için ${classLabel} atama yapılmadı olarak ayarlandı`,
       type: 'info',
@@ -2783,12 +2823,10 @@ export default function App() {
       const next = { ...(prev || {}) }
       next[key] = MANUAL_ADMIN_TEACHER_ID
       syncLockedToLocalStorage(next)
+      bulkSaveLocks(next).catch(err => logger.error('Lock bulk save error:', err))
       return next
     })
 
-    upsertLock({ day, period, classId, teacherId: MANUAL_ADMIN_TEACHER_ID }).catch((err) =>
-      logger.error('Manual admin upsert error:', err)
-    )
     addNotification({
       message: `${dayLabel} ${period}. saat için ${classLabel} idare kontrolüne alındı`,
       type: 'info',
@@ -2810,12 +2848,10 @@ export default function App() {
       const next = { ...prev }
       delete next[key]
       syncLockedToLocalStorage(next)
+      bulkSaveLocks(next).catch(err => logger.error('Lock bulk save error:', err))
       return next
     })
 
-    upsertLock({ day, period, classId, teacherId: null }).catch((err) =>
-      logger.error('Manual release error:', err)
-    )
     addNotification({
       message: `${dayLabel} ${period}. saatteki ${classLabel} görevi yeniden otomatik plana bırakıldı`,
       type: 'success',
@@ -2981,6 +3017,9 @@ export default function App() {
               onOpenCommonLessonModal={(slotDay, period, classId) =>
                 handleOpenCommonLessonModal(slotDay, period, classId)
               }
+              onCancelCommonLesson={(slotDay, period, classId) =>
+                handleSetCommonLesson(slotDay, period, classId, '')
+              }
               onDeleteClass={deleteClass}
               teachers={teachers}
               onAddClass={() => setModals((m) => ({ ...m, class: true }))}
@@ -3117,6 +3156,9 @@ export default function App() {
             teacherSchedulesList={teacherSchedulesList}
             blockedAbsentTeacherNames={blockedAbsentTeacherNames}
             dutyZones={dutyZones}
+            teacherSchedules={teacherSchedules}
+            classLocations={classLocations}
+            absentPeople={absentPeople}
           />
         </Suspense>
       )}

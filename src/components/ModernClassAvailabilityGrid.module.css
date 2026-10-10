@@ -453,9 +453,150 @@
 .dropdownContainer {
   position: relative;
   width: 100%;
-  max-width: 88px;
+  max-width: 96px;
   margin-top: 2px;
 }
+
+/* ---------------- Common Lesson Capsule Card ---------------- */
+.commonLessonCard {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 5px;
+  background: #f8f7ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.08);
+  box-sizing: border-box;
+  animation: fadeInCard 0.2s ease-in-out;
+}
+
+@keyframes fadeInCard {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.commonLessonHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.commonLessonIcon {
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.commonLessonTitle {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #7c3aed;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+
+.commonLessonTeacherBadge {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 4px;
+  background: #ffffff;
+  border: 1px solid #c4b5fd;
+  border-radius: 5px;
+  color: #581c87;
+  font-size: 0.70rem;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.05);
+  cursor: default;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.commonLessonTeacherIcon {
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.commonLessonTeacherBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 4px;
+  background: #ffffff;
+  border: 1px solid #c4b5fd;
+  border-radius: 5px;
+  color: #581c87;
+  font-size: 0.70rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.05);
+}
+
+.commonLessonTeacherBtn:hover {
+  background: #f3e8ff;
+  border-color: #8b5cf6;
+  color: #3b0764;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.15);
+}
+
+.commonLessonTeacherText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 66px;
+}
+
+.commonLessonEditPen {
+  font-size: 0.58rem;
+  opacity: 0.65;
+}
+
+.commonLessonTeacherBtn:hover .commonLessonEditPen {
+  opacity: 1;
+}
+
+.commonLessonCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  padding: 2px 4px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  color: #dc2626;
+  font-size: 0.62rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.commonLessonCancelBtn:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
+  transform: translateY(-1px);
+}
+
+.commonLessonCancelBtn:active {
+  transform: scale(0.97);
+}
+
 
 .modernSelect {
   width: 100%;

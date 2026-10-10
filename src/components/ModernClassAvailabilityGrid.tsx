@@ -40,6 +40,7 @@ function ModernClassAvailabilityGrid({
   onSelectAbsence,
   commonLessons = {},
   onOpenCommonLessonModal,
+  onCancelCommonLesson,
   onDelete,
   day = 'Mon',
   IconComponent,
@@ -162,7 +163,7 @@ function ModernClassAvailabilityGrid({
       const s = classFree?.[day]?.[p] || new Set();
       const selectedAbsent = classAbsence?.[day]?.[p]?.[classId] ?? '';
       const isSelected = s.has(classId) || Boolean(selectedAbsent);
-      const isCommon = selectedAbsent === 'COMMON_LESSON';
+      const isCommon = selectedAbsent === 'COMMON_LESSON' || (typeof selectedAbsent === 'string' && selectedAbsent.startsWith('COMMON_LESSON'));
       return isSelected && !selectedAbsent && !isCommon;
     });
   };
@@ -476,7 +477,7 @@ function ModernClassAvailabilityGrid({
                       const set = classFree?.[day]?.[p] || new Set();
                       const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId] ?? '';
                       const isSelected = set.has(cls.classId) || Boolean(selectedAbsent);
-                      const isCommonLesson = selectedAbsent === 'COMMON_LESSON';
+                      const isCommonLesson = selectedAbsent === 'COMMON_LESSON' || (typeof selectedAbsent === 'string' && selectedAbsent.startsWith('COMMON_LESSON'));
                       const needsAbsentSelection = isSelected && !selectedAbsent && !isCommonLesson;
                       const absentInfo = selectedAbsent && !isCommonLesson ? getAbsentInfo(selectedAbsent) : null;
                       const commonTeacherName = isCommonLesson ? getCommonLessonInfo(day, p, cls.classId) : null;
@@ -512,73 +513,98 @@ function ModernClassAvailabilityGrid({
                             {/* Dropdown & Absent Info under Capsule when selected */}
                             {isSelected && (
                               <div className={styles.dropdownContainer}>
-                                <select
-                                  value={selectedAbsent}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (value === 'COMMON_LESSON') {
-                                      onOpenCommonLessonModal?.(day, p, cls.classId);
-                                    } else {
-                                      onSelectAbsence?.(day, p, cls.classId, value);
-                                    }
-                                    onDropdownStateChange?.(false);
-                                  }}
-                                  className={`${styles.modernSelect} ${
-                                    needsAbsentSelection ? styles.selectError : ''
-                                  }`}
-                                  title={needsAbsentSelection ? 'Gelmeyen öğretmen seçimi zorunlu!' : ''}
-                                  onFocus={() => onDropdownStateChange?.(true)}
-                                  onBlur={() => {
-                                    setTimeout(() => onDropdownStateChange?.(false), 50);
-                                  }}
-                                >
-                                  <option value="">— Mazeret Seç —</option>
-                                  {!isImesLesson(cls.className) && (
-                                    <option value="COMMON_LESSON">📚 Birleştir</option>
-                                  )}
-                                  {absentPeople.map((absent) => (
-                                    <option key={absent.absentId} value={absent.absentId}>
-                                      {formatTeacherName(absent.name, absent.teacherId)} ({absent.reason})
-                                    </option>
-                                  ))}
-                                </select>
-                                <div className={styles.selectArrow} />
+                                {isCommonLesson ? (
+                                  <div className={styles.commonLessonCard}>
+                                    <div className={styles.commonLessonHeader} title="Grup Birleştirildi">
+                                      <span className={styles.commonLessonIcon}>📚</span>
+                                      <span className={styles.commonLessonTitle}>Grup Birleştirildi</span>
+                                    </div>
+                                    <div
+                                      className={styles.commonLessonTeacherBadge}
+                                      title={`Dersi Veren Öğretmen: ${commonTeacherName || 'Belirtilmedi'}`}
+                                    >
+                                      <span className={styles.commonLessonTeacherIcon}>👨‍🏫</span>
+                                      <span className={styles.commonLessonTeacherText}>
+                                        {commonTeacherName ? formatTeacherName(commonTeacherName) : 'Öğretmen'}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className={styles.commonLessonCancelBtn}
+                                      onClick={() => {
+                                        if (onCancelCommonLesson) {
+                                          onCancelCommonLesson(day, p, cls.classId);
+                                        } else {
+                                          onSelectAbsence?.(day, p, cls.classId, '');
+                                        }
+                                      }}
+                                      title="Grup birleştirmesini iptal et"
+                                    >
+                                      <span style={{ fontSize: '0.62rem', fontWeight: 800 }}>✕</span>
+                                      <span>İptal Et</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <select
+                                      value={selectedAbsent}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value === 'COMMON_LESSON') {
+                                          onOpenCommonLessonModal?.(day, p, cls.classId);
+                                        } else {
+                                          onSelectAbsence?.(day, p, cls.classId, value);
+                                        }
+                                        onDropdownStateChange?.(false);
+                                      }}
+                                      className={`${styles.modernSelect} ${
+                                        needsAbsentSelection ? styles.selectError : ''
+                                      }`}
+                                      title={needsAbsentSelection ? 'Gelmeyen öğretmen seçimi zorunlu!' : ''}
+                                      onFocus={() => onDropdownStateChange?.(true)}
+                                      onBlur={() => {
+                                        setTimeout(() => onDropdownStateChange?.(false), 50);
+                                      }}
+                                    >
+                                      <option value="">— Mazeret Seç —</option>
+                                      {!isImesLesson(cls.className) && (
+                                        <option value="COMMON_LESSON">📚 Birleştir</option>
+                                      )}
+                                      {absentPeople.map((absent) => (
+                                        <option key={absent.absentId} value={absent.absentId}>
+                                          {formatTeacherName(absent.name, absent.teacherId)} ({absent.reason})
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <div className={styles.selectArrow} />
 
-                                {/* Selected Absent Reason Badge */}
-                                {absentInfo && (
-                                  <span
-                                    className={`${styles.absentBadgeChip} ${getAbsentBadgeClass(absentInfo.reason)}`}
-                                    title={`Mazeret: ${absentInfo.reason}`}
-                                  >
-                                    {absentInfo.reason.charAt(0).toUpperCase() + absentInfo.reason.slice(1).toLowerCase()}
-                                  </span>
-                                )}
+                                    {/* Selected Absent Reason Badge */}
+                                    {absentInfo && (
+                                      <span
+                                        className={`${styles.absentBadgeChip} ${getAbsentBadgeClass(absentInfo.reason)}`}
+                                        title={`Mazeret: ${absentInfo.reason}`}
+                                      >
+                                        {absentInfo.reason.charAt(0).toUpperCase() + absentInfo.reason.slice(1).toLowerCase()}
+                                      </span>
+                                    )}
 
-                                {/* Fallback absent badge */}
-                                {selectedAbsent && !isCommonLesson && !absentInfo && (
-                                  <span
-                                    className={`${styles.absentBadgeChip} ${styles.badgeMuted}`}
-                                    title={selectedAbsent}
-                                  >
-                                    {selectedAbsent}
-                                  </span>
-                                )}
+                                    {/* Fallback absent badge */}
+                                    {selectedAbsent && !absentInfo && (
+                                      <span
+                                        className={`${styles.absentBadgeChip} ${styles.badgeMuted}`}
+                                        title={selectedAbsent}
+                                      >
+                                        {selectedAbsent}
+                                      </span>
+                                    )}
 
-                                {/* Common Lesson Badge */}
-                                {isCommonLesson && (
-                                  <span
-                                    className={`${styles.absentBadgeChip} ${styles.badgeCommon}`}
-                                    title={`Ders Birleştirildi: ${commonTeacherName || ''}`}
-                                  >
-                                    📚 {commonTeacherName ? formatTeacherName(commonTeacherName) : 'Birleştir'}
-                                  </span>
-                                )}
-
-                                {/* Warning for Missing Selection */}
-                                {needsAbsentSelection && (
-                                  <span className={styles.warningMissingBadge} title="Lütfen mazeretli öğretmeni seçin">
-                                    ⚠️ Seçin
-                                  </span>
+                                    {/* Warning for Missing Selection */}
+                                    {needsAbsentSelection && (
+                                      <span className={styles.warningMissingBadge} title="Lütfen mazeretli öğretmeni seçin">
+                                        ⚠️ Seçin
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             )}

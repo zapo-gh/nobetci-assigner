@@ -50,6 +50,9 @@ export default function GlobalModals({
     teacherSchedulesList = [],
     blockedAbsentTeacherNames = new Set(),
     dutyZones = [],
+    teacherSchedules = {},
+    classLocations = {},
+    absentPeople = [],
 }) {
     const Icon = IconComponent;
 
@@ -109,6 +112,13 @@ export default function GlobalModals({
                     }}
                     currentTeacherName={currentCommonLesson.day && currentCommonLesson.period && currentCommonLesson.classId ?
                         commonLessons[currentCommonLesson.day]?.[currentCommonLesson.period]?.[currentCommonLesson.classId] : ""}
+                    classInfo={classes?.find(c => c.classId === currentCommonLesson?.classId)}
+                    day={currentCommonLesson.day}
+                    period={currentCommonLesson.period}
+                    teachers={teachers}
+                    teacherSchedules={teacherSchedules}
+                    classLocations={classLocations}
+                    absentPeople={absentPeople}
                 />
             )}
 
