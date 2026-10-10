@@ -18,7 +18,18 @@ const renderApp = () =>
   )
 
 describe('App', () => {
-  it('renders the main application', () => {
+  beforeEach(() => {
+    sessionStorage.setItem('nobetci_auth_session', 'true');
+  });
+
+  it('renders login screen when not authenticated', () => {
+    sessionStorage.clear();
+    localStorage.clear();
+    renderApp();
+    expect(screen.getByText('Yönetici Girişi')).toBeInTheDocument();
+  });
+
+  it('renders the main application when authenticated', () => {
     renderApp()
     expect(screen.getByText('Nöbetçi Öğretmen Görevlendirme')).toBeInTheDocument()
   })

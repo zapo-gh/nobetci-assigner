@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MANUAL_ADMIN_TEACHER_ID, MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js';
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
 import { normalizeClassName, compareClassNames, getClassroomName } from '../utils/classNameUtils.js';
@@ -36,7 +36,10 @@ export default function PrintableAssignmentList({
   onNotesChange,
   onNotesEnabledChange,
   IconComponent,
+  defaultOrientation = 'portrait',
 }) {
+  const [pageOrientation, setPageOrientation] = useState(defaultOrientation);
+
   const classNameById = useMemo(
     () => Object.fromEntries((classes || []).map((c) => [c.classId, c.className])),
     [classes]
@@ -279,7 +282,30 @@ export default function PrintableAssignmentList({
   }, [day, periods, assignment, commonLessons, locked, classAbsence, classNameById, teacherById, absentInfoById, classLocations, teacherSchedules]);
 
   return (
-    <div className="print-wrap">
+    <div className={`print-wrap ${pageOrientation === 'landscape' ? 'orientation-landscape' : 'orientation-portrait'}`}>
+      {/* ---------------- Sayfa Yönü Seçimi (Sadece Ekranda Görünür) ---------------- */}
+      <div className="print-orientation-bar no-print">
+        <span className="print-orientation-label">Sayfa Yönü:</span>
+        <div className="print-orientation-toggle">
+          <button
+            type="button"
+            className={`btn-orientation ${pageOrientation === 'portrait' ? 'active' : ''}`}
+            onClick={() => setPageOrientation('portrait')}
+            title="Dikey A4 Sayfa Düzeni (Önerilen)"
+          >
+            <span>📄</span> Dikey (A4)
+          </button>
+          <button
+            type="button"
+            className={`btn-orientation ${pageOrientation === 'landscape' ? 'active' : ''}`}
+            onClick={() => setPageOrientation('landscape')}
+            title="Yatay A4 Sayfa Düzeni"
+          >
+            <span>📑</span> Yatay (A4)
+          </button>
+        </div>
+      </div>
+
       <h2 className="print-title">
         Tarih: {displayDate} ({TR_DAYS[day] || day}) Nöbetçi Öğretmen Boş Ders Görevlendirme Listesi
       </h2>
@@ -288,13 +314,13 @@ export default function PrintableAssignmentList({
         <table className="assign-list-table">
           <thead>
             <tr>
-              <th style={{ width: '75px' }}>Ders Saati</th>
-              <th style={{ width: '22%' }}>İzinli / Mazeretli Öğretmen</th>
-              <th style={{ width: '13%' }}>Sınıfı</th>
-              <th style={{ width: '14%' }}>Derslik No</th>
-              <th style={{ width: '18%' }}>Ders İsmi</th>
-              <th style={{ width: '22%' }}>Görevlendirilen Öğretmen</th>
-              <th style={{ width: '11%' }}>İmza</th>
+              <th className="col-period" style={{ width: '8.5%' }}>Ders Saati</th>
+              <th className="col-absent" style={{ width: '21%' }}>İzinli / Mazeretli Öğretmen</th>
+              <th className="col-class" style={{ width: '12%' }}>Sınıfı</th>
+              <th className="col-room" style={{ width: '11%' }}>Derslik No</th>
+              <th className="col-subject" style={{ width: '16.5%' }}>Ders İsmi</th>
+              <th className="col-duty" style={{ width: '20%' }}>Görevlendirilen Öğretmen</th>
+              <th className="col-sign" style={{ width: '11%' }}>İmza</th>
             </tr>
           </thead>
           <tbody>
@@ -317,27 +343,27 @@ export default function PrintableAssignmentList({
             ) : (
               listRows.map((row, idx) => (
                 <tr key={row.key || idx}>
-                  <td className="text-center font-bold">
+                  <td className="text-center font-bold col-period">
                     <span className="period-badge">{row.period}. Saat</span>
                   </td>
-                  <td className="text-left">
+                  <td className="text-left col-absent">
                     <div className="font-semibold text-dark">{row.absentTeacherName}</div>
                     {row.absentReason && (
                       <div className="absent-reason-text">({row.absentReason})</div>
                     )}
                   </td>
-                  <td className="text-center font-bold">
+                  <td className="text-center font-bold col-class">
                     <span className="class-name-badge">{row.className}</span>
                   </td>
-                  <td className="text-center">
+                  <td className="text-center col-room">
                     <span className="classroom-badge">
                       {row.classroom !== '-' ? `📍 ${row.classroom}` : '-'}
                     </span>
                   </td>
-                  <td className="text-center">
+                  <td className="text-center col-subject">
                     <span className="subject-text">{row.subject}</span>
                   </td>
-                  <td className="text-left font-semibold">
+                  <td className="text-left font-semibold col-duty">
                     {row.statusType === 'common' ? (
                       <span className="common-merge-text">{row.dutyTeacherName}</span>
                     ) : row.statusType === 'admin' ? (
@@ -346,7 +372,7 @@ export default function PrintableAssignmentList({
                       <span className="duty-teacher-text">{row.dutyTeacherName}</span>
                     )}
                   </td>
-                  <td className="signature-cell">
+                  <td className="signature-cell col-sign">
                     <div className="signature-line" />
                   </td>
                 </tr>
@@ -378,7 +404,68 @@ export default function PrintableAssignmentList({
           box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
           padding: 24px 28px;
           box-sizing: border-box;
+          transition: max-width 0.2s ease;
         }
+
+        .print-wrap.orientation-portrait {
+          max-width: 920px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .print-wrap.orientation-landscape {
+          max-width: 100%;
+        }
+
+        .print-orientation-bar {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-bottom: 14px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+        }
+
+        .print-orientation-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #64748b;
+        }
+
+        .print-orientation-toggle {
+          display: inline-flex;
+          background: #f1f5f9;
+          padding: 3px;
+          border-radius: 8px;
+          gap: 3px;
+        }
+
+        .btn-orientation {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          border-radius: 6px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-orientation:hover {
+          color: #0f172a;
+        }
+
+        .btn-orientation.active {
+          background: #ffffff;
+          color: #0f172a;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+
         .print-title { 
           text-align: center; 
           font-weight: 700; 
@@ -542,7 +629,14 @@ export default function PrintableAssignmentList({
 
         /* --- YAZDIRMA (PRINT) --- */
         @media print {
-          @page { size: A4 landscape; margin: 5mm; }
+          @page {
+            size: ${pageOrientation === 'landscape' ? 'A4 landscape' : 'A4 portrait'};
+            margin: ${pageOrientation === 'landscape' ? '5mm' : '8mm 8mm 10mm 8mm'};
+          }
+
+          .print-orientation-bar {
+            display: none !important;
+          }
 
           .print-wrap {
             margin-top: 0 !important;
@@ -551,12 +645,14 @@ export default function PrintableAssignmentList({
             border: none !important;
             box-shadow: none !important;
             width: 100% !important;
+            max-width: none !important;
           }
 
           .print-title {
             margin-bottom: 3.5mm !important;
             font-size: 11pt !important;
             color: #000 !important;
+            text-align: center !important;
           }
 
           .assign-list-table-wrap {
@@ -568,7 +664,8 @@ export default function PrintableAssignmentList({
           .assign-list-table {
             border-collapse: collapse !important;
             width: 100% !important;
-            font-size: 8.5pt !important;
+            table-layout: fixed !important;
+            font-size: ${pageOrientation === 'landscape' ? '8.5pt' : '8pt'} !important;
             line-height: 1.15 !important;
           }
 
@@ -577,15 +674,26 @@ export default function PrintableAssignmentList({
             border: 0.8pt solid #000 !important;
             background: #fff !important;
             color: #000 !important;
-            padding: 1.8mm 2.5mm !important;
+            padding: ${pageOrientation === 'landscape' ? '1.8mm 2.5mm' : '1.8mm 1.6mm'} !important;
             display: table-cell !important;
+            box-sizing: border-box !important;
           }
 
           .assign-list-table thead th {
             background: #f1f5f9 !important;
             font-weight: bold !important;
             color: #000 !important;
+            font-size: 7.8pt !important;
+            text-align: center !important;
           }
+
+          .col-period { width: 8.5% !important; text-align: center !important; }
+          .col-absent { width: 21% !important; text-align: left !important; word-break: break-word !important; }
+          .col-class { width: 12% !important; text-align: center !important; word-break: break-word !important; }
+          .col-room { width: 11% !important; text-align: center !important; word-break: break-word !important; }
+          .col-subject { width: 16.5% !important; text-align: center !important; word-break: break-word !important; }
+          .col-duty { width: 20% !important; text-align: left !important; word-break: break-word !important; }
+          .col-sign { width: 11% !important; text-align: center !important; }
 
           .table-empty-state-screen {
             display: none !important;
@@ -611,6 +719,7 @@ export default function PrintableAssignmentList({
             color: #000 !important;
             border: none !important;
             padding: 0 !important;
+            font-weight: bold !important;
           }
 
           .duty-teacher-text,
@@ -624,6 +733,11 @@ export default function PrintableAssignmentList({
             border-bottom: 0.8pt solid #000 !important;
             height: 6mm !important;
             width: 90% !important;
+          }
+
+          .print-wrap .official-signatures {
+            padding: ${pageOrientation === 'landscape' ? '0 15mm' : '0 6mm'} !important;
+            margin-top: 7mm !important;
           }
 
           .assign-list-table, .assign-list-table-wrap { break-inside: avoid !important; page-break-inside: avoid !important; }

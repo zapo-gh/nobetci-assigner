@@ -96,6 +96,9 @@ import CommonLessonModal from "./components/CommonLessonModal.jsx";
 import ConfirmationModal from "./components/ConfirmationModal.jsx";
 import PdfScheduleImportModal from "./components/PdfScheduleImportModal.jsx";
 import EditTeacherModal from "./components/EditTeacherModal";
+import LoginScreen from "./components/LoginScreen";
+import ChangePasswordModal from "./components/ChangePasswordModal";
+import { isSessionAuthenticated, clearSession } from "./utils/authUtils";
 const CourseScheduleSection = lazy(() => import('./components/CourseScheduleSection.jsx'));
 const ClassesSection = lazy(() => import('./components/ClassesSection.jsx'));
 const DutyZonesSection = lazy(() => import('./components/DutyZonesSection.jsx'));
@@ -426,6 +429,9 @@ export default function App() {
     showConfirmation,
     requestConfirmation, // added from useUI
   } = useUI();
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isSessionAuthenticated());
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   const [classLocations, setClassLocations] = useState(() => {
     try {
@@ -837,6 +843,12 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(x => x.id !== id)), n.duration);
     }
   }, []);
+
+  const handleLockSession = useCallback(() => {
+    clearSession();
+    setIsAuthenticated(false);
+    addNotification('Oturum kapatıldı ve ekran kilitlendi.', 'info');
+  }, [addNotification]);
 
   // History stack for planning undo/redo
   const { canUndo, canRedo, undo, redo, recordHistory } = useAssignmentHistory(locked, setLocked, addNotification);
@@ -2855,6 +2867,18 @@ export default function App() {
     pdfImportModal ||
     selectedTeacher !== null
 
+  if (!isAuthenticated) {
+    return (
+      <>
+        <ModernNotificationSystem notifications={notifications} onRemove={removeNotification} onAction={onNotificationAction} />
+        <LoginScreen onLoginSuccess={() => {
+          setIsAuthenticated(true);
+          addNotification('Yönetici girişi başarılı.', 'success');
+        }} />
+      </>
+    );
+  }
+
   return (
     <div className="wrap">
       <ModernNotificationSystem notifications={notifications} onRemove={removeNotification} onAction={onNotificationAction} />
@@ -2868,6 +2892,8 @@ export default function App() {
         goToNextWeek={goToNextWeek}
         goToPrevWeek={goToPrevWeek}
         goToCurrentWeek={goToCurrentWeek}
+        onLockSession={handleLockSession}
+        onOpenChangePassword={() => setIsChangePasswordOpen(true)}
       />
 
       {/* Sekmeler */}
@@ -3108,6 +3134,12 @@ export default function App() {
           }}
         />
       )}
+
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onSuccess={() => addNotification('Yönetici şifresi başarıyla güncellendi.', 'success')}
+      />
 
       {/* Footer removed as per request */}
     </div>

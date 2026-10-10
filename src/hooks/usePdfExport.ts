@@ -130,7 +130,26 @@ export function usePdfExport({ day, displayDate, addNotification }) {
           text-overflow: ellipsis !important;
         }
         #panel-outputs .abs { font-size: 8.5pt !important; }
+        #panel-outputs .assign-list-table {
+          border-collapse: collapse !important;
+          width: 100% !important;
+          font-size: 8.5pt !important;
+          line-height: 1.2 !important;
+        }
+        #panel-outputs .assign-list-table thead th,
+        #panel-outputs .assign-list-table tbody td {
+          border: 0.8pt solid #000000 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          padding: 3px 4px !important;
+          display: table-cell !important;
+        }
+        #panel-outputs .assign-list-table thead th {
+          background: #f1f5f9 !important;
+          font-weight: bold !important;
+        }
         #panel-outputs .print-title { font-size: 11pt !important; margin-bottom: 3mm !important; }
+        #panel-outputs .print-orientation-bar { display: none !important; }
         #panel-outputs [class*="assignmentTextContainer"] {
           display: none !important;
         }

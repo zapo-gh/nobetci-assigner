@@ -51,6 +51,14 @@ async function setConfigDoc(docName: string, data: any) {
   await setDoc(doc(db, 'config', docName), { data });
 }
 
+export async function getAdminAuthConfig(): Promise<{ passwordHash: string; updatedAt: number } | null> {
+  return await getConfigDoc('admin_auth', null);
+}
+
+export async function setAdminAuthConfig(config: { passwordHash: string; updatedAt?: number }): Promise<void> {
+  await setConfigDoc('admin_auth', { ...config, updatedAt: config.updatedAt || Date.now() });
+}
+
 export async function loadInitialData() {
   try {
     const [

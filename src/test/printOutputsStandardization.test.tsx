@@ -143,6 +143,15 @@ describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
       // Signatures
       expect(screen.getByText('Nöbetçi Müdür Yardımcısı')).toBeInTheDocument();
       expect(screen.getByText('UYGUNDUR')).toBeInTheDocument();
+
+      // Orientation selector (Portrait default)
+      expect(screen.getByText('Dikey (A4)')).toBeInTheDocument();
+      expect(screen.getByText('Yatay (A4)')).toBeInTheDocument();
+      expect(container.querySelector('.print-wrap.orientation-portrait')).toBeInTheDocument();
+
+      // Switch to landscape
+      fireEvent.click(screen.getByText('Yatay (A4)'));
+      expect(container.querySelector('.print-wrap.orientation-landscape')).toBeInTheDocument();
     });
   });
 });

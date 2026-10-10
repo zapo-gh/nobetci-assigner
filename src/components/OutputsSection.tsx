@@ -148,61 +148,6 @@ export default function OutputsSection({
     return count;
   }, [assignment, day, periods]);
 
-  // Export to CSV / Excel
-  const handleExportCSV = () => {
-    const rows = [
-      ['T.C. MİLLÎ EĞİTİM BAKANLIĞI - NÖBETÇİ ÖĞRETMEN GÖREVLENDİRME ÇİZELGESİ'],
-      ['Tarih', displayDate || ''],
-      ['Gün', day || ''],
-      [],
-      ['Ders Saati', 'Sınıf', 'Nöbetçi Öğretmen', 'Nöbet Yeri', 'Dersi Boş Olan Öğretmen / Mazereti']
-    ];
-
-    const teacherById = Object.fromEntries((teachersForCurrentDay || []).map((t) => [t.teacherId, t]));
-    const classById = Object.fromEntries((classes || []).map((c) => [c.classId, c.className]));
-    const absentById = Object.fromEntries(
-      (absentPeopleForCurrentDay || []).map((a) => [a.absentId, `${a.name} (${a.reason || 'Mazeretli'})`])
-    );
-
-    (periods || []).forEach((p) => {
-      const arr = assignment?.[day]?.[p] || [];
-      arr.forEach((a) => {
-        const clsName = classById[a.classId] || a.classId;
-        const teacher = teacherById[a.teacherId];
-        const teacherName = teacher?.teacherName || a.teacherId;
-        const systemDayMap = {
-          Sun: 'sunday', Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday', Fri: 'friday', Sat: 'saturday'
-        };
-        const dutyLocation = teacher?.dutyLocations?.[systemDayMap[day] || day] || '-';
-        const absId = classAbsence?.[day]?.[p]?.[a.classId];
-        const absText = absId ? absentById[absId] || '-' : '-';
-
-        rows.push([`${p}. Ders`, clsName, teacherName, dutyLocation, absText]);
-      });
-    });
-
-    if (notesEnabled && notes && notes.trim()) {
-      rows.push([]);
-      rows.push(['AÇIKLAMALAR']);
-      notes.split('\n').forEach((line) => {
-        if (line.trim()) {
-          rows.push([line.trim()]);
-        }
-      });
-    }
-
-    const csvContent =
-      '\uFEFF' +
-      rows.map((r) => r.map((cell) => `"${String(cell || '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Nobet_Listesi_${(displayDate || day).replace(/[\s/\\:]+/g, '_')}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div id="panel-outputs" role="tabpanel" aria-labelledby="tab-outputs" style={{ width: '100%' }}>
       {/* ---------------- Modern Toolbar ---------------- */}
@@ -414,37 +359,14 @@ export default function OutputsSection({
                   <span className="dropdown-action-icon">📋</span>
                   <div className="dropdown-action-text">
                     <span className="dropdown-action-title">Görev Listesi Yazdır</span>
-                    <span className="dropdown-action-desc">Derslik ve görev listesi</span>
+                    <span className="dropdown-action-desc">Derslik ve görev listesi (Dikey A4)</span>
                   </div>
                 </button>
               </div>
             )}
           </div>
 
-          {/* 2. Excel / CSV Button */}
-          <button
-            type="button"
-            className="btn"
-            onClick={handleExportCSV}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontWeight: 600,
-              fontSize: '0.88rem',
-              border: '1.5px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#334155'
-            }}
-            title="Excel uyumlu CSV tablosu indir"
-          >
-            <span>📊</span>
-            <span>Excel / CSV</span>
-          </button>
-
-          {/* 3. JPEG Kaydet Dropdown Container */}
+          {/* 2. JPEG Kaydet Dropdown Container */}
           {onExportJPG && (
             <div
               ref={jpegDropdownRef}
