@@ -110,12 +110,24 @@ export function usePdfExport({ day, displayDate, addNotification }) {
           max-width: 100% !important;
           line-height: 1.15 !important;
         }
-        #panel-outputs .cell-list { gap: 2px !important; }
+        #panel-outputs .cell-list { gap: 2px !important; width: 100% !important; }
         #panel-outputs .cell-item {
           background: transparent !important;
           border: none !important;
           padding: 0 !important;
           border-radius: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow: hidden !important;
+        }
+        #panel-outputs .class {
+          font-weight: 700 !important;
+          font-size: 8.5pt !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
         }
         #panel-outputs .abs { font-size: 8.5pt !important; }
         #panel-outputs .print-title { font-size: 11pt !important; margin-bottom: 3mm !important; }

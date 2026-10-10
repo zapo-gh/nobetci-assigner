@@ -6,7 +6,8 @@ import {
   getTeacherDutyLocation,
   abbreviateDutyLocation,
   getClassroomName,
-  isImesLesson
+  isImesLesson,
+  truncateClassName
 } from '../utils/classNameUtils';
 
 describe('classNameUtils', () => {
@@ -167,6 +168,38 @@ describe('classNameUtils', () => {
       expect(isImesLesson('')).toBe(false);
       expect(isImesLesson(null)).toBe(false);
       expect(isImesLesson(undefined)).toBe(false);
+    });
+  });
+
+  describe('truncateClassName', () => {
+    it('keeps class names at or below maxLen intact', () => {
+      expect(truncateClassName('10-A')).toBe('10-A');
+      expect(truncateClassName('AMP 10-A')).toBe('AMP 10-A');
+      expect(truncateClassName('ATP 11-B')).toBe('ATP 11-B');
+      expect(truncateClassName('AMP 10-A/B', 10)).toBe('AMP 10-A/B'); // exact length 10
+    });
+
+    it('truncates long class names with single ellipsis character to fit compact cells', () => {
+      expect(truncateClassName('AMP 10 PAZARLA')).toBe('AMP 10 PA…');
+      expect(truncateClassName('AMP 10 PAZARLAMA')).toBe('AMP 10 PA…');
+      expect(truncateClassName('10-I PAZARLAMA')).toBe('10-I PAZA…');
+    });
+
+    it('trims trailing whitespace before appending ellipsis', () => {
+      // 'AMP 10 ' is length 7, if truncated at 7 it shouldn't produce 'AMP 10 …'
+      expect(truncateClassName('AMP 10   TEST', 8)).toBe('AMP 10…');
+    });
+
+    it('respects custom maxLen parameter', () => {
+      expect(truncateClassName('AMP 10-A', 5)).toBe('AMP…');
+      expect(truncateClassName('AMP 10-A', 15)).toBe('AMP 10-A');
+    });
+
+    it('handles empty, undefined, and non-string inputs safely', () => {
+      expect(truncateClassName('')).toBe('');
+      expect(truncateClassName(null)).toBe('');
+      expect(truncateClassName(undefined)).toBe('');
+      expect(truncateClassName(123 as any)).toBe('');
     });
   });
 });

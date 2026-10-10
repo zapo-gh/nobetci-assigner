@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
+import { truncateClassName } from '../utils/classNameUtils.js';
 import PrintNotesCard from './PrintNotesCard';
 import OfficialSignatures from './OfficialSignatures';
 import EmptyState from './EmptyState';
@@ -193,7 +194,9 @@ export default function PrintableDailyList({
                           <ul className="cell-list">
                             {mergedItems.map((item, idx) => (
                               <li key={idx} className="cell-item">
-                                <div className="class nowrap">{item.cls}</div>
+                                <div className="class nowrap" title={item.cls}>
+                                  {truncateClassName(item.cls, 10)}
+                                </div>
                                 {item.isCommonLesson ? (
                                   <div className="abs">
                                     <small className="absline common-lesson">
@@ -248,7 +251,9 @@ export default function PrintableDailyList({
                               const ownerInfo = commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
                               return (
                                 <li key={idx} className="cell-item">
-                                  <div className="class nowrap">{classNameById[classId] || classId}</div>
+                                  <div className="class nowrap" title={classNameById[classId] || classId}>
+                                    {truncateClassName(classNameById[classId] || classId, 10)}
+                                  </div>
                                   <div className="abs">
                                     <small className="absline common-lesson">
                                       Grup Birleştirilecek
@@ -289,7 +294,9 @@ export default function PrintableDailyList({
                             const ownerInfo = commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
                             return (
                               <li key={`${classId}-${idx}`} className="cell-item">
-                                <div className="class nowrap">{classNameById[classId] || classId}</div>
+                                <div className="class nowrap" title={classNameById[classId] || classId}>
+                                  {truncateClassName(classNameById[classId] || classId, 10)}
+                                </div>
                                 <div className="abs">
                                   <small className="absline admin-control">
                                     İdare kontrolünde
@@ -460,25 +467,41 @@ export default function PrintableDailyList({
 
         td.cell { }
         .cell-list {
-          display: grid;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
           gap: var(--space-1, 4px);
-          justify-items: center;
           list-style: none;
           padding: 0;
           margin: 0;
+          width: 100%;
         }
         .cell-item {
-          display: grid;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
           gap: 2px;
-          justify-items: center;
-          padding: var(--space-1, 4px) var(--space-2, 8px);
+          padding: 4px 6px;
           background: var(--bg-primary, #f8fafc);
           border: 1px solid var(--border-subtle, #e2e8f0);
           border-radius: var(--radius-md, 6px);
+          width: 100%;
           max-width: 100%;
+          box-sizing: border-box;
+          overflow: hidden;
         }
-        .class { font-weight: var(--font-weight-bold, 700); }
-        .abs { font-size: .86em; opacity: .95; line-height: 1.18; text-align: center; }
+        .class {
+          font-weight: var(--font-weight-bold, 700);
+          font-size: 0.8rem;
+          line-height: 1.25;
+          width: 100%;
+          max-width: 100%;
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .abs { font-size: .86em; opacity: .95; line-height: 1.18; text-align: center; width: 100%; max-width: 100%; }
         .absline {
           white-space: normal;
           word-break: keep-all;
@@ -607,14 +630,25 @@ export default function PrintableDailyList({
           }
 
           td.cell { }
-          .cell-list { gap: 2px !important; }
+          .cell-list { gap: 2px !important; width: 100% !important; }
           .cell-item {
             background: transparent !important;
             border: none !important;
             padding: 0 !important;
             border-radius: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
           }
-          .class { font-weight: var(--font-weight-bold, 700) !important; }
+          .class {
+            font-weight: var(--font-weight-bold, 700) !important;
+            font-size: 8.5pt !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
           .abs  { font-size: 8.5pt !important; }
 
           .assign-table, .assign-table-wrap { break-inside: avoid !important; page-break-inside: avoid !important; }

@@ -316,3 +316,17 @@ export const isImesLesson = (name?: string | null): boolean => {
   );
 };
 
+/**
+ * Shortens a class name if it exceeds maxLen characters to prevent UI overflow in compact table cells.
+ * e.g. "AMP 10 PAZARLAMA" -> "AMP 10 PA…" (at maxLen = 10)
+ * Uses single-character ellipsis '…' for compact display and clean presentation.
+ */
+export const truncateClassName = (name?: string | null, maxLen = 10): string => {
+  if (!name || typeof name !== 'string') return '';
+  const trimmed = name.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  const sub = trimmed.slice(0, maxLen - 1).trimEnd();
+  return `${sub}…`;
+};
+
+
