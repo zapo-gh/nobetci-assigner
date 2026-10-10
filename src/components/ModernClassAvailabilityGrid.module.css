@@ -225,9 +225,8 @@
   z-index: 5;
   background: #ffffff;
   border-right: 1px solid var(--border, #e2e8f0);
-  width: 260px;
-  min-width: 260px;
-  max-width: 290px;
+  width: 280px;
+  min-width: 270px;
 }
 
 .superHeaderRow .stickyCol,
@@ -276,6 +275,7 @@
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+  flex: 1;
 }
 
 .className {
@@ -294,14 +294,17 @@
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
-  padding: 1px 7px;
+  padding: 2px 7px;
   font-size: 0.72rem;
   font-weight: 600;
   color: #334155;
-  white-space: nowrap;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: fit-content;
+  max-width: 100%;
+  line-height: 1.25;
+}
+
+.classroomChip span {
+  word-break: break-word;
 }
 
 .classActions {
