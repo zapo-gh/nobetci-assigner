@@ -1,0 +1,100 @@
+.assignmentTextContainer {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  overflow: auto;
+}
+
+.title {
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-4);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+  font-family: var(--font-family-sans);
+  font-size: 0.9rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+.toolbar {
+  margin-top: var(--space-4);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.printOnly {
+  display: none !important;
+}
+
+/* JPG export için iki sütun stilleri (print media dışında) */
+.printHeader {
+  display: block;
+  margin: 0 0 2px 0;
+  padding: 0;
+  font-size: 8.5pt;
+  line-height: 1.15;
+}
+
+.printTwoCols {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.printColLeft {
+  display: block;
+  width: 48%;
+  float: left;
+  margin: 0;
+  padding: 0 2% 0 0;
+  box-sizing: border-box;
+}
+
+.printColRight {
+  display: block;
+  width: 48%;
+  float: right;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.printLineBlock {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: 8.5pt;
+  line-height: 1.15;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  clear: both;
+}
+
+@media print {
+  .assignmentTextContainer {
+    display: none !important;
+  }
+}

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Bell Body Gradient (Vibrant Royal / Cobalt Blue) -->
+    <linearGradient id="bellGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="25%" stop-color="#2563eb" />
+      <stop offset="75%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+
+    <!-- Bell Lip / Rim Gradient -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="40%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+
+    <!-- Golden Clapper Gradient -->
+    <radialGradient id="goldClapper" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="45%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
+    </radialGradient>
+
+    <!-- Golden Ray Accent Gradient -->
+    <linearGradient id="goldRay" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+
+    <!-- Clock Bezel Gradient -->
+    <linearGradient id="clockBezel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+
+    <!-- Subtle Depth Shadow -->
+    <filter id="softGlow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softGlow)">
+    <!-- 1. Bilateral Sound Chime Rays (Energetic School Bell Chimes) -->
+    <!-- Left Rays -->
+    <path d="M 120,95 L 70,68" stroke="url(#goldRay)" stroke-width="20" stroke-linecap="round" />
+    <path d="M 85,150 L 42,145" stroke="url(#goldRay)" stroke-width="16" stroke-linecap="round" />
+    <!-- Right Rays -->
+    <path d="M 392,95 L 442,68" stroke="url(#goldRay)" stroke-width="20" stroke-linecap="round" />
+    <path d="M 427,150 L 470,145" stroke="url(#goldRay)" stroke-width="16" stroke-linecap="round" />
+
+    <!-- 2. Bell Top Ring Handle (Centrally Aligned at X=256) -->
+    <circle cx="256" cy="74" r="46" fill="none" stroke="#2563eb" stroke-width="22" stroke-linecap="round" />
+    <circle cx="256" cy="74" r="46" fill="none" stroke="#60a5fa" stroke-width="8" stroke-linecap="round" opacity="0.6" />
+
+    <!-- 3. Clapper (Zil Dili) & Internal Mouth Opening -->
+    <!-- Inner Dark Cavity of Bell -->
+    <ellipse cx="256" cy="382" rx="138" ry="32" fill="#0f172a" />
+    <!-- Golden Clapper (Hanging under the mouth) -->
+    <circle cx="256" cy="420" r="45" fill="url(#goldClapper)" stroke="#b45309" stroke-width="4" />
+
+    <!-- 4. Bell Main Body (Symmetrical Sculpted Dome) -->
+    <path d="
+      M 196,112
+      C 214,104 298,104 316,112
+      C 334,142 342,210 376,305
+      C 394,352 408,375 410,380
+      C 410,380 348,396 256,396
+      C 164,396 102,380 102,380
+      C 104,375 118,352 136,305
+      C 170,210 178,142 196,112
+      Z
+    " fill="url(#bellGrad)" />
+
+    <!-- Bell Bottom Lip Rim (Smooth Rounded Horizontal Lip) -->
+    <rect x="96" y="368" width="320" height="34" rx="17" fill="url(#rimGrad)" />
+    <!-- Subtle Highlight on Rim -->
+    <line x1="126" y1="375" x2="386" y2="375" stroke="#93c5fd" stroke-width="4" stroke-linecap="round" opacity="0.7" />
+
+    <!-- 5. Central Duty Clock Badge (High-Contrast White & Cobalt Dial) -->
+    <!-- Outer Bezel -->
+    <circle cx="256" cy="252" r="98" fill="url(#clockBezel)" />
+    <!-- White Face (Maximum Legibility even down to 16x16 px) -->
+    <circle cx="256" cy="252" r="82" fill="#ffffff" />
+
+    <!-- Hour Markers (12, 3, 6, 9) -->
+    <circle cx="256" cy="186" r="6" fill="#1e3a8a" />
+    <circle cx="322" cy="252" r="6" fill="#1e3a8a" />
+    <circle cx="256" cy="318" r="6" fill="#1e3a8a" />
+    <circle cx="190" cy="252" r="6" fill="#1e3a8a" />
+
+    <!-- Clock Hands (Set to 10:10 - Duty Shift / Class Change Time) -->
+    <!-- Hour Hand (Pointing towards 10 o'clock) -->
+    <line x1="256" y1="252" x2="208" y2="210" stroke="#1e3a8a" stroke-width="15" stroke-linecap="round" />
+    <!-- Minute Hand (Pointing towards 2 o'clock) -->
+    <line x1="256" y1="252" x2="310" y2="198" stroke="#2563eb" stroke-width="13" stroke-linecap="round" />
+    <!-- Center Pivot Pin -->
+    <circle cx="256" cy="252" r="11" fill="#1e3a8a" />
+    <circle cx="256" cy="252" r="5" fill="#60a5fa" />
+  </g>
+</svg>

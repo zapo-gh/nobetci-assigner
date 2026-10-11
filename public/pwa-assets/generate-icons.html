@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PWA Icon Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    .container { display: flex; flex-direction: column; gap: 20px; }
+    .icon-preview { display: flex; gap: 20px; margin-bottom: 20px; }
+    .icon-box { text-align: center; }
+    canvas { border: 1px solid #ddd; }
+    button { padding: 10px 20px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #357abd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PWA Icon Generator</h1>
+    <p>This tool helps you generate the necessary icons for your PWA. Click the buttons below to download each icon.</p>
+    
+    <div class="icon-preview">
+      <div class="icon-box">
+        <canvas id="icon192" width="192" height="192"></canvas>
+        <p>192x192</p>
+        <button onclick="downloadIcon('pwa-192x192.png', 192)">Download 192x192</button>
+      </div>
+      
+      <div class="icon-box">
+        <canvas id="icon512" width="512" height="512"></canvas>
+        <p>512x512</p>
+        <button onclick="downloadIcon('pwa-512x512.png', 512)">Download 512x512</button>
+      </div>
+      
+      <div class="icon-box">
+        <canvas id="iconApple" width="180" height="180"></canvas>
+        <p>180x180 (Apple)</p>
+        <button onclick="downloadIcon('apple-touch-icon.png', 180)">Download Apple Icon</button>
+      </div>
+    </div>
+    
+    <div>
+      <h3>Favicon (32x32)</h3>
+      <canvas id="icon32" width="32" height="32"></canvas>
+      <button onclick="downloadIcon('favicon.ico', 32, true)">Download Favicon</button>
+    </div>
+  </div>
+
+  <script>
+    // Draw icon on canvas
+    function drawIcon(canvas, size, text) {
+      const ctx = canvas.getContext('2d');
+      
+      // Background
+      ctx.fillStyle = '#4a90e2';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Text
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Adjust font size based on icon size
+      const fontSize = size * 0.3;
+      ctx.font = `bold ${fontSize}px Arial`;
+      
+      // Draw text
+      const lines = text.split('\n');
+      const lineHeight = fontSize * 1.2;
+      const startY = (size - (lineHeight * lines.length)) / 2 + fontSize * 0.8;
+      
+      lines.forEach((line, index) => {
+        ctx.fillText(line, size / 2, startY + (lineHeight * index));
+      });
+    }
+    
+    // Download icon
+    function downloadIcon(filename, size, isFavicon = false) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      
+      drawIcon(canvas, size, 'Nöbetçi\nAsistan');
+      
+      const link = document.createElement('a');
+      if (isFavicon) {
+        // For favicon, we need to convert to ICO format
+        // This is a simplified version - for a real favicon, you might want to use a library
+        // or generate it properly with multiple sizes
+        link.href = canvas.toDataURL('image/x-icon');
+      } else {
+        link.href = canvas.toDataURL('image/png');
+      }
+      link.download = filename;
+      link.click();
+    }
+    
+    // Initialize canvases
+    window.onload = function() {
+      drawIcon(document.getElementById('icon192'), 192, 'Nöbetçi\nAsistan');
+      drawIcon(document.getElementById('icon512'), 512, 'Nöbetçi\nAsistan');
+      drawIcon(document.getElementById('iconApple'), 180, 'Nöbetçi\nAsistan');
+      drawIcon(document.getElementById('icon32'), 32, 'N');
+    };
+  </script>
+</body>
+</html>

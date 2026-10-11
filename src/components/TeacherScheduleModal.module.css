@@ -1,0 +1,205 @@
+/* ==========================================================
+   TeacherScheduleModal.module.css
+   Modern, Beautiful Schedule Modal Styling
+   ========================================================== */
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------------- Top Summary Stats ---------------- */
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.statCard {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.statLabel {
+  font-size: 0.72rem;
+  color: var(--text-faint, #64748b);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.statValue {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text, #0f1535);
+  line-height: 1.2;
+}
+
+/* ---------------- Schedule Table ---------------- */
+.tableContainer {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.scheduleTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  min-width: 640px;
+}
+
+.scheduleTable th,
+.scheduleTable td {
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 6px;
+}
+
+.dayHeader {
+  background: var(--surface-2, #f1f5f9);
+  color: var(--text-muted, #475569);
+  font-weight: 700;
+  font-size: 0.8rem;
+  width: 100px;
+  text-align: left;
+  padding-left: 12px !important;
+}
+
+.periodHeader {
+  background: var(--surface-2, #f1f5f9);
+  color: var(--text, #0f1535);
+  font-weight: 800;
+  font-size: 0.82rem;
+  padding: 8px 4px;
+  min-width: 52px;
+}
+
+.dayCell {
+  background: var(--bg-subtle, #f8fafc);
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text, #0f1535);
+  text-align: left;
+  padding-left: 12px !important;
+}
+
+.scheduleCell {
+  vertical-align: middle;
+  padding: 5px 3px;
+  height: 52px;
+}
+
+.emptyCell {
+  background: #ffffff;
+}
+
+.emptyIndicator {
+  color: #cbd5e1;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.classBadge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  box-sizing: border-box;
+  transition: transform 0.15s ease;
+}
+
+.classBadge:hover {
+  transform: scale(1.03);
+}
+
+.classCode {
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.subjectText {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.95;
+  margin-top: 2px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 75px;
+}
+
+/* ---------------- Legend ---------------- */
+.legendContainer {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.legendTitle {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted, #475569);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.legendItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text, #0f1535);
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
