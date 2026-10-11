@@ -120,6 +120,5 @@ export function useAutoSave({
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherFree, classFree, classAbsence, commonLessons, teacherSchedules, teacherSchedulesHydrated, locked]);
 }

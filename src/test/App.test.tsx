@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '../App.jsx'
 import { TeachersProvider } from '../contexts/TeachersContext.jsx'
 import { ClassesProvider } from '../contexts/ClassesContext.jsx'
 import { AssignmentsProvider } from '../contexts/AssignmentsContext.jsx'
+import { setSessionAuthenticated, clearSession } from '../utils/authUtils.js'
 
 const renderApp = () =>
   render(
@@ -19,12 +20,11 @@ const renderApp = () =>
 
 describe('App', () => {
   beforeEach(() => {
-    sessionStorage.setItem('nobetci_auth_session', 'true');
+    setSessionAuthenticated(false);
   });
 
   it('renders login screen when not authenticated', () => {
-    sessionStorage.clear();
-    localStorage.clear();
+    clearSession();
     renderApp();
     expect(screen.getByText('Yönetici Girişi')).toBeInTheDocument();
   });

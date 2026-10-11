@@ -57,6 +57,15 @@ describe('Admin Authentication & Security Lock', () => {
       clearSession();
       expect(isSessionAuthenticated()).toBe(false);
     });
+
+    it('rejects manual DevTools tampering without valid session token', () => {
+      // Saldırganın F12 konsolundan manuel true yazması durumu
+      localStorage.setItem('nobetci_auth_remember', 'true');
+      expect(isSessionAuthenticated()).toBe(false);
+
+      sessionStorage.setItem('nobetci_auth_session', 'true');
+      expect(isSessionAuthenticated()).toBe(false);
+    });
   });
 
   describe('LoginScreen Component', () => {

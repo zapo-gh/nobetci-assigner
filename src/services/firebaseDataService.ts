@@ -4,26 +4,38 @@ import { normalizeClassName } from '../utils/classNameUtils.js';
 
 const IS_FB_CONFIGURED = !!import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
-const collection = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbCollection(...args as [any, string, ...string[]]) : {} as any; } catch(e) { return {} as any; } };
-const doc = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbDoc(...args as [any, string, ...string[]]) : {} as any; } catch(e) { return {} as any; } };
-const query = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbQuery(...args as [any, ...any[]]) : {} as any; } catch(e) { return {} as any; } };
-const where = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbWhere(...args as [string, any, any]) : {} as any; } catch(e) { return {} as any; } };
+const collection = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbCollection(...args as [any, string, ...string[]]) : {} as any; } catch (e) { return {} as any; } };
+const doc = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbDoc(...args as [any, string, ...string[]]) : {} as any; } catch (e) { return {} as any; } };
+const query = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbQuery(...args as [any, ...any[]]) : {} as any; } catch (e) { return {} as any; } };
+const where = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbWhere(...args as [string, any, any]) : {} as any; } catch (e) { return {} as any; } };
 
-const getDoc = async (ref: any) => { if (!IS_FB_CONFIGURED || !ref) return { exists: () => false, data: () => null }; try { return await fbGetDoc(ref); } catch (e) { return { exists: () => false, data: () => null }; } };
-const getDocs = async (ref: any) => { if (!IS_FB_CONFIGURED || !ref) return { docs: [] }; try { return await fbGetDocs(ref); } catch (e) { return { docs: [] }; } };
-const setDoc = async (ref: any, data: any) => { if (!IS_FB_CONFIGURED || !ref) return Promise.resolve(); try { return await fbSetDoc(ref, data); } catch (e) { return Promise.resolve(); } };
-const deleteDoc = async (ref: any) => { if (!IS_FB_CONFIGURED || !ref) return Promise.resolve(); try { return await fbDeleteDoc(ref); } catch (e) { return Promise.resolve(); } };
+const getDoc = async (ref: any) => {
+  if (!IS_FB_CONFIGURED || !ref) return { exists: () => false, data: () => null };
+  return await fbGetDoc(ref);
+};
+const getDocs = async (ref: any) => {
+  if (!IS_FB_CONFIGURED || !ref) return { docs: [] };
+  return await fbGetDocs(ref);
+};
+const setDoc = async (ref: any, data: any, options?: any) => {
+  if (!IS_FB_CONFIGURED || !ref) return Promise.resolve();
+  return options !== undefined ? await fbSetDoc(ref, data, options) : await fbSetDoc(ref, data);
+};
+const deleteDoc = async (ref: any) => {
+  if (!IS_FB_CONFIGURED || !ref) return Promise.resolve();
+  return await fbDeleteDoc(ref);
+};
 const writeBatch = (dbRef: any) => {
-  if (!IS_FB_CONFIGURED) return { set: () => {}, delete: () => {}, commit: async () => Promise.resolve() };
+  if (!IS_FB_CONFIGURED) return { set: () => { }, delete: () => { }, commit: async () => Promise.resolve() };
   try {
     const batch = fbWriteBatch(dbRef);
     const originalCommit = batch.commit.bind(batch);
     batch.commit = async () => {
-      try { return await originalCommit(); } catch(e) { return Promise.resolve(); }
+      try { return await originalCommit(); } catch (e) { return Promise.resolve(); }
     };
     return batch;
   } catch (e) {
-    return { set: () => {}, delete: () => {}, commit: async () => Promise.resolve() };
+    return { set: () => { }, delete: () => { }, commit: async () => Promise.resolve() };
   }
 };
 const createId = () => {
@@ -48,6 +60,15 @@ async function getConfigDoc(docName: string, fallback: any = {}) {
   return d.exists() ? ((d.data() as any)?.data ?? fallback) : fallback;
 }
 async function setConfigDoc(docName: string, data: any) {
+  // Firestore 1 MiB doküman boyutu sınırı erken uyarı kontrolü
+  if (data && typeof data === 'object') {
+    try {
+      const approxBytes = JSON.stringify(data).length;
+      if (approxBytes > 850 * 1024) {
+        logger.warn(`[Firestore Boyut Uyarısı] ${docName} dokümanı Firestore 1 MiB sınırına yaklaşıyor (~${Math.round(approxBytes / 1024)} KB)`);
+      }
+    } catch {}
+  }
   await setDoc(doc(db, 'config', docName), { data });
 }
 
@@ -62,8 +83,8 @@ export async function setAdminAuthConfig(config: { passwordHash: string; updated
 export async function loadInitialData() {
   try {
     const [
-      teachersSnap, classesSnap, absentsSnap, 
-      classFree, teacherFree, classAbsence, 
+      teachersSnap, classesSnap, absentsSnap,
+      classFree, teacherFree, classAbsence,
       locks, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping, dutyZones
     ] = await Promise.all([
       getDocs(collection(db, 'teachers')),
@@ -87,7 +108,7 @@ export async function loadInitialData() {
         const norm = normalizeClassName(data.className);
         if (norm && norm !== data.className) {
           data.className = norm;
-          setDoc(d.ref, { ...data, className: norm }).catch(() => {});
+          setDoc(d.ref, { ...data, className: norm }).catch(() => { });
         }
       }
       return data;
@@ -212,16 +233,16 @@ export async function clearClassesData() {
 
 export async function insertAbsent({ name, teacherId, reason, days, timeSlot, date, weekKey }: any) {
   const absentId = createId();
-  const data = { 
-    absentId, 
-    name, 
-    teacherId, 
-    reason, 
-    days, 
-    timeSlot: timeSlot || 'full', 
+  const data = {
+    absentId,
+    name,
+    teacherId,
+    reason,
+    days,
+    timeSlot: timeSlot || 'full',
     date: date || null,
     weekKey: weekKey || null,
-    createdAt: Date.now() 
+    createdAt: Date.now()
   };
   await setDoc(doc(db, 'absents', absentId), data);
   return data;
@@ -241,7 +262,7 @@ export async function clearAbsentsData() {
 export async function deleteClassAbsenceByAbsent(absentId: string) {
   const data = await getConfigDoc('class_absence', {});
   let changed = false;
-  
+
   const buildAbsentIdVariants = (base: string) => {
     if (!base) return [];
     const variants = new Set([base]);
@@ -252,7 +273,7 @@ export async function deleteClassAbsenceByAbsent(absentId: string) {
     }
     return Array.from(variants).filter(Boolean);
   };
-  
+
   const targets = buildAbsentIdVariants(absentId);
   Object.keys(data).forEach(day => {
     Object.keys(data[day]).forEach(period => {
@@ -341,11 +362,11 @@ export async function upsertClassFree({ day, period, classId, isSelected }: any)
   const data = await getConfigDoc('class_free', {});
   if (!data[day]) data[day] = {};
   if (!data[day][period]) data[day][period] = [];
-  
+
   const set = new Set(data[day][period]);
   if (isSelected) set.add(classId);
   else set.delete(classId);
-  
+
   data[day][period] = Array.from(set);
   await setConfigDoc('class_free', data);
 }
@@ -368,11 +389,11 @@ export async function bulkUpsertClassFree(ops: Array<{ day: string; period: numb
 export async function upsertTeacherFree({ period, teacherId, isSelected }: any) {
   const data = await getConfigDoc('teacher_free', {});
   if (!data[period]) data[period] = [];
-  
+
   const set = new Set(data[period]);
   if (isSelected) set.add(teacherId);
   else set.delete(teacherId);
-  
+
   data[period] = Array.from(set);
   await setConfigDoc('teacher_free', data);
 }
@@ -381,7 +402,7 @@ export async function upsertClassAbsence({ day, period, classId, absentId }: any
   const data = await getConfigDoc('class_absence', {});
   if (!data[day]) data[day] = {};
   if (!data[day][period]) data[day][period] = {};
-  
+
   if (absentId) {
     data[day][period][classId] = absentId;
   } else {
