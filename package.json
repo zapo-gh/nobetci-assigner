@@ -8,6 +8,7 @@
     "build": "node scripts/with-version.mjs vite build",
     "lint": "eslint .",
     "preview": "node scripts/with-version.mjs vite preview",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

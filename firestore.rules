@@ -14,7 +14,12 @@ service cloud.firestore {
       // 1. Doküman asla dışarıdan silinemez (delete: false)
       // 2. Güncelleme yapılırken passwordHash geçerli formatta olmak zorundadır
       allow read: if true;
-      allow create, update: if docId != 'admin_auth' || (
+      allow create: if docId != 'admin_auth' || (
+        !exists(/databases/$(database)/documents/config/admin_auth) &&
+        request.resource.data.data.passwordHash is string &&
+        request.resource.data.data.passwordHash.size() >= 32
+      );
+      allow update: if docId != 'admin_auth' || (
         request.resource.data.data.passwordHash is string &&
         request.resource.data.data.passwordHash.size() >= 32
       );

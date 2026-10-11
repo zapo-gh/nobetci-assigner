@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 const DEFAULT_NOTES = `1. Nöbetçi öğretmenler boş geçen derslere zamanında girmekle yükümlüdür.
 2. Sınıf defteri ve yoklama fişleri ilgili ders saatinde nöbetçi öğretmen tarafından doldurulup imzalanacaktır.

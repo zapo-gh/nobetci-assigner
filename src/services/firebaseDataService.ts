@@ -2,7 +2,7 @@ import { db } from './firebaseClient.js';
 import { collection as fbCollection, doc as fbDoc, getDoc as fbGetDoc, getDocs as fbGetDocs, setDoc as fbSetDoc, deleteDoc as fbDeleteDoc, query as fbQuery, where as fbWhere, writeBatch as fbWriteBatch } from 'firebase/firestore';
 import { normalizeClassName } from '../utils/classNameUtils.js';
 
-const IS_FB_CONFIGURED = !!(import.meta.env.VITE_FIREBASE_PROJECT_ID || 'nobetci-assigner');
+const IS_FB_CONFIGURED = !!import.meta.env.VITE_FIREBASE_PROJECT_ID && import.meta.env.MODE !== 'test';
 
 const collection = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbCollection(...args as [any, string, ...string[]]) : {} as any; } catch (e) { return {} as any; } };
 const doc = (...args: any[]) => { try { return IS_FB_CONFIGURED ? fbDoc(...args as [any, string, ...string[]]) : {} as any; } catch (e) { return {} as any; } };
@@ -27,16 +27,7 @@ const deleteDoc = async (ref: any) => {
 };
 const writeBatch = (dbRef: any) => {
   if (!IS_FB_CONFIGURED) return { set: () => { }, delete: () => { }, commit: async () => Promise.resolve() };
-  try {
-    const batch = fbWriteBatch(dbRef);
-    const originalCommit = batch.commit.bind(batch);
-    batch.commit = async () => {
-      try { return await originalCommit(); } catch (e) { return Promise.resolve(); }
-    };
-    return batch;
-  } catch (e) {
-    return { set: () => { }, delete: () => { }, commit: async () => Promise.resolve() };
-  }
+  return fbWriteBatch(dbRef);
 };
 const createId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function OfficialSignatures() {
   return (
     <div className="official-signatures">

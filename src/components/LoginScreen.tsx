@@ -58,8 +58,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           setStoredHash(localHash);
           setIsFirstSetup(false);
         } else if (isMounted) {
-          // Varsayılan olarak ilk kurulum
-          setIsFirstSetup(true);
+          // Ağ hatasında rastgele ilk kuruluma düşmeyi engelle
+          setIsFirstSetup(false);
+          setErrorMsg('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol ediniz.');
         }
       } finally {
         if (isMounted) {
@@ -149,6 +150,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setErrorMsg('');
 
     try {
+      // Çift kontrol: Sistemde zaten bir yönetici şifresi kayıtlı mı?
+      const existing = await getAdminAuthConfig();
+      if (existing?.passwordHash) {
+        setIsFirstSetup(false);
+        setStoredHash(existing.passwordHash);
+        cacheAdminHashLocally(existing.passwordHash);
+        setErrorMsg('Sistemde zaten kayıtlı bir yönetici şifresi bulunmaktadır. Lütfen şifrenizle giriş yapınız.');
+        triggerShake();
+        return;
+      }
+
       const newHash = await hashPassword(password.trim());
       await setAdminAuthConfig({ passwordHash: newHash });
       cacheAdminHashLocally(newHash);
