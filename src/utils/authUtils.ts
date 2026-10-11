@@ -111,9 +111,21 @@ export function isSessionAuthenticated(): boolean {
     const rememberToken = localStorage.getItem(SESSION_TOKEN_KEY);
     const token = sessionAuth ? sessionToken : rememberToken;
 
+    if (!token) {
+      // Geçiş kolaylığı: Mevcut doğrulanmış admin oturumu varsa otomatik imzalı token ata
+      if (getCachedAdminHash()) {
+        const newToken = generateSessionToken();
+        if (sessionAuth) sessionStorage.setItem(SESSION_TOKEN_KEY, newToken);
+        if (rememberAuth) localStorage.setItem(SESSION_TOKEN_KEY, newToken);
+        return true;
+      }
+      clearSession();
+      return false;
+    }
+
     const isValid = verifySessionToken(token);
     if (!isValid) {
-      // Sahte veya süresi dolmuş oturumu temizle
+      // Süresi dolmuş veya tahrif edilmiş oturumu temizle
       clearSession();
       return false;
     }
