@@ -104,21 +104,28 @@ export default function AbsentsSection({
       </div>
 
       {displayedAbsents.length === 0 ? (
-        absentPeople.length === 0 ? (
+        <div
+          style={{
+            padding: '40px 24px',
+            textAlign: 'center',
+            background: 'var(--surface, #ffffff)',
+            borderRadius: '16px',
+            border: '1px solid var(--border, #e2e8f0)',
+            boxShadow: '0 2px 10px rgba(15, 23, 42, 0.03)',
+            marginTop: '8px'
+          }}
+        >
           <EmptyState
             IconComponent={IconComponent}
-            icon="userX"
-            title="Henüz Mazeret Eklenmedi"
-            description="Sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor. Yeni mazeretli eklemek için yukarıdaki butonu kullanabilirsiniz."
+            icon={absentPeople.length === 0 ? 'userX' : 'calendar'}
+            title={absentPeople.length === 0 ? 'Henüz Mazeret Eklenmedi' : 'Seçili Gün İçin Mazeret Bulunmuyor'}
+            description={
+              absentPeople.length === 0
+                ? 'Sisteme girilmiş herhangi bir öğretmen mazereti bulunmuyor. Yeni mazeretli eklemek için yukarıdaki butonu kullanabilirsiniz.'
+                : 'Seçtiğiniz günde okula gelmeyen öğretmen kaydı bulunmamaktadır. Yeni bir mazeret ekleyebilir veya üst kısımdan farklı bir gün seçebilirsiniz.'
+            }
           />
-        ) : (
-          <EmptyState
-            IconComponent={IconComponent}
-            icon="calendar"
-            title="Seçili Gün İçin Mazeret Bulunmuyor"
-            description="Seçtiğiniz günde okula gelmeyen öğretmen kaydı bulunmamaktadır. Yeni bir mazeret ekleyebilir veya üst kısımdan farklı bir gün seçebilirsiniz."
-          />
-        )
+        </div>
       ) : (
         <AbsenteeList 
           absentPeople={displayedAbsents} 
