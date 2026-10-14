@@ -188,58 +188,119 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 }
 .day-pill .day-num { opacity: .75; font-weight: 600; margin-left: 4px; font-size: .8em; }
 
-/* ================= Sekmeler (dolu hap butonlar, gruba göre renk, iki yana yaslı) ================= */
+/* ================= Sekmeler (bütünleşik, eşit genişlikli, bölümlü çubuk) ================= */
 .tabs {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
   width: 100%;
-  gap: var(--space-3);
-  flex-wrap: nowrap;
+  gap: 4px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 5px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--space-5);
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  margin-bottom: var(--space-5);
-  padding: 2px 0 6px 0;
 }
 .tabs::-webkit-scrollbar {
   display: none;
 }
-.tab-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.tab-divider {
+  width: 2px;
+  height: 28px;
+  background: var(--border-strong);
+  border-radius: 2px;
   flex-shrink: 0;
-}
-.tab-group-sep {
-  display: none;
+  align-self: center;
+  margin: 0 4px;
 }
 .tab {
   --tab-color: var(--primary);
+  --tab-bg-active: var(--primary-gradient);
+  --tab-hover-bg: var(--primary-soft);
+  flex: 1 1 0px;
+  min-width: 120px;
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  font-size: 0.88rem;
-  color: var(--tab-color);
+  padding: 9px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: var(--text);
   font-weight: 700;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  box-shadow: 0 2px 4px rgba(40, 40, 140, .05);
+  background: transparent;
+  border: 1px solid transparent;
   white-space: nowrap;
-  flex-shrink: 0;
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast),
               transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
-.tab[data-group="data"]    { --tab-color: #4338ca; }
-.tab[data-group="plan"]    { --tab-color: #0e7490; }
-.tab[data-group="output"]  { --tab-color: #c2410c; }
-.tab:hover { border-color: var(--tab-color); transform: translateY(-1px); }
+.tab .tab-icon {
+  color: var(--tab-color);
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+.tab .tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Bölüm göstergesi (üst ince renkli hat) */
+.tab::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2.5px;
+  border-radius: 0 0 2px 2px;
+  background: var(--tab-color);
+  opacity: 0.45;
+  transition: all var(--transition-fast) ease;
+}
+.tab:hover::before {
+  opacity: 0.95;
+  left: 10%;
+  right: 10%;
+}
+.tab[aria-selected="true"]::before {
+  display: none;
+}
+.tab[data-group="data"] {
+  --tab-color: #4338ca;
+  --tab-bg-active: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+  --tab-hover-bg: rgba(79, 70, 229, 0.08);
+}
+.tab[data-group="plan"] {
+  --tab-color: #0e7490;
+  --tab-bg-active: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  --tab-hover-bg: rgba(8, 145, 178, 0.08);
+}
+.tab[data-group="output"] {
+  --tab-color: #c2410c;
+  --tab-bg-active: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  --tab-hover-bg: rgba(234, 88, 12, 0.08);
+}
+.tab:hover {
+  background: var(--tab-hover-bg);
+  color: var(--tab-color);
+  transform: translateY(-1px);
+}
+.tab:hover .tab-icon {
+  color: var(--tab-color);
+}
 .tab[aria-selected="true"] {
-  background: var(--tab-color); color: #fff; border-color: var(--tab-color);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--tab-color) 45%, transparent);
+  background: var(--tab-bg-active);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--tab-color) 40%, transparent);
+}
+.tab[aria-selected="true"] .tab-icon {
+  color: #fff;
 }
 
 /* ================= AraÃ§ Ã§ubuÄŸu / paneller ================= */
