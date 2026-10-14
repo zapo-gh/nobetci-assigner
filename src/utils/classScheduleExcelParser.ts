@@ -1,5 +1,6 @@
 // @ts-nocheck
 import * as XLSX from '@e965/xlsx';
+import { extractPeriodTimesFromSheetData, savePeriodTimes } from './periodTimes.js';
 
 const dayMapping = {
   'pazartesi': 'monday',
@@ -87,6 +88,16 @@ export async function parseClassLocationsFromExcel(file, teacherSchedules, teach
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
   const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+  // Extract and save period times if present
+  try {
+    const detectedTimes = extractPeriodTimesFromSheetData(jsonData);
+    if (detectedTimes && Object.keys(detectedTimes).length > 0) {
+      savePeriodTimes(detectedTimes);
+    }
+  } catch (e) {
+    // Ignore extraction errors
+  }
 
   const classLocations = {};
   const globalSubjectMap = {};

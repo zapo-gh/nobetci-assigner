@@ -6,6 +6,7 @@ import AssignmentText from './AssignmentText.jsx';
 
 const STORAGE_KEY_NOTES = 'nobetci_print_notes';
 const STORAGE_KEY_NOTES_ENABLED = 'nobetci_print_notes_enabled';
+const STORAGE_KEY_SHOW_MERGED = 'nobetci_show_merged_in_outputs';
 const DEFAULT_NOTES = `1. Nöbetçi öğretmenler boş geçen derslere zamanında girmekle yükümlüdür.
 2. Sınıf defteri ve yoklama fişleri ilgili ders saatinde nöbetçi öğretmen tarafından doldurulup imzalanacaktır.
 3. Görevli öğretmenler okul idaresinin bilgisi dışında görev yerini terk edemezler.`;
@@ -100,6 +101,15 @@ export default function OutputsSection({
     return true;
   });
 
+  // Dersi Birleştirilenlerin Gösterilip Gösterilmeyeceği State'i
+  const [showMergedLessons, setShowMergedLessons] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SHOW_MERGED);
+      if (saved !== null) return saved === 'true';
+    } catch (e) {}
+    return true;
+  });
+
   const handleNotesChange = (newNotes) => {
     setNotes(newNotes);
     try {
@@ -111,6 +121,13 @@ export default function OutputsSection({
     setNotesEnabled(enabled);
     try {
       localStorage.setItem(STORAGE_KEY_NOTES_ENABLED, String(enabled));
+    } catch (e) {}
+  };
+
+  const handleShowMergedLessonsChange = (enabled) => {
+    setShowMergedLessons(enabled);
+    try {
+      localStorage.setItem(STORAGE_KEY_SHOW_MERGED, String(enabled));
     } catch (e) {}
   };
 
@@ -139,14 +156,20 @@ export default function OutputsSection({
     onExportJPG?.();
   };
 
-  // Calculate duty statistics
+  // Calculate duty statistics (respecting showMergedLessons)
   const totalAssignedCount = useMemo(() => {
     let count = 0;
     (periods || []).forEach((p) => {
       count += (assignment?.[day]?.[p] || []).length;
     });
+    if (showMergedLessons && commonLessons?.[day]) {
+      (periods || []).forEach((p) => {
+        const commonMap = commonLessons[day]?.[p] || {};
+        count += Object.keys(commonMap).length;
+      });
+    }
     return count;
-  }, [assignment, day, periods]);
+  }, [assignment, day, periods, showMergedLessons, commonLessons]);
 
   return (
     <div id="panel-outputs" role="tabpanel" aria-labelledby="tab-outputs" style={{ width: '100%' }}>
@@ -209,64 +232,95 @@ export default function OutputsSection({
           </div>
         </div>
 
-        {/* Center: View Mode Segmented Controls */}
-        <div
-          className="view-mode-toggle no-print"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            background: '#f1f5f9',
-            padding: '3px',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0'
-          }}
-        >
-          <button
-            type="button"
-            className="view-mode-tab"
+        {/* Center: View Mode Segmented Controls & Merged Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div
+            className="view-mode-toggle no-print"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              background: viewMode === 'matrix' ? '#ffffff' : 'transparent',
-              color: viewMode === 'matrix' ? '#0f172a' : '#64748b',
-              fontWeight: viewMode === 'matrix' ? 700 : 500,
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              boxShadow: viewMode === 'matrix' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s ease'
+              background: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '10px',
+              border: '1px solid #e2e8f0'
             }}
-            onClick={() => setViewMode('matrix')}
           >
-            <span>📊</span>
-            <span>Çizelge</span>
-          </button>
-          <button
-            type="button"
-            className="view-mode-tab"
+            <button
+              type="button"
+              className="view-mode-tab"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: viewMode === 'matrix' ? '#ffffff' : 'transparent',
+                color: viewMode === 'matrix' ? '#0f172a' : '#64748b',
+                fontWeight: viewMode === 'matrix' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: viewMode === 'matrix' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setViewMode('matrix')}
+            >
+              <span>📊</span>
+              <span>Çizelge</span>
+            </button>
+            <button
+              type="button"
+              className="view-mode-tab"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: viewMode === 'list' ? '#ffffff' : 'transparent',
+                color: viewMode === 'list' ? '#0f172a' : '#64748b',
+                fontWeight: viewMode === 'list' ? 700 : 500,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={() => setViewMode('list')}
+            >
+              <span>📋</span>
+              <span>Görev Listesi</span>
+            </button>
+          </div>
+
+          {/* Dersi Birleştirilenleri Göster / Gizle Toggle */}
+          <label
+            className="merged-lessons-toggle no-print"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '7px',
               padding: '6px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              background: viewMode === 'list' ? '#ffffff' : 'transparent',
-              color: viewMode === 'list' ? '#0f172a' : '#64748b',
-              fontWeight: viewMode === 'list' ? 700 : 500,
+              borderRadius: '10px',
+              background: showMergedLessons ? '#eff6ff' : '#f8fafc',
+              border: showMergedLessons ? '1.5px solid #93c5fd' : '1.5px solid #e2e8f0',
+              color: showMergedLessons ? '#1d4ed8' : '#64748b',
               fontSize: '0.82rem',
+              fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              userSelect: 'none',
               transition: 'all 0.15s ease'
             }}
-            onClick={() => setViewMode('list')}
+            title="Dersi birleştirilenlerin (ortak ders) liste ve çizelgede yer alıp almayacağını belirler"
           >
-            <span>📋</span>
-            <span>Görev Listesi</span>
-          </button>
+            <input
+              type="checkbox"
+              checked={showMergedLessons}
+              onChange={(e) => handleShowMergedLessonsChange(e.target.checked)}
+              style={{ accentColor: '#2563eb', cursor: 'pointer', width: '15px', height: '15px' }}
+            />
+            <span>🔗 Birleştirilenleri Göster</span>
+          </label>
         </div>
 
         {/* Right Actions with Hover Dropdowns */}
@@ -481,6 +535,7 @@ export default function OutputsSection({
           classAbsence={classAbsence}
           absentPeople={absentPeopleForCurrentDay}
           commonLessons={commonLessons}
+          showMergedLessons={showMergedLessons}
           notes={notes}
           notesEnabled={notesEnabled}
           onNotesChange={handleNotesChange}
@@ -499,6 +554,7 @@ export default function OutputsSection({
           classAbsence={classAbsence}
           absentPeople={absentPeopleForCurrentDay}
           commonLessons={commonLessons}
+          showMergedLessons={showMergedLessons}
           classLocations={classLocations}
           locationZoneMapping={locationZoneMapping}
           teacherSchedules={teacherSchedules}
@@ -523,6 +579,7 @@ export default function OutputsSection({
           classAbsence={classAbsence}
           absentPeople={absentPeopleForCurrentDay}
           commonLessons={commonLessons}
+          showMergedLessons={showMergedLessons}
           classLocations={classLocations}
           teacherSchedules={teacherSchedules}
         />

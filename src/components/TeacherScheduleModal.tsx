@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import Modal from './Modal.jsx';
 import styles from './TeacherScheduleModal.module.css';
+import { getPeriodTimes, getCurrentPeriodInfo } from '../utils/periodTimes.js';
 
 const CLASS_PALETTES = [
   'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', // Indigo
@@ -44,7 +45,21 @@ const TeacherScheduleModal = ({
     friday: 'Cuma',
   };
 
-  const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const periodTimes = useMemo(() => getPeriodTimes(), []);
+  const currentInfo = useMemo(() => getCurrentPeriodInfo(periodTimes), [periodTimes]);
+
+  const periods = useMemo(() => {
+    let maxP = 10;
+    Object.values(schedule || {}).forEach((daySchedule) => {
+      Object.keys(daySchedule || {}).forEach((p) => {
+        const pNum = Number(p);
+        if (pNum > maxP) maxP = pNum;
+      });
+    });
+    const list = [];
+    for (let i = 1; i <= Math.max(maxP, 10); i++) list.push(i);
+    return list;
+  }, [schedule]);
 
   const extractClassCode = (fullClassName) => {
     if (!fullClassName || !fullClassName.trim()) return '';
@@ -218,51 +233,104 @@ const TeacherScheduleModal = ({
           </div>
         </div>
 
+        {/* Active Now Banner (shows if current time matches a school period) */}
+        {currentInfo.isWeekday && currentInfo.currentPeriod && (
+          <div className={styles.activeNowBanner}>
+            <span style={{ fontSize: '1rem' }}>🕒</span>
+            <span>
+              Şu An: <strong>{currentInfo.dayLabel}</strong>,{' '}
+              <strong>{currentInfo.currentPeriod}. Ders</strong>{' '}
+              {currentInfo.timeRange ? `(${currentInfo.timeRange})` : ''}
+              {currentInfo.isExact ? ' — Ders Devam Ediyor' : ' — Teneffüs / Sıradaki Ders'}
+            </span>
+          </div>
+        )}
+
         {/* Schedule Table */}
         <div className={styles.tableContainer}>
           <table className={styles.scheduleTable}>
             <thead>
               <tr>
                 <th className={styles.dayHeader}>Günler</th>
-                {periods.map((period) => (
-                  <th key={period} className={styles.periodHeader}>
-                    {period}. Saat
-                  </th>
-                ))}
+                {periods.map((period) => {
+                  const isCurrentPeriodCol = currentInfo.isWeekday && currentInfo.currentPeriod === period;
+                  return (
+                    <th
+                      key={period}
+                      className={`${styles.periodHeader} ${isCurrentPeriodCol ? styles.currentPeriodHeader : ''}`}
+                    >
+                      <div>{period}. Saat</div>
+                      {periodTimes[period] && (
+                        <div className={styles.periodHeaderTime}>{periodTimes[period]}</div>
+                      )}
+                      {isCurrentPeriodCol && (
+                        <span className={styles.currentPeriodBadge}>Şu An</span>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {Object.entries(dayLabels).map(([dayKey, dayLabel]) => (
-                <tr key={dayKey}>
-                  <td className={styles.dayCell}>{dayLabel}</td>
-                  {periods.map((period) => {
-                    const fullClassName = schedule[dayKey]?.[period];
-                    const classCode = extractClassCode(fullClassName);
-                    const subjectText = extractSubjectName(fullClassName);
-                    const shortSubject = shortenSubjectName(subjectText);
-                    const isEmpty = !classCode || classCode.trim() === '';
+              {Object.entries(dayLabels).map(([dayKey, dayLabel]) => {
+                const isToday = currentInfo.isWeekday && currentInfo.dayKey === dayKey;
 
-                    return (
-                      <td key={period} className={`${styles.scheduleCell} ${isEmpty ? styles.emptyCell : ''}`}>
-                        {isEmpty ? (
-                          <span className={styles.emptyIndicator}>-</span>
-                        ) : (
-                          <div
-                            className={styles.classBadge}
-                            style={{ background: getClassGradient(fullClassName) }}
-                            title={`${classCode} ${subjectText ? `- ${subjectText}` : ''}`}
-                          >
-                            <span className={styles.classCode}>{classCode}</span>
-                            {shortSubject && (
-                              <span className={styles.subjectText}>{shortSubject}</span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                return (
+                  <tr key={dayKey}>
+                    <td className={`${styles.dayCell} ${isToday ? styles.todayDayCell : ''}`}>
+                      <div>{dayLabel}</div>
+                      {isToday && <span className={styles.todayBadge}>Bugün</span>}
+                    </td>
+                    {periods.map((period) => {
+                      const fullClassName = schedule[dayKey]?.[period];
+                      const classCode = extractClassCode(fullClassName);
+                      const subjectText = extractSubjectName(fullClassName);
+                      const shortSubject = shortenSubjectName(subjectText);
+                      const isEmpty = !classCode || classCode.trim() === '';
+                      const isCurrentLesson = isToday && currentInfo.currentPeriod === period;
+
+                      return (
+                        <td
+                          key={period}
+                          className={`${styles.scheduleCell} ${isEmpty ? styles.emptyCell : ''} ${
+                            isCurrentLesson ? styles.currentLessonCell : ''
+                          }`}
+                        >
+                          {isEmpty ? (
+                            isCurrentLesson ? (
+                              <div className={styles.emptyCurrentCell}>
+                                <span className={styles.emptyIndicator}>-</span>
+                                <span className={styles.emptyCurrentTag}>Boş Ders</span>
+                              </div>
+                            ) : (
+                              <span className={styles.emptyIndicator}>-</span>
+                            )
+                          ) : (
+                            <div
+                              className={`${styles.classBadge} ${isCurrentLesson ? styles.currentLessonBadge : ''}`}
+                              style={{ background: getClassGradient(fullClassName) }}
+                              title={`${classCode} ${subjectText ? `- ${subjectText}` : ''}${
+                                isCurrentLesson ? ' (Şu Anki Ders)' : ''
+                              }`}
+                            >
+                              {isCurrentLesson && (
+                                <div className={styles.currentLessonIndicator}>
+                                  <span className={styles.currentLessonDot} />
+                                  <span className={styles.currentLessonTag}>ŞU AN</span>
+                                </div>
+                              )}
+                              <span className={styles.classCode}>{classCode}</span>
+                              {shortSubject && (
+                                <span className={styles.subjectText}>{shortSubject}</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

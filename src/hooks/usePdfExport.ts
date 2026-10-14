@@ -26,6 +26,7 @@ export function usePdfExport({ day, displayDate, addNotification }) {
     addNotification('JPEG oluşturuluyor...', 'info');
 
     const restoreList = [];
+    const originalStyles = new Map();
     const originalTheme = document.documentElement.getAttribute('data-theme');
     let printStyle = null;
 
@@ -33,28 +34,41 @@ export function usePdfExport({ day, displayDate, addNotification }) {
       // 1. Light tema uygula
       document.documentElement.setAttribute('data-theme', 'light');
 
-      // 2. Toolbar / buton / no-print elementlerini gizle
-      outputSection.querySelectorAll('.toolbar, .btn, .no-print').forEach(el => {
-        const prev = el.style.display;
-        el.style.display = 'none';
-        restoreList.push(() => { el.style.display = prev; });
+      // 2. Toolbar, buton ve no-print elementlerini gizle (Açıklamalar kartı hariç)
+      outputSection.querySelectorAll('.toolbar, .btn, .no-print, [class*="assignmentTextContainer"]').forEach(el => {
+        if (el.closest('.print-notes-card')) {
+          return;
+        }
+        if (!originalStyles.has(el)) {
+          originalStyles.set(el, el.style.display);
+          el.style.display = 'none';
+        }
       });
 
-      // 3. AssignmentText: gizle (çıktıda sadece resmi çizelge ve imzalar yer alır)
-      outputSection.querySelectorAll('[class*="assignmentTextContainer"]').forEach(el => {
-        const prev = el.style.display;
-        el.style.display = 'none';
-        restoreList.push(() => { el.style.display = prev; });
+      // Açıklamalar kartındaki düzenleme ve başlık kontrollerini gizle
+      outputSection.querySelectorAll('.print-notes-header-screen, .print-notes-edit-panel, .print-notes-screen-preview').forEach(el => {
+        if (!originalStyles.has(el)) {
+          originalStyles.set(el, el.style.display);
+          el.style.display = 'none';
+        }
       });
 
-      // 4. assign-table-wrap / assign-list-table-wrap: overflow kaldır (html2canvas tüm tabloyu yakalasın)
+      // Açıklamalar kartının resmi yazdırma içeriğini görünür yap (eğer gizli değilse)
+      outputSection.querySelectorAll('.print-notes-card:not(.notes-hidden-in-print) .print-notes-title-print, .print-notes-card:not(.notes-hidden-in-print) .print-notes-content-print').forEach(el => {
+        if (!originalStyles.has(el)) {
+          originalStyles.set(el, el.style.display);
+          el.style.display = 'block';
+        }
+      });
+
+      // 3. assign-table-wrap / assign-list-table-wrap: overflow kaldır (html2canvas tüm tabloyu yakalasın)
       outputSection.querySelectorAll('.assign-table-wrap, .assign-list-table-wrap').forEach(el => {
         const prev = el.style.overflow;
         el.style.overflow = 'visible';
         restoreList.push(() => { el.style.overflow = prev; });
       });
 
-      // 5. Print stilleri — @media print kurallarını doğrudan uygula
+      // 4. Print stilleri — @media print kurallarını doğrudan uygula
       printStyle = document.createElement('style');
       printStyle.textContent = `
         #panel-outputs {
@@ -153,13 +167,87 @@ export function usePdfExport({ day, displayDate, addNotification }) {
         #panel-outputs [class*="assignmentTextContainer"] {
           display: none !important;
         }
+        #panel-outputs .print-notes-card {
+          display: block !important;
+          margin-top: 14px !important;
+          margin-bottom: 8px !important;
+          padding: 8px 12px !important;
+          border: 0.8pt solid #000000 !important;
+          border-radius: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+          box-shadow: none !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        #panel-outputs .print-notes-card.notes-hidden-in-print {
+          display: none !important;
+        }
+        #panel-outputs .print-notes-title-print {
+          display: block !important;
+          font-weight: bold !important;
+          font-size: 8.5pt !important;
+          color: #000000 !important;
+          margin-bottom: 4px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.3px !important;
+        }
+        #panel-outputs .print-notes-content-print {
+          display: block !important;
+          font-size: 8pt !important;
+          line-height: 1.35 !important;
+          color: #000000 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          white-space: pre-wrap !important;
+        }
+        #panel-outputs .print-notes-header-screen,
+        #panel-outputs .print-notes-edit-panel,
+        #panel-outputs .print-notes-screen-preview {
+          display: none !important;
+        }
+        #panel-outputs .official-signatures {
+          display: flex !important;
+          justify-content: space-between !important;
+          margin-top: 18px !important;
+          padding: 0 30px !important;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        #panel-outputs .sig-block {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          min-width: 150px !important;
+          text-align: center !important;
+        }
+        #panel-outputs .sig-role {
+          font-weight: bold !important;
+          font-size: 9pt !important;
+          color: #000000 !important;
+        }
+        #panel-outputs .sig-subrole {
+          font-size: 8pt !important;
+          color: #000000 !important;
+        }
+        #panel-outputs .sig-space {
+          height: 38px !important;
+        }
+        #panel-outputs .sig-name {
+          font-size: 8pt !important;
+          color: #000000 !important;
+          border-top: 0.8pt solid #000000 !important;
+          padding-top: 4px !important;
+          width: 100% !important;
+        }
       `;
       document.head.appendChild(printStyle);
 
-      // 6. DOM güncellemesini bekle
+      // 5. DOM güncellemesini bekle
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // 7. html2canvas ile yakala
+      // 6. html2canvas ile yakala
       const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(outputSection, {
         scale: 2,
@@ -175,21 +263,35 @@ export function usePdfExport({ day, displayDate, addNotification }) {
           if (!cloned) return;
           cloned.querySelectorAll('[class*="assignmentTextContainer"]').forEach(el =>
             el.style.setProperty('display', 'none', 'important'));
-          cloned.querySelectorAll('.toolbar, .btn, .no-print').forEach(el =>
-            el.style.setProperty('display', 'none', 'important'));
-          cloned.querySelectorAll('.assign-table-wrap').forEach(el => {
+          cloned.querySelectorAll('.toolbar, .btn, .no-print').forEach(el => {
+            if (!el.closest('.print-notes-card')) {
+              el.style.setProperty('display', 'none', 'important');
+            }
+          });
+          cloned.querySelectorAll('.print-notes-header-screen, .print-notes-edit-panel, .print-notes-screen-preview').forEach(el => {
+            el.style.setProperty('display', 'none', 'important');
+          });
+          cloned.querySelectorAll('.print-notes-card:not(.notes-hidden-in-print) .print-notes-title-print, .print-notes-card:not(.notes-hidden-in-print) .print-notes-content-print').forEach(el => {
+            el.style.setProperty('display', 'block', 'important');
+          });
+          cloned.querySelectorAll('.assign-table-wrap, .assign-list-table-wrap').forEach(el => {
             el.style.overflow = 'visible';
           });
         }
       });
 
-      // 8. Geri yükle
-      document.head.removeChild(printStyle);
-      printStyle = null;
+      // 7. Geri yükle
+      if (printStyle && printStyle.parentNode) {
+        document.head.removeChild(printStyle);
+        printStyle = null;
+      }
       document.documentElement.setAttribute('data-theme', originalTheme);
+      originalStyles.forEach((displayVal, el) => {
+        el.style.display = displayVal;
+      });
       restoreList.forEach(fn => fn());
 
-      // 9. JPEG olarak indir — toBlob Promise'e sarıldı (gerçek async)
+      // 8. JPEG olarak indir — toBlob Promise'e sarıldı (gerçek async)
       const blob = await new Promise((resolve, reject) => {
         canvas.toBlob((b) => {
           if (b) resolve(b);
@@ -212,6 +314,9 @@ export function usePdfExport({ day, displayDate, addNotification }) {
       addNotification('JPEG oluşturma hatası', 'error');
       if (printStyle && printStyle.parentNode) document.head.removeChild(printStyle);
       document.documentElement.setAttribute('data-theme', originalTheme);
+      originalStyles.forEach((displayVal, el) => {
+        try { el.style.display = displayVal; } catch {}
+      });
       restoreList.forEach(fn => {
         try { fn(); } catch (restoreErr) { logger.warn('restore error', restoreErr); }
       });

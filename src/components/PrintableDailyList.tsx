@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
 import { truncateClassName } from '../utils/classNameUtils.js';
+import { getPeriodTimes } from '../utils/periodTimes.js';
 import PrintNotesCard from './PrintNotesCard';
 import OfficialSignatures from './OfficialSignatures';
 import EmptyState from './EmptyState';
@@ -28,12 +29,15 @@ export default function PrintableDailyList({
   absentPeople = [],
   classAbsence = {},
   commonLessons = {},
+  showMergedLessons = true,
   notes = "",
   notesEnabled = true,
   onNotesChange,
   onNotesEnabledChange,
   IconComponent
 }) {
+  const periodTimes = useMemo(() => getPeriodTimes(), []);
+
   const classNameById = useMemo(
     () => Object.fromEntries((classes || []).map(c => [c.classId, c.className])),
     [classes]
@@ -52,6 +56,8 @@ export default function PrintableDailyList({
   const normalizeTeacherKey = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
 
   const commonLessonTeacherData = useMemo(() => {
+    if (!showMergedLessons) return {};
+
     const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
     const dutyTeacherNameKeys = new Set((teachers || []).map(t => normalizeTeacherKey(t.teacherName)));
     const dataByTeacher = {};
@@ -79,7 +85,7 @@ export default function PrintableDailyList({
     });
 
     return dataByTeacher;
-  }, [teachers, periods, commonLessons, day]);
+  }, [teachers, periods, commonLessons, day, showMergedLessons]);
 
   const adminLessonsByPeriod = useMemo(() => {
     const map = {};
@@ -107,12 +113,12 @@ export default function PrintableDailyList({
         (assignment?.[day]?.[p] || []).some(a => a.teacherId === t.teacherId)
       );
       const teacherKey = normalizeTeacherKey(t.teacherName);
-      const hasCommonLesson = (periods || []).some(p =>
+      const hasCommonLesson = showMergedLessons && (periods || []).some(p =>
         (commonLessonTeacherData?.[teacherKey]?.byPeriod?.[p] || []).length > 0
       );
       return hasAssignment || hasCommonLesson;
     });
-  }, [teachers, periods, assignment, day, commonLessonTeacherData]);
+  }, [teachers, periods, assignment, day, commonLessonTeacherData, showMergedLessons]);
 
   return (
     <div className="print-wrap">
@@ -126,7 +132,12 @@ export default function PrintableDailyList({
             <tr>
               <th className="teacher-col text-center">ÖĞRETMEN</th>
               {(periods || []).map(p => (
-                <th key={p} className="period-col text-center">{p}. SAAT</th>
+                <th key={p} className="period-col text-center">
+                  <div>{p}. SAAT</div>
+                  {periodTimes[p] && (
+                    <div className="period-time">{periodTimes[p]}</div>
+                  )}
+                </th>
               ))}
             </tr>
           </thead>
@@ -428,7 +439,7 @@ export default function PrintableDailyList({
           background: #f8fafc;
           color: #0f172a;
           font-weight: 700;
-          padding: 10px 8px;
+          padding: 8px 6px;
           border-bottom: 2px solid #cbd5e1;
           position: sticky; 
           top: 0; 
@@ -436,6 +447,16 @@ export default function PrintableDailyList({
           font-size: 0.82rem;
           text-transform: uppercase;
           letter-spacing: 0.3px;
+        }
+
+        .period-time {
+          font-size: 0.7rem;
+          font-weight: 500;
+          color: #64748b;
+          text-transform: none;
+          margin-top: 2px;
+          letter-spacing: 0;
+          white-space: nowrap;
         }
 
         .teacher-col { width: 220px; }
@@ -588,6 +609,15 @@ export default function PrintableDailyList({
             position: static !important;
             background: #f1f5f9 !important;
             font-weight: bold !important;
+          }
+          .period-time {
+            font-size: 6.8pt !important;
+            font-weight: normal !important;
+            color: #000000 !important;
+            text-transform: none !important;
+            margin-top: 1px !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
           }
           .teacher-col { width: 170px !important; }
           .teacher-name { 

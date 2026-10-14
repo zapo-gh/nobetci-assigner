@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { logger } from './logger.js';
 import * as XLSX from '@e965/xlsx';
+import { extractPeriodTimesFromSheetData, savePeriodTimes } from './periodTimes.js';
 
 const debugLog = (...args) => logger.log(...args);
 
@@ -27,6 +28,16 @@ export async function parseTeacherSchedulesFromExcel(file) {
         defval: '', // Default value for empty cells
         raw: false  // Convert all values to strings
       });
+
+      // Extract and save period times if present
+      try {
+        const detectedTimes = extractPeriodTimesFromSheetData(jsonData);
+        if (detectedTimes && Object.keys(detectedTimes).length > 0) {
+          savePeriodTimes(detectedTimes);
+        }
+      } catch (err) {
+        debugLog('Error extracting period times:', err);
+      }
       
       debugLog(`Processing sheet: ${sheetName}`);
       debugLog('Sheet data length:', jsonData.length);

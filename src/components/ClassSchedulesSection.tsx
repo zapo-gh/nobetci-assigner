@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import Modal from './Modal';
 import { normalizeClassName, sortClassNames } from '../utils/classNameUtils';
+import { getPeriodTimes, getCurrentPeriodInfo } from '../utils/periodTimes';
 import styles from './ClassSchedulesSection.module.css';
 
 const SUBJECT_GRADIENTS = [
@@ -91,7 +92,10 @@ export default function ClassSchedulesSection({
     { id: 'friday', label: 'Cuma' },
   ];
 
-  const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const periodTimes = useMemo(() => getPeriodTimes(), []);
+  const currentInfo = useMemo(() => getCurrentPeriodInfo(periodTimes), [periodTimes]);
+
+  const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
   const classSchedulesMap = useMemo(() => {
     const map: any = {};
@@ -520,72 +524,121 @@ export default function ClassSchedulesSection({
             </div>
           </div>
 
+          {/* Active Now Banner (shows if current time matches a school period) */}
+          {currentInfo.isWeekday && currentInfo.currentPeriod && (
+            <div className={styles.activeNowBanner}>
+              <span style={{ fontSize: '1rem' }}>🕒</span>
+              <span>
+                Şu An: <strong>{currentInfo.dayLabel}</strong>,{' '}
+                <strong>{currentInfo.currentPeriod}. Ders</strong>{' '}
+                {currentInfo.timeRange ? `(${currentInfo.timeRange})` : ''}
+                {currentInfo.isExact ? ' — Ders Devam Ediyor' : ' — Teneffüs / Sıradaki Ders'}
+              </span>
+            </div>
+          )}
+
           {/* Schedule Table */}
           <div className={styles.modalTableContainer}>
             <table className={styles.modalTable}>
               <thead>
                 <tr>
                   <th className={styles.modalDayHeader}>Günler</th>
-                  {periods.map((period) => (
-                    <th key={period} className={styles.modalPeriodHeader}>
-                      {period}. Saat
-                    </th>
-                  ))}
+                  {periods.map((period) => {
+                    const isCurrentPeriodCol = currentInfo.isWeekday && currentInfo.currentPeriod === period;
+                    return (
+                      <th
+                        key={period}
+                        className={`${styles.modalPeriodHeader} ${isCurrentPeriodCol ? styles.currentPeriodHeader : ''}`}
+                      >
+                        <div>{period}. Saat</div>
+                        {periodTimes[period] && (
+                          <div className={styles.modalPeriodTime}>{periodTimes[period]}</div>
+                        )}
+                        {isCurrentPeriodCol && (
+                          <span className={styles.currentPeriodBadge}>Şu An</span>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {days.map((day) => (
-                  <tr key={day.id}>
-                    <td className={styles.modalDayCell}>{day.label}</td>
-                    {periods.map((period) => {
-                      const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[period];
-                      const isEmpty =
-                        !lesson ||
-                        (lesson.teachers.length === 0 && !lesson.subject && !lesson.location);
+                {days.map((day) => {
+                  const isToday = currentInfo.isWeekday && currentInfo.dayKey === day.id;
 
-                      return (
-                        <td
-                          key={period}
-                          className={`${styles.modalScheduleCell} ${
-                            isEmpty ? styles.modalEmptyCell : ''
-                          }`}
-                        >
-                          {isEmpty ? (
-                            <span className={styles.modalEmptyIndicator}>-</span>
-                          ) : (
-                            <div
-                              className={styles.lessonBadge}
-                              style={{
-                                background: getSubjectGradient(lesson.subject || 'Ders'),
-                              }}
-                              title={`${lesson.subject || 'Ders'} | ${lesson.teachers.join(', ')} ${
-                                lesson.location ? `(${lesson.location})` : ''
-                              }`}
-                            >
-                              {lesson.subject && (
-                                <span className={styles.subjectName}>
-                                  {shortenSubjectName(lesson.subject)}
-                                </span>
-                              )}
+                  return (
+                    <tr key={day.id}>
+                      <td className={`${styles.modalDayCell} ${isToday ? styles.todayDayCell : ''}`}>
+                        <div>{day.label}</div>
+                        {isToday && <span className={styles.todayBadge}>Bugün</span>}
+                      </td>
+                      {periods.map((period) => {
+                        const lesson = classSchedulesMap[selectedClass]?.[day.id]?.[period];
+                        const isEmpty =
+                          !lesson ||
+                          (lesson.teachers.length === 0 && !lesson.subject && !lesson.location);
+                        const isCurrentLesson = isToday && currentInfo.currentPeriod === period;
 
-                              {lesson.teachers.length > 0 && (
-                                <div className={styles.teacherNameSub}>
-                                  {lesson.teachers.join(', ')}
+                        return (
+                          <td
+                            key={period}
+                            className={`${styles.modalScheduleCell} ${
+                              isEmpty ? styles.modalEmptyCell : ''
+                            } ${isCurrentLesson ? styles.currentLessonCell : ''}`}
+                          >
+                            {isEmpty ? (
+                              isCurrentLesson ? (
+                                <div className={styles.emptyCurrentCell}>
+                                  <span className={styles.modalEmptyIndicator}>-</span>
+                                  <span className={styles.emptyCurrentTag}>Boş Ders</span>
                                 </div>
-                              )}
+                              ) : (
+                                <span className={styles.modalEmptyIndicator}>-</span>
+                              )
+                            ) : (
+                              <div
+                                className={`${styles.lessonBadge} ${
+                                  isCurrentLesson ? styles.currentLessonBadge : ''
+                                }`}
+                                style={{
+                                  background: getSubjectGradient(lesson.subject || 'Ders'),
+                                }}
+                                title={`${lesson.subject || 'Ders'} | ${lesson.teachers.join(', ')} ${
+                                  lesson.location ? `(${lesson.location})` : ''
+                                }${isCurrentLesson ? ' (Şu Anki Ders)' : ''}`}
+                              >
+                                {isCurrentLesson && (
+                                  <div className={styles.currentLessonIndicator}>
+                                    <span className={styles.currentLessonDot} />
+                                    <span className={styles.currentLessonTag}>ŞU AN</span>
+                                  </div>
+                                )}
 
-                              {lesson.location && (
-                                <span className={styles.locationChip}>
-                                  📍 {lesson.location}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                                {lesson.subject && (
+                                  <span className={styles.subjectName}>
+                                    {shortenSubjectName(lesson.subject)}
+                                  </span>
+                                )}
+
+                                {lesson.teachers.length > 0 && (
+                                  <div className={styles.teacherNameSub}>
+                                    {lesson.teachers.join(', ')}
+                                  </div>
+                                )}
+
+                                {lesson.location && (
+                                  <span className={styles.locationChip}>
+                                    📍 {lesson.location}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

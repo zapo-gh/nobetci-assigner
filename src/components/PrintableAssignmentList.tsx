@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { MANUAL_ADMIN_TEACHER_ID, MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js';
 import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
 import { normalizeClassName, compareClassNames, getClassroomName } from '../utils/classNameUtils.js';
+import { getPeriodTimes } from '../utils/periodTimes.js';
 import PrintNotesCard from './PrintNotesCard';
 import OfficialSignatures from './OfficialSignatures';
 import EmptyState from './EmptyState';
@@ -28,6 +29,7 @@ export default function PrintableAssignmentList({
   absentPeople = [],
   classAbsence = {},
   commonLessons = {},
+  showMergedLessons = true,
   classLocations = {},
   locationZoneMapping = {},
   teacherSchedules = {},
@@ -38,6 +40,7 @@ export default function PrintableAssignmentList({
   IconComponent,
   defaultOrientation = 'portrait',
 }) {
+  const periodTimes = useMemo(() => getPeriodTimes(), []);
   const [pageOrientation, setPageOrientation] = useState(defaultOrientation);
 
   const classNameById = useMemo(
@@ -174,45 +177,48 @@ export default function PrintableAssignmentList({
         });
       });
 
-      // 2. Grup Birleştirilen sınıflar (Common Lessons)
       const commonLessonsForPeriod = commonLessons?.[day]?.[p] || {};
-      Object.entries(commonLessonsForPeriod).forEach(([classId, teacherVal]) => {
-        if (assignmentsForPeriod.some((a) => a.classId === classId)) return;
-        if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return;
 
-        const clsName = classNameById[classId] || classId;
-        const mergeTeacher = teacherById[teacherVal]?.teacherName || teacherVal;
+      // 2. Grup Birleştirilen sınıflar (Common Lessons)
+      if (showMergedLessons) {
+        Object.entries(commonLessonsForPeriod).forEach(([classId, teacherVal]) => {
+          if (assignmentsForPeriod.some((a) => a.classId === classId)) return;
+          if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return;
 
-        const rawAbsValue = classAbsence?.[day]?.[p]?.[classId];
-        const { absentId, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbsValue);
-        const absRecord =
-          (absentId ? absentInfoById[absentId] : null) ||
-          (commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null);
+          const clsName = classNameById[classId] || classId;
+          const mergeTeacher = teacherById[teacherVal]?.teacherName || teacherVal;
 
-        const { location, subject } = resolveClassroomAndSubject(
-          classId,
-          clsName,
-          p,
-          absRecord?.name
-        );
+          const rawAbsValue = classAbsence?.[day]?.[p]?.[classId];
+          const { absentId, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbsValue);
+          const absRecord =
+            (absentId ? absentInfoById[absentId] : null) ||
+            (commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null);
 
-        rows.push({
-          key: `${p}-${classId}-common`,
-          period: p,
-          classId,
-          className: clsName,
-          classroom: location,
-          subject,
-          absentTeacherName: absRecord?.name || 'Mazeretli Öğretmen',
-          absentReason: absRecord?.reason
-            ? REASON_LABELS[absRecord.reason] || absRecord.reason
-            : '',
-          dutyTeacherName: mergeTeacher
-            ? `Grup Birleştirilecek (${mergeTeacher})`
-            : 'Grup Birleştirilecek',
-          statusType: 'common'
+          const { location, subject } = resolveClassroomAndSubject(
+            classId,
+            clsName,
+            p,
+            absRecord?.name
+          );
+
+          rows.push({
+            key: `${p}-${classId}-common`,
+            period: p,
+            classId,
+            className: clsName,
+            classroom: location,
+            subject,
+            absentTeacherName: absRecord?.name || 'Mazeretli Öğretmen',
+            absentReason: absRecord?.reason
+              ? REASON_LABELS[absRecord.reason] || absRecord.reason
+              : '',
+            dutyTeacherName: mergeTeacher
+              ? `Grup Birleştirilecek (${mergeTeacher})`
+              : 'Grup Birleştirilecek',
+            statusType: 'common'
+          });
         });
-      });
+      }
 
       // 3. İdare Kontrolü veya Manuel Kilitlenenler (Locked)
       Object.entries(locked || {}).forEach(([key, lockTeacherId]) => {
@@ -279,7 +285,7 @@ export default function PrintableAssignmentList({
     });
 
     return validRows;
-  }, [day, periods, assignment, commonLessons, locked, classAbsence, classNameById, teacherById, absentInfoById, classLocations, teacherSchedules]);
+  }, [day, periods, assignment, commonLessons, showMergedLessons, locked, classAbsence, classNameById, teacherById, absentInfoById, classLocations, teacherSchedules]);
 
   return (
     <div className={`print-wrap ${pageOrientation === 'landscape' ? 'orientation-landscape' : 'orientation-portrait'}`}>
@@ -345,6 +351,9 @@ export default function PrintableAssignmentList({
                 <tr key={row.key || idx}>
                   <td className="text-center font-bold col-period">
                     <span className="period-badge">{row.period}. Saat</span>
+                    {periodTimes[row.period] && (
+                      <div className="period-time-sub">{periodTimes[row.period]}</div>
+                    )}
                   </td>
                   <td className="text-left col-absent">
                     <div className="font-semibold text-dark">{row.absentTeacherName}</div>
@@ -566,6 +575,14 @@ export default function PrintableAssignmentList({
           font-size: 0.82rem;
         }
 
+        .period-time-sub {
+          font-size: 0.72rem;
+          font-weight: 500;
+          color: #64748b;
+          margin-top: 2px;
+          white-space: nowrap;
+        }
+
         .class-name-badge {
           display: inline-block;
           font-weight: 700;
@@ -720,6 +737,14 @@ export default function PrintableAssignmentList({
             border: none !important;
             padding: 0 !important;
             font-weight: bold !important;
+          }
+
+          .period-time-sub {
+            display: block !important;
+            font-size: 6.2pt !important;
+            font-weight: normal !important;
+            color: #333 !important;
+            margin-top: 1px !important;
           }
 
           .duty-teacher-text,

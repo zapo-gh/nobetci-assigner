@@ -596,3 +596,120 @@
   text-overflow: ellipsis;
   max-width: 80px;
 }
+
+/* ---------------- Period Times & Active Lesson Highlighting ---------------- */
+.modalPeriodTime {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+  margin-top: 2px;
+  letter-spacing: -0.01em;
+}
+
+.currentPeriodHeader {
+  background: #e0f2fe !important;
+  border-color: #38bdf8 !important;
+  color: #0369a1 !important;
+}
+
+.currentPeriodBadge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #0284c7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+.todayDayCell {
+  background: #eff6ff !important;
+  border-left: 3px solid #2563eb !important;
+  color: #1e40af !important;
+}
+
+.todayBadge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 3px;
+}
+
+.currentLessonCell {
+  background: #eff6ff !important;
+  position: relative;
+  box-shadow: inset 0 0 0 2px #2563eb;
+  border-radius: 6px;
+}
+
+.currentLessonBadge {
+  box-shadow: 0 0 0 2.5px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.4) !important;
+  animation: pulseRing 2s infinite ease-in-out;
+}
+
+.currentLessonIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.currentLessonDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: blink 1.2s infinite;
+}
+
+.currentLessonTag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #fef08a;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.emptyCurrentCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyCurrentTag {
+  font-size: 0.62rem;
+  color: #2563eb;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.activeNowBanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes pulseRing {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}

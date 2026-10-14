@@ -26,6 +26,7 @@ export default function AssignmentText({
   commonLessons = {},
   classLocations = {},
   teacherSchedules = {},
+  showMergedLessons = true,
 }) {
   const [formatMode, setFormatMode] = useState<'whatsapp' | 'plain' | 'merged'>('whatsapp');
   const [copied, setCopied] = useState(false);
@@ -182,7 +183,7 @@ export default function AssignmentText({
         }
       });
 
-      if (commonLessons?.[day]?.[p]) {
+      if (showMergedLessons && commonLessons?.[day]?.[p]) {
         const mergedCommonLessonsByTeacher = {};
         Object.entries(commonLessons[day][p]).forEach(([classId, teacherVal]) => {
           const c = classes.find(x => x.classId === classId);
@@ -231,7 +232,7 @@ export default function AssignmentText({
       return [`${header}`, `(Bu tarih için atanmış görev bulunmuyor)`];
     }
     return [header, ...lines];
-  }, [day, periods, classes, teachers, assignment, locked, displayDate, classAbsence, commonLessons, absentMap]);
+  }, [day, periods, classes, teachers, assignment, locked, displayDate, classAbsence, commonLessons, absentMap, showMergedLessons]);
 
   // Emojili & WhatsApp Odaklı Biçim
   const whatsAppText = useMemo(() => {
@@ -249,7 +250,7 @@ export default function AssignmentText({
 
     for (const p of periods) {
       const arr = assignment[day]?.[p] || [];
-      const commonEntries = Object.entries(commonLessons?.[day]?.[p] || {});
+      const commonEntries = showMergedLessons ? Object.entries(commonLessons?.[day]?.[p] || {}) : [];
       const adminLocked = Object.entries(locked || {}).filter(([key, teacherId]) => {
         if (teacherId !== MANUAL_ADMIN_TEACHER_ID) return false;
         const [lockDay, lockPeriod] = key.split('|');
@@ -310,7 +311,7 @@ export default function AssignmentText({
     }
 
     return lines.join('\n');
-  }, [day, periods, classes, teachers, assignment, locked, displayDate, classAbsence, commonLessons, absentMap]);
+  }, [day, periods, classes, teachers, assignment, locked, displayDate, classAbsence, commonLessons, absentMap, showMergedLessons]);
 
   const activeDisplayContent = formatMode === 'whatsapp' ? whatsAppText : plainTextArray.join('\n');
 
