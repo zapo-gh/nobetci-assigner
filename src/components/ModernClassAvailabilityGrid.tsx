@@ -304,11 +304,11 @@ function ModernClassAvailabilityGrid({
               {morningPeriods.length > 0 && (
                 <th
                   colSpan={morningPeriods.length}
-                  className={`${styles.morningGroupHeader} ${styles.dividerRight}`}
+                  className={styles.morningGroupHeader}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     {IconComponent ? <IconComponent name="sun" size={14} /> : '☀️'}
-                    <strong>Sabah Grubu (1 - {dividerPeriod}. Saat)</strong>
+                    <strong>Öğleden Önce</strong>
                   </span>
                 </th>
               )}
@@ -317,9 +317,7 @@ function ModernClassAvailabilityGrid({
                 <th colSpan={afternoonPeriods.length} className={styles.afternoonGroupHeader}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     {IconComponent ? <IconComponent name="sun" size={14} /> : '🌤️'}
-                    <strong>
-                      Öğleden Sonra ({Number(dividerPeriod) + 1} - {periods[periods.length - 1]}. Saat)
-                    </strong>
+                    <strong>Öğleden Sonra</strong>
                   </span>
                 </th>
               )}
@@ -337,12 +335,10 @@ function ModernClassAvailabilityGrid({
                 const freeCount = getPeriodFreeCount(p);
                 const totalCount = classes.length;
                 const isAllFree = totalCount > 0 && freeCount === totalCount;
-                const isDivider = p === dividerPeriod;
 
                 return (
                   <th
                     key={p}
-                    className={`${isDivider ? styles.dividerRight : ''}`}
                     style={{ textAlign: 'center', minWidth: '70px', padding: '6px 2px' }}
                   >
                     <button
@@ -486,7 +482,7 @@ function ModernClassAvailabilityGrid({
                       return (
                         <td
                           key={p}
-                          className={`${styles.timeCapsuleCell} ${isDivider ? styles.dividerRight : ''} dnd-target`}
+                          className={`${styles.timeCapsuleCell} dnd-target`}
                         >
                           <div className={styles.cellContentWrapper}>
                             {/* Interactive Time Capsule */}
@@ -636,7 +632,6 @@ function ModernClassAvailabilityGrid({
                   return (
                     <td
                       key={p}
-                      className={`${isDivider ? styles.dividerRight : ''}`}
                       style={{ textAlign: 'center', padding: '8px 2px' }}
                     >
                       <div className={styles.footerPeriodStat}>

@@ -213,9 +213,9 @@
   font-weight: 500;
 }
 
-/* Divider separating Morning (period 5) and Afternoon (period 6) */
+/* Divider separating Morning and Afternoon */
 .dividerRight {
-  border-right: 2.5px solid #93c5fd !important;
+  border-right: none !important;
 }
 
 /* ---------------- Sticky Left Column ---------------- */
