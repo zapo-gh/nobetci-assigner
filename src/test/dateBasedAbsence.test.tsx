@@ -73,7 +73,7 @@ describe('Date-based Absence Scoping', () => {
     expect(result.current.Tue[9].has('cls-10p')).toBe(true);
   });
 
-  it('AbsentsSection defaults to showing selected day absentees', () => {
+  it('AbsentsSection strictly shows only selected day absentees', () => {
     const allAbsents = [
       { absentId: 'a1', name: 'FATMA KAYA', days: ['Tue'], date: '2026-10-13', reason: 'Raporlu' },
     ];
@@ -90,9 +90,10 @@ describe('Date-based Absence Scoping', () => {
       />
     );
 
-    // Since todayAbsents is empty, it displays empty state for today by default!
-    expect(screen.getByText('Seçili Gün (0)')).toBeTruthy();
-    expect(screen.getByText('Tüm Mazeretliler (1)')).toBeTruthy();
+    // Displays empty state for selected day; does not show 'Tüm Mazeretliler' or teachers from other days
+    expect(screen.getByText('Seçili Gün İçin Mazeret Bulunmuyor')).toBeTruthy();
+    expect(screen.queryByText(/Tüm Mazeretliler/)).toBeNull();
+    expect(screen.queryByText(/Tüm Mazeretlileri Göster/)).toBeNull();
     expect(screen.queryByText('FATMA KAYA')).toBeNull();
   });
 });
