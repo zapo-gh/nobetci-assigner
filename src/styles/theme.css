@@ -188,28 +188,31 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 }
 .day-pill .day-num { opacity: .75; font-weight: 600; margin-left: 4px; font-size: .8em; }
 
-/* ================= Sekmeler (dolu hap butonlar, gruba göre renk) ================= */
+/* ================= Sekmeler (dolu hap butonlar, gruba göre renk, iki yana yaslı) ================= */
 .tabs {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-3);
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
   margin-bottom: var(--space-5);
-  padding: 2px 2px 6px 2px;
+  padding: 2px 0 6px 0;
 }
 .tabs::-webkit-scrollbar {
   display: none;
 }
-.tab-group-sep {
-  width: 2px;
-  height: 22px;
-  background: var(--border-strong);
-  margin: 0 var(--space-2);
-  border-radius: 2px;
+.tab-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
+}
+.tab-group-sep {
+  display: none;
 }
 .tab {
   --tab-color: var(--primary);

@@ -90,39 +90,41 @@ function Tabs({ items, active, onChange, IconComponent }) {
 
   return (
     <nav className="tabs">
-      {Object.entries(groupedItems).map(([groupName, groupItems], groupIndex, arr) => (
-        <React.Fragment key={groupName}>
-          <div role="group" aria-label={groupName} style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-            {groupItems.map((it, index) => {
-              const globalIndex = items.findIndex(i => i.key === it.key);
-              
-              let dataGroup = "data"; // Default
-              if (groupName === "Planlama") dataGroup = "plan";
-              if (groupName === "Çıktılar" || groupName === "Çıktı") dataGroup = "output";
+      {Object.entries(groupedItems).map(([groupName, groupItems]) => (
+        <div
+          key={groupName}
+          role="group"
+          aria-label={groupName}
+          className="tab-group"
+        >
+          {groupItems.map((it) => {
+            const globalIndex = items.findIndex((i) => i.key === it.key);
+            
+            let dataGroup = "data"; // Default
+            if (groupName === "Planlama") dataGroup = "plan";
+            if (groupName === "Çıktılar" || groupName === "Çıktı") dataGroup = "output";
 
-              return (
-                <button
-                  key={it.key}
-                  ref={active === it.key ? activeTabRef : null}
-                  className="tab"
-                  data-group={dataGroup}
-                  onClick={() => onChange(it.key)}
-                  type="button"
-                  role="tab"
-                  aria-selected={active === it.key}
-                  tabIndex={active === it.key ? 0 : -1}
-                  id={`tab-${it.key}`}
-                  aria-controls={`panel-${it.key}`}
-                  onKeyDown={(event) => handleKeyDown(event, globalIndex)}
-                >
-                  {it.icon && IconComponent && <IconComponent name={it.icon} size={16} />}
-                  <span>{it.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          {groupIndex < arr.length - 1 && <div className="tab-group-sep"></div>}
-        </React.Fragment>
+            return (
+              <button
+                key={it.key}
+                ref={active === it.key ? activeTabRef : null}
+                className="tab"
+                data-group={dataGroup}
+                onClick={() => onChange(it.key)}
+                type="button"
+                role="tab"
+                aria-selected={active === it.key}
+                tabIndex={active === it.key ? 0 : -1}
+                id={`tab-${it.key}`}
+                aria-controls={`panel-${it.key}`}
+                onKeyDown={(event) => handleKeyDown(event, globalIndex)}
+              >
+                {it.icon && IconComponent && <IconComponent name={it.icon} size={16} />}
+                <span>{it.label}</span>
+              </button>
+            );
+          })}
+        </div>
       ))}
     </nav>
   );
