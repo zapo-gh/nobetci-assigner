@@ -92,7 +92,7 @@ function Tabs({ items, active, onChange, IconComponent }) {
     <nav className="tabs">
       {Object.entries(groupedItems).map(([groupName, groupItems], groupIndex, arr) => (
         <React.Fragment key={groupName}>
-          <div role="group" aria-label={groupName} style={{ display: 'flex', gap: '8px' }}>
+          <div role="group" aria-label={groupName} style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
             {groupItems.map((it, index) => {
               const globalIndex = items.findIndex(i => i.key === it.key);
               
