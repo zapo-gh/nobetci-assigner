@@ -1,7 +1,7 @@
 // @ts-nocheck
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './Modal';
-import { normalizeClassName } from '../utils/classNameUtils.js';
+import { normalizeClassName, isPboLesson } from '../utils/classNameUtils.js';
 import { normalizeForComparison } from '../utils/nameNormalization.js';
 
 const DAY_LABELS = {
@@ -179,6 +179,41 @@ const S = {
   }),
 };
 
+function getDayKeys(day) {
+  if (!day) return [];
+  const d = String(day).trim().toLowerCase();
+  const map = {
+    mon: ['monday', 'mon', 'pazartesi', 'pzt'],
+    monday: ['monday', 'mon', 'pazartesi', 'pzt'],
+    pazartesi: ['monday', 'mon', 'pazartesi', 'pzt'],
+    pzt: ['monday', 'mon', 'pazartesi', 'pzt'],
+
+    tue: ['tuesday', 'tue', 'salı', 'sali', 'sal'],
+    tuesday: ['tuesday', 'tue', 'salı', 'sali', 'sal'],
+    salı: ['tuesday', 'tue', 'salı', 'sali', 'sal'],
+    sali: ['tuesday', 'tue', 'salı', 'sali', 'sal'],
+    sal: ['tuesday', 'tue', 'salı', 'sali', 'sal'],
+
+    wed: ['wednesday', 'wed', 'çarşamba', 'carsamba', 'çar', 'car'],
+    wednesday: ['wednesday', 'wed', 'çarşamba', 'carsamba', 'çar', 'car'],
+    çarşamba: ['wednesday', 'wed', 'çarşamba', 'carsamba', 'çar', 'car'],
+    carsamba: ['wednesday', 'wed', 'çarşamba', 'carsamba', 'çar', 'car'],
+    çar: ['wednesday', 'wed', 'çarşamba', 'carsamba', 'çar', 'car'],
+
+    thu: ['thursday', 'thu', 'perşembe', 'persembe', 'per'],
+    thursday: ['thursday', 'thu', 'perşembe', 'persembe', 'per'],
+    perşembe: ['thursday', 'thu', 'perşembe', 'persembe', 'per'],
+    persembe: ['thursday', 'thu', 'perşembe', 'persembe', 'per'],
+    per: ['thursday', 'thu', 'perşembe', 'persembe', 'per'],
+
+    fri: ['friday', 'fri', 'cuma', 'cum'],
+    friday: ['friday', 'fri', 'cuma', 'cum'],
+    cuma: ['friday', 'fri', 'cuma', 'cum'],
+    cum: ['friday', 'fri', 'cuma', 'cum'],
+  };
+  return map[d] || [d, String(day)];
+}
+
 export default function CommonLessonModal({
   isOpen,
   onClose,
@@ -202,39 +237,82 @@ export default function CommonLessonModal({
     const className = classInfo?.className || '';
     const classId = classInfo?.classId || '';
     if (!className && !classId) return [];
+    if (isPboLesson(className)) return [];
 
     const normTarget = normalizeClassName(className);
     const absentTeacherNames = new Set(
       (absentPeople || []).map((a) => normalizeForComparison(a.name || ''))
     );
+    const dayKeys = getDayKeys(day);
 
     // From classLocations
     if (classLocations) {
-      const locEntry =
-        classLocations[className]?.[day]?.[period] ||
-        classLocations[className]?.[day?.toLowerCase()]?.[period] ||
-        classLocations[classId]?.[day]?.[period] ||
-        classLocations[classId]?.[day?.toLowerCase()]?.[period];
-      if (locEntry && Array.isArray(locEntry.teachers)) {
-        locEntry.teachers.forEach((tName) => {
-          if (tName && typeof tName === 'string') {
-            const trimmed = tName.trim();
-            if (trimmed && !absentTeacherNames.has(normalizeForComparison(trimmed))) {
-              candidates.add(trimmed);
+      let locEntry = null;
+      const dayKeySet = new Set(dayKeys.map((k) => String(k).toLowerCase()));
+      for (const [locClassKey, daysMap] of Object.entries(classLocations)) {
+        if (!daysMap || typeof daysMap !== 'object') continue;
+        const normLocClass = normalizeClassName(locClassKey);
+        if (normLocClass === normTarget || locClassKey === className || locClassKey === classId) {
+          for (const [dKey, pMap] of Object.entries(daysMap)) {
+            if (!pMap || typeof pMap !== 'object') continue;
+            if (dayKeySet.has(String(dKey).toLowerCase())) {
+              const entry = pMap[period] || pMap[Number(period)] || pMap[String(period)];
+              if (entry) {
+                locEntry = entry;
+                break;
+              }
             }
           }
-        });
+          if (locEntry) break;
+        }
+      }
+
+      if (locEntry) {
+        if (Array.isArray(locEntry.teachers)) {
+          locEntry.teachers.forEach((tName) => {
+            if (tName && typeof tName === 'string') {
+              const trimmed = tName.trim();
+              if (trimmed && !absentTeacherNames.has(normalizeForComparison(trimmed))) {
+                candidates.add(trimmed);
+              }
+            }
+          });
+        }
+        if (locEntry.teacherNamesStr && typeof locEntry.teacherNamesStr === 'string') {
+          const parts = locEntry.teacherNamesStr.split(/[\/\-,\\\s]+/).map((s) => s.trim()).filter(Boolean);
+          parts.forEach((part) => {
+            const partNorm = normalizeForComparison(part);
+            const matchedTeacher = (teachers || []).find((t) => {
+              const tNameNorm = normalizeForComparison(t.teacherName || t.name || '');
+              return tNameNorm.includes(partNorm) || partNorm.includes(tNameNorm);
+            });
+            if (matchedTeacher) {
+              const name = matchedTeacher.teacherName || matchedTeacher.name;
+              if (name && !absentTeacherNames.has(normalizeForComparison(name))) {
+                candidates.add(name);
+              }
+            }
+          });
+        }
       }
     }
 
     // From teacherSchedules
     if (teacherSchedules && normTarget) {
+      const dayKeySet = new Set(dayKeys.map((k) => String(k).toLowerCase()));
       Object.entries(teacherSchedules).forEach(([tKey, tDays]) => {
         if (!tDays || typeof tDays !== 'object') return;
-        const daySched = tDays[day] || tDays[day?.toLowerCase()];
+        let daySched = null;
+        for (const [dKey, val] of Object.entries(tDays)) {
+          if (dayKeySet.has(String(dKey).toLowerCase())) {
+            daySched = val;
+            break;
+          }
+        }
         if (!daySched || typeof daySched !== 'object') return;
         const lessonRaw = daySched[period] || daySched[Number(period)] || daySched[String(period)];
         if (!lessonRaw || typeof lessonRaw !== 'string') return;
+        if (isPboLesson(lessonRaw)) return;
 
         const classParts = lessonRaw.split(',').map((s) => normalizeClassName(s.trim()));
         if (classParts.includes(normTarget)) {
@@ -254,9 +332,11 @@ export default function CommonLessonModal({
     return Array.from(candidates);
   }, [classInfo, day, period, classLocations, teacherSchedules, absentPeople, teachers]);
 
+  const prevIsOpenRef = useRef(false);
+
   // Synchronize initial selection when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setError('');
       setShowManualSelect(false);
       if (currentTeacherName) {
@@ -266,8 +346,13 @@ export default function CommonLessonModal({
       } else {
         setSelectedTeacher('');
       }
+    } else if (!isOpen) {
+      setSelectedTeacher('');
+      setError('');
+      setShowManualSelect(false);
     }
-  }, [isOpen, currentTeacherName]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, currentTeacherName, detectedCandidates]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -314,7 +399,20 @@ export default function CommonLessonModal({
         </div>
 
         {/* Teacher Selection or Fixed Co-Teacher Display */}
-        {isDetected && !showManualSelect ? (
+        {isPboLesson(classInfo?.className) ? (
+          <div style={{
+            padding: '12px 14px',
+            background: '#fffbeb',
+            border: '1.5px solid #fde68a',
+            borderRadius: '10px',
+            color: '#92400e',
+            fontSize: '0.84rem',
+            lineHeight: 1.45,
+            marginBottom: '12px'
+          }}>
+            ⚠️ <strong>İstisnai Durum:</strong> PBO (Planlama Bakım Onarım) dersi her öğretmenin kendine ait bireysel bir derstir. Ortak ders birleştirmesi yapılamaz.
+          </div>
+        ) : isDetected && !showManualSelect ? (
           <div style={S.detectedCard}>
             <div style={S.detectedBadge}>
               <span>✓</span>
@@ -397,8 +495,8 @@ export default function CommonLessonModal({
           </button>
           <button
             type="submit"
-            disabled={!selectedTeacher.trim()}
-            style={S.btnSubmit(!selectedTeacher.trim())}
+            disabled={!selectedTeacher.trim() || isPboLesson(classInfo?.className)}
+            style={S.btnSubmit(!selectedTeacher.trim() || isPboLesson(classInfo?.className))}
           >
             <span>✓</span>
             <span>Grubu Birleştir</span>

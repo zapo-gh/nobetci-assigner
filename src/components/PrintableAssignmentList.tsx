@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useMemo, useState } from 'react';
 import { MANUAL_ADMIN_TEACHER_ID, MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js';
-import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
+import { decodeClassAbsenceValue, COMMON_LESSON_LABEL, resolveAllAbsentTeachers, resolveCommonLessonOwners, cleanSubjectName, isAbsentOnDay } from '../utils/classAbsence.js';
 import { normalizeClassName, compareClassNames, getClassroomName } from '../utils/classNameUtils.js';
 import { getPeriodTimes } from '../utils/periodTimes.js';
 import PrintNotesCard from './PrintNotesCard';
@@ -57,23 +57,33 @@ export default function PrintableAssignmentList({
     const map = {};
     (absentPeople || []).forEach((a) => {
       if (!a?.absentId) return;
-      if (Array.isArray(a.days) && a.days.length > 0 && !a.days.includes(day)) return;
+      if (!isAbsentOnDay(a, day)) return;
       map[a.absentId] = { name: a.name, reason: a.reason };
     });
     return map;
   }, [absentPeople, day]);
 
+  const formatAbsentReasons = (records, single) => {
+    if (records.length > 1) {
+      return records
+        .map((r) => `${r.name}: ${REASON_LABELS[r.reason] || r.reason}`)
+        .join('\n');
+    }
+    return single?.reason ? REASON_LABELS[single.reason] || single.reason : '';
+  };
+
   const normalizeTeacherKey = (value = '') =>
     String(value || '').trim().toLocaleUpperCase('tr-TR');
 
+  const sysDayMap = {
+    Sun: 'sunday', Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday', Fri: 'friday', Sat: 'saturday',
+    Pzt: 'monday', Sal: 'tuesday', Çar: 'wednesday', Per: 'thursday', Cum: 'friday',
+    Pazartesi: 'monday', Salı: 'tuesday', Çarşamba: 'wednesday', Perşembe: 'thursday', Cuma: 'friday'
+  };
+  const sysDay = sysDayMap[day] || day?.toLowerCase?.() || day;
+
   // Helper to extract classroom and subject from classLocations / teacherSchedules
   const resolveClassroomAndSubject = (classId, className, period, absentTeacherName) => {
-    const sysDayMap = {
-      Sun: 'sunday', Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday', Fri: 'friday', Sat: 'saturday',
-      Pzt: 'monday', Sal: 'tuesday', Çar: 'wednesday', Per: 'thursday', Cum: 'friday',
-      Pazartesi: 'monday', Salı: 'tuesday', Çarşamba: 'wednesday', Perşembe: 'thursday', Cuma: 'friday'
-    };
-    const sysDay = sysDayMap[day] || day?.toLowerCase?.() || day;
 
     const candidates = [
       className,
@@ -128,9 +138,10 @@ export default function PrintableAssignmentList({
       }
     }
 
+    const cleanedSubj = cleanSubjectName(subject, className);
     return {
       location: location || '-',
-      subject: subject || '-'
+      subject: cleanedSubj || '-'
     };
   };
 
@@ -151,8 +162,17 @@ export default function PrintableAssignmentList({
         if (!dutyTeacher || dutyTeacher === 'Atanmadı' || dutyTeacher === 'Boş Bırakıldı') return;
 
         const rawAbsValue = classAbsence?.[day]?.[p]?.[classId];
-        const { absentId } = decodeClassAbsenceValue(rawAbsValue);
-        const absRecord = absentId ? absentInfoById[absentId] : null;
+        const absRecords = resolveAllAbsentTeachers({
+          day,
+          period: p,
+          classId,
+          className: clsName,
+          rawAbsValue,
+          absentPeople,
+          teacherSchedules,
+          absentInfoById,
+        });
+        const absRecord = absRecords[0] || null;
 
         const { location, subject } = resolveClassroomAndSubject(
           classId,
@@ -161,6 +181,12 @@ export default function PrintableAssignmentList({
           absRecord?.name
         );
 
+        const absentTeacherName = absRecords.length > 1
+          ? absRecords.map((r) => r.name).join(', ')
+          : absRecord?.name || 'Mazeretli Öğretmen';
+
+        const absentReason = formatAbsentReasons(absRecords, absRecord);
+
         rows.push({
           key: `${p}-${classId}-duty`,
           period: p,
@@ -168,10 +194,8 @@ export default function PrintableAssignmentList({
           className: clsName,
           classroom: location,
           subject,
-          absentTeacherName: absRecord?.name || 'Mazeretli Öğretmen',
-          absentReason: absRecord?.reason
-            ? REASON_LABELS[absRecord.reason] || absRecord.reason
-            : '',
+          absentTeacherName,
+          absentReason,
           dutyTeacherName: dutyTeacher,
           statusType: 'duty'
         });
@@ -185,20 +209,68 @@ export default function PrintableAssignmentList({
           if (assignmentsForPeriod.some((a) => a.classId === classId)) return;
           if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return;
 
+          const rawAbsValue = classAbsence?.[day]?.[p]?.[classId];
+          const { absentId } = decodeClassAbsenceValue(rawAbsValue || '');
+          // Ortak ders sahipleri virgülle ayrılmış birden çok kimlik içerebilir
+          const owners = resolveCommonLessonOwners(rawAbsValue, absentInfoById);
+          const ownerRecords = owners.records;
+          const commonLessonOwnerId = owners.hasOwner;
+          const absRecord =
+            (absentId && absentId !== COMMON_LESSON_LABEL ? absentInfoById[absentId] : null) ||
+            ownerRecords[0] ||
+            null;
+
+          // Ortak ders belirli mazeretlilere bağlıysa ve hiçbiri bugün izinli değilse listeye ekleme
+          if (commonLessonOwnerId && ownerRecords.length === 0) return;
+
           const clsName = classNameById[classId] || classId;
           const mergeTeacher = teacherById[teacherVal]?.teacherName || teacherVal;
 
-          const rawAbsValue = classAbsence?.[day]?.[p]?.[classId];
-          const { absentId, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbsValue);
-          const absRecord =
-            (absentId ? absentInfoById[absentId] : null) ||
-            (commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null);
+          // Derse ortak giren öğretmen de bugün izinliyse, gruplar birleştirilemez
+          const isMergeTeacherAbsent = Boolean(
+            absentInfoById[teacherVal] ||
+            (absentPeople || []).some((a) => {
+              if (!a) return false;
+              if (!isAbsentOnDay(a, day)) return false;
+              const aNorm = String(a.name || a.teacherName || '').trim().toLocaleLowerCase('tr-TR');
+              const mNorm = String(mergeTeacher || '').trim().toLocaleLowerCase('tr-TR');
+              return aNorm && mNorm && aNorm === mNorm;
+            })
+          );
+          if (isMergeTeacherAbsent) return;
+
+          let absentTeacherName = ownerRecords.length > 1
+            ? ownerRecords.map((r) => r.name).join(', ')
+            : absRecord?.name || '';
+          let absentReason = ownerRecords.length > 1
+            ? formatAbsentReasons(ownerRecords, null)
+            : absRecord?.reason
+              ? REASON_LABELS[absRecord.reason] || absRecord.reason
+              : '';
+
+          // Kayıtlı sahip bulunamadıysa ders programından bu sınıfa o saatte giren mazeretli öğretmenleri çöz
+          if (!absentTeacherName) {
+            const scheduled = resolveAllAbsentTeachers({
+              day,
+              period: p,
+              classId,
+              className: clsName,
+              rawAbsValue,
+              absentPeople,
+              teacherSchedules,
+              absentInfoById,
+            });
+            if (scheduled.length > 0) {
+              absentTeacherName = scheduled.map((r) => r.name).join(', ');
+              absentReason = formatAbsentReasons(scheduled, scheduled[0]);
+            }
+          }
 
           const { location, subject } = resolveClassroomAndSubject(
             classId,
             clsName,
             p,
-            absRecord?.name
+            absentTeacherName || mergeTeacher
           );
 
           rows.push({
@@ -208,10 +280,8 @@ export default function PrintableAssignmentList({
             className: clsName,
             classroom: location,
             subject,
-            absentTeacherName: absRecord?.name || 'Mazeretli Öğretmen',
-            absentReason: absRecord?.reason
-              ? REASON_LABELS[absRecord.reason] || absRecord.reason
-              : '',
+            absentTeacherName: absentTeacherName || '—',
+            absentReason,
             dutyTeacherName: mergeTeacher
               ? `Grup Birleştirilecek (${mergeTeacher})`
               : 'Grup Birleştirilecek',
@@ -220,20 +290,36 @@ export default function PrintableAssignmentList({
         });
       }
 
-      // 3. İdare Kontrolü veya Manuel Kilitlenenler (Locked)
+      // 3. İdare Kontrolü (Locked with MANUAL_ADMIN_TEACHER_ID)
       Object.entries(locked || {}).forEach(([key, lockTeacherId]) => {
         const [lDay, lPeriod, lClassId] = key.split('|');
         if (lDay !== day || Number(lPeriod) !== Number(p)) return;
         if (assignmentsForPeriod.some((a) => a.classId === lClassId)) return;
         if (commonLessonsForPeriod[lClassId]) return;
 
-        // Boş bırakılan dersler listede kesinlikle görüntülenmez
-        if (!lockTeacherId || lockTeacherId === MANUAL_EMPTY_TEACHER_ID) return;
+        // Yalnızca İdare Kontrolü olan kayıtlar işlenir
+        // (Normal nöbetçi öğretmen kilitleri zaten geçerli bir boş ders ise assignment içerisine dahil edilmiştir;
+        // ders boş değilse veya eski/geçersiz kilit ise listeye hayalet görevlendirme olarak yansıtılmaz)
+        if (lockTeacherId !== MANUAL_ADMIN_TEACHER_ID) return;
+
+        const rawAbsValue = classAbsence?.[day]?.[p]?.[lClassId];
+        if (!rawAbsValue) return;
+
+        const { allowDuty } = decodeClassAbsenceValue(rawAbsValue);
+        if (!allowDuty) return;
 
         const clsName = classNameById[lClassId] || lClassId;
-        const rawAbsValue = classAbsence?.[day]?.[p]?.[lClassId];
-        const { absentId } = decodeClassAbsenceValue(rawAbsValue);
-        const absRecord = absentId ? absentInfoById[absentId] : null;
+        const absRecords = resolveAllAbsentTeachers({
+          day,
+          period: p,
+          classId: lClassId,
+          className: clsName,
+          rawAbsValue,
+          absentPeople,
+          teacherSchedules,
+          absentInfoById,
+        });
+        const absRecord = absRecords[0] || null;
 
         const { location, subject } = resolveClassroomAndSubject(
           lClassId,
@@ -242,31 +328,23 @@ export default function PrintableAssignmentList({
           absRecord?.name
         );
 
-        let dutyLabel = '';
-        let statusType = 'duty';
-        if (lockTeacherId === MANUAL_ADMIN_TEACHER_ID) {
-          dutyLabel = 'İdare Kontrolü';
-          statusType = 'admin';
-        } else if (teacherById[lockTeacherId]) {
-          dutyLabel = teacherById[lockTeacherId].teacherName;
-          statusType = 'duty';
-        } else {
-          return;
-        }
+        const absentTeacherName = absRecords.length > 1
+          ? absRecords.map((r) => r.name).join(', ')
+          : absRecord?.name || 'Mazeretli Öğretmen';
+
+        const absentReason = formatAbsentReasons(absRecords, absRecord);
 
         rows.push({
-          key: `${p}-${lClassId}-locked`,
+          key: `${p}-${lClassId}-admin`,
           period: p,
           classId: lClassId,
           className: clsName,
           classroom: location,
           subject,
-          absentTeacherName: absRecord?.name || 'Mazeretli Öğretmen',
-          absentReason: absRecord?.reason
-            ? REASON_LABELS[absRecord.reason] || absRecord.reason
-            : '',
-          dutyTeacherName: dutyLabel,
-          statusType
+          absentTeacherName,
+          absentReason,
+          dutyTeacherName: 'İdare Kontrolü',
+          statusType: 'admin'
         });
       });
     });
@@ -356,9 +434,25 @@ export default function PrintableAssignmentList({
                     )}
                   </td>
                   <td className="text-left col-absent">
-                    <div className="font-semibold text-dark">{row.absentTeacherName}</div>
-                    {row.absentReason && (
-                      <div className="absent-reason-text">({row.absentReason})</div>
+                    {row.absentReason && row.absentReason.includes('\n') ? (
+                      row.absentReason.split('\n').map((line, i) => {
+                        const sep = line.lastIndexOf(': ');
+                        const name = sep > -1 ? line.slice(0, sep) : line;
+                        const reason = sep > -1 ? line.slice(sep + 2) : '';
+                        return (
+                          <div key={i} style={i > 0 ? { marginTop: '4px' } : undefined}>
+                            <div className="font-semibold text-dark">{name}</div>
+                            {reason && <div className="absent-reason-text">({reason})</div>}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <div className="font-semibold text-dark">{row.absentTeacherName}</div>
+                        {row.absentReason && (
+                          <div className="absent-reason-text">({row.absentReason})</div>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="text-center font-bold col-class">
@@ -591,13 +685,16 @@ export default function PrintableAssignmentList({
         }
 
         .classroom-badge {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           padding: 2px 8px;
           background: #f1f5f9;
           color: #334155;
           border-radius: 6px;
           font-weight: 600;
           font-size: 0.82rem;
+          white-space: nowrap;
         }
 
         .subject-text {

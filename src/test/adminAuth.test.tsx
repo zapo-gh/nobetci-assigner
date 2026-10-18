@@ -6,7 +6,11 @@ import {
   verifyPassword,
   isSessionAuthenticated,
   setSessionAuthenticated,
-  clearSession
+  clearSession,
+  getLockoutState,
+  recordFailedAttempt,
+  resetFailedAttempts,
+  MAX_FAILED_ATTEMPTS
 } from '../utils/authUtils';
 import LoginScreen from '../components/LoginScreen';
 import ChangePasswordModal from '../components/ChangePasswordModal';
@@ -66,6 +70,29 @@ describe('Admin Authentication & Security Lock', () => {
       sessionStorage.setItem('nobetci_auth_session', 'true');
       expect(isSessionAuthenticated()).toBe(false);
     });
+
+    it('implements brute-force lockout after 5 failed attempts', () => {
+      expect(getLockoutState().isLocked).toBe(false);
+
+      // 4 başarısız deneme
+      for (let i = 1; i <= 4; i++) {
+        const state = recordFailedAttempt();
+        expect(state.attempts).toBe(i);
+        expect(state.isLocked).toBe(false);
+      }
+
+      // 5. deneme kilitlenmeyi tetiklemeli
+      const lockedState = recordFailedAttempt();
+      expect(lockedState.attempts).toBe(5);
+      expect(lockedState.isLocked).toBe(true);
+      expect(lockedState.remainingSeconds).toBeGreaterThan(0);
+      expect(lockedState.remainingSeconds).toBeLessThanOrEqual(30);
+
+      // Sıfırlama
+      resetFailedAttempts();
+      expect(getLockoutState().isLocked).toBe(false);
+      expect(getLockoutState().attempts).toBe(0);
+    });
   });
 
   describe('LoginScreen Component', () => {
@@ -111,6 +138,25 @@ describe('Admin Authentication & Security Lock', () => {
       fireEvent.click(submitBtn);
 
       expect(screen.getByText('Lütfen yönetici şifresini giriniz.')).toBeInTheDocument();
+    });
+
+    it('disables input and displays lockout banner when locked out', async () => {
+      // 5 kez başarısız deneme simüle et
+      for (let i = 0; i < 5; i++) {
+        recordFailedAttempt();
+      }
+
+      render(<LoginScreen onLoginSuccess={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Güvenlik kilidi devrede/i)).toBeInTheDocument();
+      });
+
+      const input = screen.getByPlaceholderText('Yönetici şifrenizi giriniz') as HTMLInputElement;
+      expect(input.disabled).toBe(true);
+
+      const submitBtn = screen.getByRole('button', { name: /Bekleyiniz/i });
+      expect(submitBtn).toBeDisabled();
     });
   });
 

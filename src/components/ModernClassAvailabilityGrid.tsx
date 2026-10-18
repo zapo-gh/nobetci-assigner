@@ -2,7 +2,8 @@
 import React, { memo, useState, useMemo } from 'react';
 import styles from './ModernClassAvailabilityGrid.module.css';
 import EmptyState from './EmptyState.jsx';
-import { normalizeClassName, compareClassNames, getClassroomName, isImesLesson } from '../utils/classNameUtils.js';
+import { normalizeClassName, compareClassNames, getClassroomName, isImesLesson, isPboLesson } from '../utils/classNameUtils.js';
+import { decodeClassAbsenceValue, resolveAllAbsentTeachers } from '../utils/classAbsence.js';
 
 function getClassBadgeColor(className = '') {
   const match = className.match(/(\d+)/);
@@ -46,6 +47,7 @@ function ModernClassAvailabilityGrid({
   IconComponent,
   teachers = [],
   classLocations = {},
+  teacherSchedules = {},
   onDropdownStateChange,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,7 +154,8 @@ function ModernClassAvailabilityGrid({
     return periods.reduce((count, p) => {
       const s = classFree?.[day]?.[p] || new Set();
       const selectedAbsent = classAbsence?.[day]?.[p]?.[classId];
-      const isSelected = s.has(classId) || !!selectedAbsent;
+      const commonTeacher = getCommonLessonInfo(day, p, classId);
+      const isSelected = s.has(classId) || !!selectedAbsent || !!commonTeacher;
       return count + (isSelected ? 1 : 0);
     }, 0);
   };
@@ -162,8 +165,9 @@ function ModernClassAvailabilityGrid({
     return periods.some((p) => {
       const s = classFree?.[day]?.[p] || new Set();
       const selectedAbsent = classAbsence?.[day]?.[p]?.[classId] ?? '';
-      const isSelected = s.has(classId) || Boolean(selectedAbsent);
-      const isCommon = selectedAbsent === 'COMMON_LESSON' || (typeof selectedAbsent === 'string' && selectedAbsent.startsWith('COMMON_LESSON'));
+      const commonTeacher = getCommonLessonInfo(day, p, classId);
+      const isSelected = s.has(classId) || Boolean(selectedAbsent) || Boolean(commonTeacher);
+      const isCommon = Boolean(commonTeacher) || selectedAbsent === 'COMMON_LESSON' || (typeof selectedAbsent === 'string' && selectedAbsent.startsWith('COMMON_LESSON'));
       return isSelected && !selectedAbsent && !isCommon;
     });
   };
@@ -433,6 +437,20 @@ function ModernClassAvailabilityGrid({
                                 <span>🏢</span>
                                 <span>Okul Dışı (İMES)</span>
                               </span>
+                            ) : isPboLesson(displayName) ? (
+                              <span
+                                className={styles.classroomChip}
+                                style={{
+                                  background: 'rgba(245, 158, 11, 0.12)',
+                                  color: '#b45309',
+                                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  fontWeight: 600,
+                                }}
+                                title="Planlama Bakım Onarım (Bireysel görev - Nöbetçi atanmaz)"
+                              >
+                                <span>🛠️</span>
+                                <span>Bireysel Görev (PBO)</span>
+                              </span>
                             ) : classroom ? (
                               <span className={styles.classroomChip} title={`Derslik / Konum: ${classroom}`}>
                                 <span>📍</span>
@@ -471,12 +489,30 @@ function ModernClassAvailabilityGrid({
                     {/* Interactive Time Capsules & Absentee Dropdowns */}
                     {periods.map((p) => {
                       const set = classFree?.[day]?.[p] || new Set();
-                      const selectedAbsent = classAbsence?.[day]?.[p]?.[cls.classId] ?? '';
-                      const isSelected = set.has(cls.classId) || Boolean(selectedAbsent);
-                      const isCommonLesson = selectedAbsent === 'COMMON_LESSON' || (typeof selectedAbsent === 'string' && selectedAbsent.startsWith('COMMON_LESSON'));
+                      const rawAbs = classAbsence?.[day]?.[p]?.[cls.classId] ?? '';
+                      const decodedAbs = decodeClassAbsenceValue(rawAbs);
+                      const absentIds = decodedAbs.absentIds;
+                      const selectedAbsent = rawAbs;
+                      const commonTeacherName = getCommonLessonInfo(day, p, cls.classId);
+                      const isCommonLesson = Boolean(commonTeacherName) || selectedAbsent === 'COMMON_LESSON' || (typeof selectedAbsent === 'string' && selectedAbsent.startsWith('COMMON_LESSON'));
+                      const isSelected = set.has(cls.classId) || Boolean(selectedAbsent) || Boolean(commonTeacherName);
                       const needsAbsentSelection = isSelected && !selectedAbsent && !isCommonLesson;
-                      const absentInfo = selectedAbsent && !isCommonLesson ? getAbsentInfo(selectedAbsent) : null;
-                      const commonTeacherName = isCommonLesson ? getCommonLessonInfo(day, p, cls.classId) : null;
+                      const absRecords = !isCommonLesson
+                        ? resolveAllAbsentTeachers({
+                            day,
+                            period: p,
+                            classId: cls.classId,
+                            className: cls.className,
+                            rawAbsValue: rawAbs,
+                            absentPeople,
+                            teacherSchedules,
+                            absentInfoById: absentPeople.reduce((acc, a) => {
+                              if (a?.absentId) acc[a.absentId] = a;
+                              return acc;
+                            }, {}),
+                          })
+                        : [];
+                      const absentInfo = absRecords[0] || null;
                       const isDivider = p === dividerPeriod;
 
                       return (
@@ -563,8 +599,13 @@ function ModernClassAvailabilityGrid({
                                       }}
                                     >
                                       <option value="">— Mazeret Seç —</option>
-                                      {!isImesLesson(cls.className) && (
+                                      {!isImesLesson(cls.className) && !isPboLesson(cls.className) && (
                                         <option value="COMMON_LESSON">📚 Birleştir</option>
+                                      )}
+                                      {absRecords.length > 1 && (
+                                        <option value={selectedAbsent}>
+                                          {absRecords.map((abs) => `${formatTeacherName(abs.name, abs.teacherId)} (${abs.reason})`).join(' & ')}
+                                        </option>
                                       )}
                                       {absentPeople.map((absent) => (
                                         <option key={absent.absentId} value={absent.absentId}>
@@ -574,25 +615,28 @@ function ModernClassAvailabilityGrid({
                                     </select>
                                     <div className={styles.selectArrow} />
 
-                                    {/* Selected Absent Reason Badge */}
-                                    {absentInfo && (
-                                      <span
-                                        className={`${styles.absentBadgeChip} ${getAbsentBadgeClass(absentInfo.reason)}`}
-                                        title={`Mazeret: ${absentInfo.reason}`}
-                                      >
-                                        {absentInfo.reason.charAt(0).toUpperCase() + absentInfo.reason.slice(1).toLowerCase()}
-                                      </span>
-                                    )}
-
-                                    {/* Fallback absent badge */}
-                                    {selectedAbsent && !absentInfo && (
+                                    {/* Selected Absent Reason Badges */}
+                                    {absRecords.length > 0 ? (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px' }}>
+                                        {absRecords.map((info) => (
+                                          <span
+                                            key={info.absentId}
+                                            className={`${styles.absentBadgeChip} ${getAbsentBadgeClass(info.reason)}`}
+                                            title={`${info.name}: ${info.reason}`}
+                                          >
+                                            {absRecords.length > 1 ? `${formatTeacherName(info.name, info.teacherId)}: ` : ''}
+                                            {info.reason.charAt(0).toUpperCase() + info.reason.slice(1).toLowerCase()}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : selectedAbsent && !absentInfo ? (
                                       <span
                                         className={`${styles.absentBadgeChip} ${styles.badgeMuted}`}
                                         title={selectedAbsent}
                                       >
                                         {selectedAbsent}
                                       </span>
-                                    )}
+                                    ) : null}
 
                                     {/* Warning for Missing Selection */}
                                     {needsAbsentSelection && (

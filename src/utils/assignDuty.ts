@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { toInt } from './helpers.js';
 import { logger } from './logger.js';
-import { getClassroomName, isImesLesson } from './classNameUtils.js';
+import { getClassroomName, isImesLesson, isPboLesson } from './classNameUtils.js';
 import { normalizeForComparison } from './nameNormalization.js';
+import { isAbsentOnDay, isAbsentAtPeriod } from './classAbsence.js';
 
 export const MANUAL_EMPTY_TEACHER_ID = '__MANUAL_EMPTY__';
 export const MANUAL_ADMIN_TEACHER_ID = '__MANUAL_ADMIN__';
@@ -155,6 +156,7 @@ export function assignDuties({
   classLocations,
   locationZoneMapping,
   absentPeople = [],
+  classAbsence = {},
 }) {
   if (!Array.isArray(teachers) || !teachers.length) {
     return { schedule: {}, unassigned: {} };
@@ -193,28 +195,24 @@ export function assignDuties({
     );
   }
 
-  const absentTeacherIds = new Set();
-  const absentTeacherNames = new Set();
-  (absentPeople || []).forEach(p => {
-    if (!p) return;
-    if (p.absentId) absentTeacherIds.add(String(p.absentId));
-    if (p.teacherId) absentTeacherIds.add(String(p.teacherId));
-    const name = p.name || p.teacherName || p.displayName;
-    if (name) absentTeacherNames.add(normalizeForComparison(name));
-  });
+  const isTeacherAbsentForDay = (tid, day, period) => {
+    if (!tid) return false;
+    const sId = String(tid);
+    const teacher = teacherMapById.get(sId);
+    const tName = teacher?.teacherName || (typeof tid === 'string' ? tid : '');
+    const normTName = normalizeForComparison(tName);
 
-  const isTeacherAbsentForDay = (tid, day) => {
-    if (absentTeacherIds.has(tid)) return true;
-    const teacher = teacherMapById.get(tid);
-    if (teacher?.teacherName && absentTeacherNames.has(normalizeForComparison(teacher.teacherName))) return true;
-    const person = (absentPeople || []).find(p =>
-      p.absentId === tid || p.teacherId === tid ||
-      (p.name && teacher?.teacherName && normalizeForComparison(p.name) === normalizeForComparison(teacher.teacherName))
-    );
-    if (person && Array.isArray(person.days) && person.days.length > 0 && !person.days.includes(day)) {
-      return false;
-    }
-    return false;
+    return (absentPeople || []).some(p => {
+      if (!p) return false;
+      // period verilmezse yalnızca tam gün mazeretler günlük havuzdan çıkarır; kısmi (sabah/öğleden sonra) mazeretler saat bazında kontrol edilir
+      if (!(period === undefined ? isAbsentOnDay(p, day) && (!p.timeSlot || p.timeSlot === 'full') : isAbsentAtPeriod(p, day, period))) {
+        return false;
+      }
+      if (p.absentId && (String(p.absentId) === sId || (teacher && String(p.teacherId) === sId))) return true;
+      if (p.teacherId && (String(p.teacherId) === sId || (teacher && String(p.absentId) === sId))) return true;
+      const pName = normalizeForComparison(p.name || p.teacherName || p.displayName || '');
+      return pName && normTName && pName === normTName;
+    });
   };
 
   const allDays = Array.from(
@@ -257,18 +255,44 @@ export function assignDuties({
       const freeT = new Set(freeTeachers?.[day]?.[p] || freeTeachers?.[day]?.[period] || []);
       const freeC = new Set(freeClasses?.[day]?.[p] || freeClasses?.[day]?.[period] || []);
 
-      // İMES dersleri okul dışı görev olduğu için nöbetçi öğretmen atanmaz
+      // İMES ve PBO dersleri okul dışı / bireysel görev olduğu için nöbetçi öğretmen atanmaz
       Array.from(freeC).forEach(classId => {
         const cName = classNameById.get(classId);
-        if (isImesLesson(cName)) {
+        if (isImesLesson(cName) || isPboLesson(cName)) {
           freeC.delete(classId);
         }
       });
 
+      const mergeBusyIds = new Set();
+      const mergeBusyNames = new Set();
+
       if (commonLessons?.[day]?.[period] || commonLessons?.[day]?.[p]) {
         const commObj = commonLessons?.[day]?.[period] || commonLessons?.[day]?.[p] || {};
-        Object.keys(commObj).forEach(classId => {
-          freeC.delete(classId);
+        Object.entries(commObj).forEach(([classId, teacherVal]) => {
+          const isMergeTeacherAbsent = isTeacherAbsentForDay(teacherVal, day, period);
+          if (isMergeTeacherAbsent) {
+            // Ortak derse giren diğer öğretmen de mazeretli/izinli!
+            // Grup birleştirilemez; sınıfın mazeret kaydı varsa mutlaka nöbetçi öğretmen atanmalıdır!
+            const rawAbs = classAbsence?.[day]?.[period]?.[classId] || classAbsence?.[day]?.[p]?.[classId];
+            if (rawAbs) {
+              freeC.add(classId);
+            }
+          } else {
+            // Diğer öğretmen okulda ve derste, gruplar birleştirilebilir
+            freeC.delete(classId);
+            // Grubu birleştiren öğretmen bu saatte derste olduğu için nöbet görevi alamaz
+            if (teacherVal && teacherVal !== MANUAL_EMPTY_TEACHER_ID) {
+              mergeBusyIds.add(String(teacherVal));
+              const mergeName = teacherMapById.get(String(teacherVal))?.teacherName || String(teacherVal);
+              mergeBusyNames.add(normalizeForComparison(mergeName));
+            }
+          }
+        });
+        Array.from(freeT).forEach((tid) => {
+          const tName = teacherMapById.get(tid)?.teacherName || '';
+          if (mergeBusyIds.has(String(tid)) || (tName && mergeBusyNames.has(normalizeForComparison(tName)))) {
+            freeT.delete(tid);
+          }
         });
       }
 
@@ -284,6 +308,14 @@ export function assignDuties({
           continue;
         }
         if (!validTeacherIds.has(tId)) {
+          continue;
+        }
+        // Bu saatte grubu birleştiren öğretmen nöbet göreviyle çakışamaz (eski kilit olsa bile)
+        const lockTeacherName = teacherMapById.get(String(tId))?.teacherName || '';
+        if (
+          mergeBusyIds.has(String(tId)) ||
+          (lockTeacherName && mergeBusyNames.has(normalizeForComparison(lockTeacherName)))
+        ) {
           continue;
         }
         if (freeC.has(classId)) {
@@ -375,6 +407,7 @@ export function assignDuties({
           const { cLoc, requiredZone } = resolveClassZone(classId);
 
           const eligible = activeTeacherIdsForDay.filter(tid =>
+            !isTeacherAbsentForDay(tid, day, period) &&
             (slotUsage[period]?.[tid] || 0) === 0 &&
             canAssign({
               day,
@@ -418,6 +451,7 @@ export function assignDuties({
             const { cLoc, requiredZone } = resolveClassZone(classId);
 
             const eligible = activeTeacherIdsForDay.filter(tid =>
+              !isTeacherAbsentForDay(tid, day, period) &&
               (slotUsage[period]?.[tid] || 0) < maxPerSlot &&
               canAssign({
                 day,
@@ -525,7 +559,7 @@ export function applyFairnessAdjustments({
   const absentTeacherNames = new Set();
   (absentPeople || []).forEach(p => {
     if (!p) return;
-    if (Array.isArray(p.days) && p.days.length > 0 && !p.days.includes(day)) return;
+    if (!isAbsentOnDay(p, day)) return;
     if (p.absentId) absentTeacherIds.add(String(p.absentId));
     if (p.teacherId) absentTeacherIds.add(String(p.teacherId));
     const name = p.name || p.teacherName || p.displayName;
@@ -565,7 +599,7 @@ export function applyFairnessAdjustments({
     (daySchedule[period] || []).forEach(({ classId }) => needed.delete(classId));
     Array.from(needed).forEach(classId => {
       const cName = classNameById.get(classId);
-      if (isImesLesson(cName)) needed.delete(classId);
+      if (isImesLesson(cName) || isPboLesson(cName)) needed.delete(classId);
     });
     dayNeedsByPeriod.set(period, needed);
   });
@@ -582,7 +616,20 @@ export function applyFairnessAdjustments({
   const maxPerSlot = Number.isFinite(parsedMaxPerSlot) && parsedMaxPerSlot > 0 ? parsedMaxPerSlot : 1;
   const ruleEngine = normalizeRuleEngine(options?.ruleEngine);
 
+  const isMergeBusy = (period, teacherId) => {
+    const commObj = dayCommonLessons?.[period];
+    if (!commObj) return false;
+    const tName = teacherMap?.get(teacherId)?.teacherName;
+    const normName = tName ? normalizeForComparison(tName) : '';
+    return Object.values(commObj).some((val) => {
+      if (!val || val === MANUAL_EMPTY_TEACHER_ID) return false;
+      if (String(val) === String(teacherId)) return true;
+      return Boolean(normName) && normalizeForComparison(String(val)) === normName;
+    });
+  };
+
   const isTeacherFree = (period, teacherId) => {
+    if (isMergeBusy(period, teacherId)) return false;
     const source = freeMap[period];
     if (!source) return false;
     if (source instanceof Set) return source.has(teacherId);

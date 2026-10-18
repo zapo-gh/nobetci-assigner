@@ -22,6 +22,7 @@ export default function ClassesSection({
   onDeleteAllClasses,
   IconComponent,
   classLocations = {},
+  teacherSchedules = {},
 }) {
   if (!IconComponent) {
     throw new Error('ClassesSection requires IconComponent prop');
@@ -62,6 +63,7 @@ export default function ClassesSection({
         IconComponent={IconComponent}
         teachers={teachers}
         classLocations={classLocations}
+        teacherSchedules={teacherSchedules}
       />
     </div>
   );

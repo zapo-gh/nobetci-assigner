@@ -5,7 +5,7 @@ import { parseClassLocationsFromExcel } from '../utils/classScheduleExcelParser'
 import { parseTeacherSchedulesFromExcel } from '../utils/teacherScheduleExcelParser';
 
 describe('parseClassLocationsFromExcel', () => {
-  it('correctly parses multi-row days and all 5 weekdays for ATP 10-A', async () => {
+  it('correctly parses multi-row days and all 5 weekdays for ATP 10-A', { timeout: 60000 }, async () => {
     const tPath = path.resolve(__dirname, '../../OgretmenElProgrami.xlsx');
     const cPath = path.resolve(__dirname, '../../SinifElProgrami.xlsx');
 

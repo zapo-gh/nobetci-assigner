@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { logger } from '../utils/logger.js';
 import React, { memo, useMemo, useCallback, useState, useEffect, useLayoutEffect } from 'react';
 import styles from './AssignmentEditor.module.css';
 import { MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID, getZoneDistance } from '../utils/assignDuty.js';
@@ -490,7 +491,7 @@ function AssignmentEditor({
       setDroppedClassId(targetClassId);
       setTimeout(() => setDroppedClassId(null), 600);
     } catch (err) {
-      console.error('Drop error:', err);
+      logger.error('Drop error:', err);
     }
   };
 
@@ -838,7 +839,17 @@ function AssignmentEditor({
                       const lockValue = locked?.[k];
                       let teacherId = '';
 
-                      if (lockValue && lockValue !== MANUAL_EMPTY_TEACHER_ID && lockValue !== MANUAL_ADMIN_TEACHER_ID && teacherById[lockValue]) {
+                      const normTr = (s) => String(s || '').trim().toLocaleLowerCase('tr-TR');
+                      const isLockMergeBusy = Boolean(
+                        lockValue && teacherById[lockValue] &&
+                        Object.values(commonLessons?.[day]?.[p] || {}).some((v) =>
+                          v && (String(v) === String(lockValue) || normTr(v) === normTr(teacherById[lockValue].teacherName))
+                        )
+                      );
+
+                      if (isLockMergeBusy) {
+                        teacherId = cell?.teacherId || '';
+                      } else if (lockValue && lockValue !== MANUAL_EMPTY_TEACHER_ID && lockValue !== MANUAL_ADMIN_TEACHER_ID && teacherById[lockValue]) {
                         teacherId = lockValue;
                       } else if (!lockValue) {
                         teacherId = cell?.teacherId || '';

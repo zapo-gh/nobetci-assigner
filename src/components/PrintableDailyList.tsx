@@ -1,8 +1,9 @@
 // @ts-nocheck
 import React, { useMemo } from "react";
-import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
-import { decodeClassAbsenceValue } from '../utils/classAbsence.js';
+import { MANUAL_ADMIN_TEACHER_ID, MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js';
+import { resolveAllAbsentTeachers, resolveCommonLessonOwners, isAbsentOnDay } from '../utils/classAbsence.js';
 import { truncateClassName } from '../utils/classNameUtils.js';
+import AbsentTeachersBlock from './AbsentTeachersBlock';
 import { getPeriodTimes } from '../utils/periodTimes.js';
 import PrintNotesCard from './PrintNotesCard';
 import OfficialSignatures from './OfficialSignatures';
@@ -30,6 +31,7 @@ export default function PrintableDailyList({
   classAbsence = {},
   commonLessons = {},
   showMergedLessons = true,
+  teacherSchedules = {},
   notes = "",
   notesEnabled = true,
   onNotesChange,
@@ -47,7 +49,7 @@ export default function PrintableDailyList({
     const map = {};
     (absentPeople || []).forEach(a => {
       if (!a?.absentId) return;
-      if (Array.isArray(a.days) && a.days.length > 0 && !a.days.includes(day)) return;
+      if (!isAbsentOnDay(a, day)) return;
       map[a.absentId] = { name: a.name, reason: a.reason };
     });
     return map;
@@ -65,9 +67,27 @@ export default function PrintableDailyList({
     (periods || []).forEach((p) => {
       const commonLessonsForPeriod = commonLessons?.[day]?.[p] || {};
       Object.entries(commonLessonsForPeriod).forEach(([classId, teacherVal]) => {
+        if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return;
         const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
         const teacherKey = normalizeTeacherKey(teacherName);
         if (!teacherName || !teacherKey) return;
+
+        const rawValue = classAbsence?.[day]?.[p]?.[classId];
+        const owners = resolveCommonLessonOwners(rawValue, absentInfoById);
+        if (owners.hasOwner && owners.records.length === 0) return;
+
+        // Derse ortak giren öğretmen de bugün izinliyse, gruplar birleştirilemez
+        const isMergeTeacherAbsent = Boolean(
+          absentInfoById[teacherVal] ||
+          (absentPeople || []).some((a) => {
+            if (!a) return false;
+            if (!isAbsentOnDay(a, day)) return false;
+            const aNorm = String(a.name || a.teacherName || '').trim().toLocaleLowerCase('tr-TR');
+            const mNorm = String(teacherName || '').trim().toLocaleLowerCase('tr-TR');
+            return aNorm && mNorm && aNorm === mNorm;
+          })
+        );
+        if (isMergeTeacherAbsent) return;
 
         if (!dataByTeacher[teacherKey]) {
           dataByTeacher[teacherKey] = {
@@ -85,7 +105,24 @@ export default function PrintableDailyList({
     });
 
     return dataByTeacher;
-  }, [teachers, periods, commonLessons, day, showMergedLessons]);
+  }, [teachers, periods, commonLessons, day, showMergedLessons, classAbsence, absentInfoById, absentPeople]);
+
+  // Ortak ders hücresinin mazeretli sahipleri: önce kayıtlı sahip(ler), yoksa ders programı eşleşmesi
+  const resolveOwnerInfos = (classId, p) => {
+    const rawValue = classAbsence?.[day]?.[p]?.[classId];
+    const { records } = resolveCommonLessonOwners(rawValue, absentInfoById);
+    if (records.length > 0) return records;
+    return resolveAllAbsentTeachers({
+      day,
+      period: p,
+      classId,
+      className: classNameById[classId] || classId,
+      rawAbsValue: rawValue,
+      absentPeople,
+      teacherSchedules,
+      absentInfoById,
+    });
+  };
 
   const adminLessonsByPeriod = useMemo(() => {
     const map = {};
@@ -94,11 +131,13 @@ export default function PrintableDailyList({
       const [lockDay, lockPeriod, classId] = key.split('|');
       if (lockDay !== day) return;
       const period = Number(lockPeriod);
+      const rawAbsValue = classAbsence?.[day]?.[period]?.[classId];
+      if (!rawAbsValue) return;
       if (!map[period]) map[period] = [];
       map[period].push(classId);
     });
     return map;
-  }, [locked, day]);
+  }, [locked, day, classAbsence]);
 
   const hasAdminLessons = useMemo(
     () => Object.values(adminLessonsByPeriod).some((list) => Array.isArray(list) && list.length > 0),
@@ -181,20 +220,26 @@ export default function PrintableDailyList({
                       .filter(a => a.teacherId === t.teacherId)
                       .map(a => {
                         const cls = classNameById[a.classId] || a.classId;
-                        const absId = classAbsence?.[day]?.[p]?.[a.classId];
-                        const info = absId ? absentInfoById[absId] : null;
-                        return { cls, info };
+                        const rawAbsValue = classAbsence?.[day]?.[p]?.[a.classId];
+                        const absRecords = resolveAllAbsentTeachers({
+                          day,
+                          period: p,
+                          classId: a.classId,
+                          className: cls,
+                          rawAbsValue,
+                          absentPeople,
+                          teacherSchedules,
+                          absentInfoById,
+                        });
+                        const info = absRecords[0] || null;
+                        return { cls, info, infos: absRecords };
                       });
 
                     const commonLessonClassIds = commonLessonTeacherData?.[teacherKey]?.byPeriod?.[p] || [];
                     const commonLessonItems = commonLessonClassIds.map((classId) => ({
                       cls: classNameById[classId] || classId,
                       isCommonLesson: true,
-                      ownerInfo: (() => {
-                        const rawValue = classAbsence?.[day]?.[p]?.[classId]
-                        const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
-                        return commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
-                      })(),
+                      ownerInfos: resolveOwnerInfos(classId, p),
                     }));
 
                     const mergedItems = [...mine, ...commonLessonItems];
@@ -209,22 +254,25 @@ export default function PrintableDailyList({
                                   {truncateClassName(item.cls, 10)}
                                 </div>
                                 {item.isCommonLesson ? (
-                                  <div className="abs">
-                                    <small className="absline common-lesson">
-                                      Grup Birleştirilecek
-                                    </small>
-                                    {item.ownerInfo && (
-                                      <>
-                                        <small className="absline">{item.ownerInfo.name} —</small>
-                                        <small className="absline">{REASON_LABELS[item.ownerInfo.reason] || item.ownerInfo.reason}</small>
-                                      </>
-                                    )}
-                                  </div>
-                                ) : item.info && (
-                                  <div className="abs">
-                                    <small className="absline">{item.info.name} —</small>
-                                    <small className="absline">{REASON_LABELS[item.info.reason] || item.info.reason}</small>
-                                  </div>
+                                  <>
+                                    <div className="abs">
+                                      <small className="absline common-lesson">
+                                        Grup Birleştirilecek
+                                      </small>
+                                    </div>
+                                    <AbsentTeachersBlock
+                                      infos={item.ownerInfos}
+                                      className={item.cls}
+                                      reasonLabels={REASON_LABELS}
+                                      suffix=" —"
+                                    />
+                                  </>
+                                ) : (
+                                  <AbsentTeachersBlock
+                                    infos={item.infos}
+                                    className={item.cls}
+                                    reasonLabels={REASON_LABELS}
+                                  />
                                 )}
                               </li>
                             ))}
@@ -257,9 +305,7 @@ export default function PrintableDailyList({
                         {classesForTeacher.length > 0 ? (
                           <ul className="cell-list">
                             {classesForTeacher.map((classId, idx) => {
-                              const rawValue = classAbsence?.[day]?.[p]?.[classId]
-                              const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
-                              const ownerInfo = commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
+                              const ownerInfos = resolveOwnerInfos(classId, p);
                               return (
                                 <li key={idx} className="cell-item">
                                   <div className="class nowrap" title={classNameById[classId] || classId}>
@@ -269,13 +315,13 @@ export default function PrintableDailyList({
                                     <small className="absline common-lesson">
                                       Grup Birleştirilecek
                                     </small>
-                                    {ownerInfo && (
-                                      <>
-                                        <small className="absline">{ownerInfo.name} —</small>
-                                        <small className="absline">{REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}</small>
-                                      </>
-                                    )}
                                   </div>
+                                  <AbsentTeachersBlock
+                                    infos={ownerInfos}
+                                    className={classNameById[classId] || classId}
+                                    reasonLabels={REASON_LABELS}
+                                    suffix=" —"
+                                  />
                                 </li>
                               )
                             })}
@@ -300,9 +346,7 @@ export default function PrintableDailyList({
                       {classesForAdmin.length > 0 ? (
                         <ul className="cell-list">
                           {classesForAdmin.map((classId, idx) => {
-                            const rawValue = classAbsence?.[day]?.[p]?.[classId]
-                            const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue)
-                            const ownerInfo = commonLessonOwnerId ? absentInfoById[commonLessonOwnerId] : null
+                            const ownerInfos = resolveOwnerInfos(classId, p)
                             return (
                               <li key={`${classId}-${idx}`} className="cell-item">
                                 <div className="class nowrap" title={classNameById[classId] || classId}>
@@ -312,13 +356,13 @@ export default function PrintableDailyList({
                                   <small className="absline admin-control">
                                     İdare kontrolünde
                                   </small>
-                                  {ownerInfo && (
-                                    <>
-                                      <small className="absline">{ownerInfo.name} —</small>
-                                      <small className="absline">{REASON_LABELS[ownerInfo.reason] || ownerInfo.reason}</small>
-                                    </>
-                                  )}
                                 </div>
+                                <AbsentTeachersBlock
+                                  infos={ownerInfos}
+                                  className={classNameById[classId] || classId}
+                                  reasonLabels={REASON_LABELS}
+                                  suffix=" —"
+                                />
                               </li>
                             )
                           })}

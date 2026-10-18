@@ -1,5 +1,5 @@
 import { db } from './firebaseClient.js';
-import { collection as fbCollection, doc as fbDoc, getDoc as fbGetDoc, getDocs as fbGetDocs, setDoc as fbSetDoc, deleteDoc as fbDeleteDoc, query as fbQuery, where as fbWhere, writeBatch as fbWriteBatch } from 'firebase/firestore';
+import { collection as fbCollection, doc as fbDoc, getDoc as fbGetDoc, getDocs as fbGetDocs, setDoc as fbSetDoc, deleteDoc as fbDeleteDoc, query as fbQuery, where as fbWhere, writeBatch as fbWriteBatch, runTransaction as fbRunTransaction } from 'firebase/firestore';
 import { normalizeClassName } from '../utils/classNameUtils.js';
 
 const IS_FB_CONFIGURED = !!import.meta.env.VITE_FIREBASE_PROJECT_ID && import.meta.env.MODE !== 'test';
@@ -36,14 +36,39 @@ const createId = () => {
   return 'id_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9)
 }
 import { logger } from '../utils/logger';
+import { removeAbsentIdFromValue } from '../utils/classAbsence.js';
+
+if (!IS_FB_CONFIGURED && import.meta.env.MODE !== 'test') {
+  // Yapılandırma eksikse kayıtlar sessizce atlanır; bunu geliştiriciye görünür kıl
+  logger.error('[Firebase] VITE_FIREBASE_PROJECT_ID tanımlı değil: veriler Firestore\'a KAYDEDİLMEYECEK.');
+}
 
 export const TEACHER_SCHEDULES_SNAPSHOT_KEY = '__snapshot__';
-const CLASS_ABSENCE_NO_DUTY_SUFFIX = '__NO_DUTY__';
 const MANUAL_ADMIN_TEACHER_ID = 'admin-lock';
 
 const reportServiceError = (msg: string, err: any) => {
   logger.error(msg, err);
 };
+
+// Firestore doküman sınırı 1 MiB; 950 KB üstü yazımlar veri kaybı/sessiz hata yerine açık hata verir
+const CONFIG_WARN_BYTES = 850 * 1024;
+const CONFIG_MAX_BYTES = 950 * 1024;
+
+function assertConfigSize(docName: string, data: any) {
+  if (!data || typeof data !== 'object') return;
+  let approxBytes = 0;
+  try {
+    approxBytes = JSON.stringify(data).length;
+  } catch {
+    return;
+  }
+  if (approxBytes > CONFIG_MAX_BYTES) {
+    throw new Error(`[Firestore] ${docName} dokümanı çok büyük (~${Math.round(approxBytes / 1024)} KB); 1 MiB sınırı aşılmak üzere.`);
+  }
+  if (approxBytes > CONFIG_WARN_BYTES) {
+    logger.warn(`[Firestore Boyut Uyarısı] ${docName} dokümanı Firestore 1 MiB sınırına yaklaşıyor (~${Math.round(approxBytes / 1024)} KB)`);
+  }
+}
 
 // Generic config fetcher
 async function getConfigDoc(docName: string, fallback: any = {}) {
@@ -51,15 +76,7 @@ async function getConfigDoc(docName: string, fallback: any = {}) {
   return d.exists() ? ((d.data() as any)?.data ?? fallback) : fallback;
 }
 async function setConfigDoc(docName: string, data: any) {
-  // Firestore 1 MiB doküman boyutu sınırı erken uyarı kontrolü
-  if (data && typeof data === 'object') {
-    try {
-      const approxBytes = JSON.stringify(data).length;
-      if (approxBytes > 850 * 1024) {
-        logger.warn(`[Firestore Boyut Uyarısı] ${docName} dokümanı Firestore 1 MiB sınırına yaklaşıyor (~${Math.round(approxBytes / 1024)} KB)`);
-      }
-    } catch {}
-  }
+  assertConfigSize(docName, data);
   await setDoc(doc(db, 'config', docName), { data });
 }
 
@@ -99,7 +116,7 @@ export async function loadInitialData() {
         const norm = normalizeClassName(data.className);
         if (norm && norm !== data.className) {
           data.className = norm;
-          setDoc(d.ref, { ...data, className: norm }).catch(() => { });
+          setDoc(d.ref, { ...data, className: norm }).catch((e) => logger.warn('Sınıf adı normalizasyonu kaydedilemedi:', e));
         }
       }
       return data;
@@ -250,95 +267,114 @@ export async function clearAbsentsData() {
   await batch.commit();
 }
 
-export async function deleteClassAbsenceByAbsent(absentId: string) {
-  const data = await getConfigDoc('class_absence', {});
-  let changed = false;
-
-  const buildAbsentIdVariants = (base: string) => {
-    if (!base) return [];
-    const variants = new Set([base]);
-    if (base.endsWith(CLASS_ABSENCE_NO_DUTY_SUFFIX)) {
-      variants.add(base.slice(0, -CLASS_ABSENCE_NO_DUTY_SUFFIX.length));
-    } else {
-      variants.add(base + CLASS_ABSENCE_NO_DUTY_SUFFIX);
-    }
-    return Array.from(variants).filter(Boolean);
-  };
-
-  const targets = buildAbsentIdVariants(absentId);
-  Object.keys(data).forEach(day => {
-    Object.keys(data[day]).forEach(period => {
-      Object.keys(data[day][period]).forEach(cid => {
-        if (targets.includes(data[day][period][cid])) {
-          delete data[day][period][cid];
-          changed = true;
-        }
-      });
-      if (Object.keys(data[day][period]).length === 0) delete data[day][period];
-    });
-    if (Object.keys(data[day]).length === 0) delete data[day];
+/**
+ * Config dokümanını Firestore transaction içinde oku-değiştir-yaz yapar.
+ * Eşzamanlı güncellemelerde (çoklu sekme/kullanıcı) son yazanın öncekini silmesini engeller.
+ * mutator, değişiklik yapılmadıysa `false` döndürmeli (yazma atlanır).
+ */
+async function updateConfigDoc(docName: string, fallback: any, mutator: (data: any) => boolean | void) {
+  if (!IS_FB_CONFIGURED) {
+    const data = await getConfigDoc(docName, fallback);
+    if (mutator(data) !== false) await setConfigDoc(docName, data);
+    return;
+  }
+  const ref = fbDoc(db, 'config', docName);
+  await fbRunTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists() ? ((snap.data() as any)?.data ?? fallback) : fallback;
+    if (mutator(data) === false) return;
+    assertConfigSize(docName, data);
+    tx.set(ref, { data });
   });
-  if (changed) await setConfigDoc('class_absence', data);
+}
+
+function pruneEmpty(data: any, day: string, period?: string | number) {
+  if (period !== undefined && data[day]?.[period] && Object.keys(data[day][period]).length === 0) delete data[day][period];
+  if (data[day] && Object.keys(data[day]).length === 0) delete data[day];
+}
+
+export async function deleteClassAbsenceByAbsent(absentId: string) {
+  await updateConfigDoc('class_absence', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(day => {
+      Object.keys(data[day]).forEach(period => {
+        Object.keys(data[day][period]).forEach(cid => {
+          const val = data[day][period][cid];
+          const { nextValue } = removeAbsentIdFromValue(val, absentId);
+          if (nextValue !== val) {
+            changed = true;
+            if (nextValue) data[day][period][cid] = nextValue;
+            else delete data[day][period][cid];
+          }
+        });
+        if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+      });
+      if (Object.keys(data[day]).length === 0) delete data[day];
+    });
+    return changed;
+  });
 }
 
 export async function deleteClassAbsenceByClass(classId: string) {
-  const data = await getConfigDoc('class_absence', {});
-  let changed = false;
-  Object.keys(data).forEach(day => {
-    Object.keys(data[day]).forEach(period => {
-      if (data[day][period][classId]) {
-        delete data[day][period][classId];
-        changed = true;
-      }
-      if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+  await updateConfigDoc('class_absence', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(day => {
+      Object.keys(data[day]).forEach(period => {
+        if (data[day][period][classId]) {
+          delete data[day][period][classId];
+          changed = true;
+        }
+        if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+      });
+      if (Object.keys(data[day]).length === 0) delete data[day];
     });
-    if (Object.keys(data[day]).length === 0) delete data[day];
+    return changed;
   });
-  if (changed) await setConfigDoc('class_absence', data);
 }
 
 export async function deleteCommonLessonsByClass(classId: string) {
-  const data = await getConfigDoc('common_lessons', {});
-  let changed = false;
-  Object.keys(data).forEach(day => {
-    Object.keys(data[day]).forEach(period => {
-      if (data[day][period][classId]) {
-        delete data[day][period][classId];
-        changed = true;
-      }
-      if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+  await updateConfigDoc('common_lessons', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(day => {
+      Object.keys(data[day]).forEach(period => {
+        if (data[day][period][classId]) {
+          delete data[day][period][classId];
+          changed = true;
+        }
+        if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+      });
+      if (Object.keys(data[day]).length === 0) delete data[day];
     });
-    if (Object.keys(data[day]).length === 0) delete data[day];
+    return changed;
   });
-  if (changed) await setConfigDoc('common_lessons', data);
 }
 
 export async function deleteCommonLessonsByTeacher(teacherName: string) {
-  const data = await getConfigDoc('common_lessons', {});
-  let changed = false;
-  Object.keys(data).forEach(day => {
-    Object.keys(data[day]).forEach(period => {
-      Object.keys(data[day][period]).forEach(cid => {
-        if (data[day][period][cid] === teacherName) {
-          delete data[day][period][cid];
-          changed = true;
-        }
+  await updateConfigDoc('common_lessons', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(day => {
+      Object.keys(data[day]).forEach(period => {
+        Object.keys(data[day][period]).forEach(cid => {
+          if (data[day][period][cid] === teacherName) {
+            delete data[day][period][cid];
+            changed = true;
+          }
+        });
+        if (Object.keys(data[day][period]).length === 0) delete data[day][period];
       });
-      if (Object.keys(data[day][period]).length === 0) delete data[day][period];
+      if (Object.keys(data[day]).length === 0) delete data[day];
     });
-    if (Object.keys(data[day]).length === 0) delete data[day];
+    return changed;
   });
-  if (changed) await setConfigDoc('common_lessons', data);
 }
 
 export async function deleteCommonLessonsBySlot(day: string, period: number, classId: string) {
-  const data = await getConfigDoc('common_lessons', {});
-  if (data[day]?.[period]?.[classId]) {
+  await updateConfigDoc('common_lessons', {}, (data) => {
+    if (!data[day]?.[period]?.[classId]) return false;
     delete data[day][period][classId];
-    if (Object.keys(data[day][period]).length === 0) delete data[day][period];
-    if (Object.keys(data[day]).length === 0) delete data[day];
-    await setConfigDoc('common_lessons', data);
-  }
+    pruneEmpty(data, day, period);
+    return true;
+  });
 }
 
 export async function clearClassAbsenceData() {
@@ -350,87 +386,77 @@ export async function clearCommonLessonsData() {
 }
 
 export async function upsertClassFree({ day, period, classId, isSelected }: any) {
-  const data = await getConfigDoc('class_free', {});
-  if (!data[day]) data[day] = {};
-  if (!data[day][period]) data[day][period] = [];
-
-  const set = new Set(data[day][period]);
-  if (isSelected) set.add(classId);
-  else set.delete(classId);
-
-  data[day][period] = Array.from(set);
-  await setConfigDoc('class_free', data);
+  await updateConfigDoc('class_free', {}, (data) => {
+    if (!data[day]) data[day] = {};
+    if (!data[day][period]) data[day][period] = [];
+    const set = new Set(data[day][period]);
+    if (isSelected) set.add(classId);
+    else set.delete(classId);
+    data[day][period] = Array.from(set);
+  });
 }
 
 export async function bulkUpsertClassFree(ops: Array<{ day: string; period: number | string; classId: string; isSelected?: boolean }>) {
   if (!Array.isArray(ops) || ops.length === 0) return;
-  const data = await getConfigDoc('class_free', {});
-  for (const { day, period, classId, isSelected } of ops) {
-    if (!day || period === undefined || !classId) continue;
-    if (!data[day]) data[day] = {};
-    if (!data[day][period]) data[day][period] = [];
-    const set = new Set(data[day][period]);
-    if (isSelected !== false) set.add(classId);
-    else set.delete(classId);
-    data[day][period] = Array.from(set);
-  }
-  await setConfigDoc('class_free', data);
+  await updateConfigDoc('class_free', {}, (data) => {
+    for (const { day, period, classId, isSelected } of ops) {
+      if (!day || period === undefined || !classId) continue;
+      if (!data[day]) data[day] = {};
+      if (!data[day][period]) data[day][period] = [];
+      const set = new Set(data[day][period]);
+      if (isSelected !== false) set.add(classId);
+      else set.delete(classId);
+      data[day][period] = Array.from(set);
+    }
+  });
 }
 
 export async function upsertTeacherFree({ period, teacherId, isSelected }: any) {
-  const data = await getConfigDoc('teacher_free', {});
-  if (!data[period]) data[period] = [];
-
-  const set = new Set(data[period]);
-  if (isSelected) set.add(teacherId);
-  else set.delete(teacherId);
-
-  data[period] = Array.from(set);
-  await setConfigDoc('teacher_free', data);
+  await updateConfigDoc('teacher_free', {}, (data) => {
+    if (!data[period]) data[period] = [];
+    const set = new Set(data[period]);
+    if (isSelected) set.add(teacherId);
+    else set.delete(teacherId);
+    data[period] = Array.from(set);
+  });
 }
 
 export async function upsertClassAbsence({ day, period, classId, absentId }: any) {
-  const data = await getConfigDoc('class_absence', {});
-  if (!data[day]) data[day] = {};
-  if (!data[day][period]) data[day][period] = {};
-
-  if (absentId) {
-    data[day][period][classId] = absentId;
-  } else {
-    delete data[day][period][classId];
-    if (Object.keys(data[day][period]).length === 0) delete data[day][period];
-    if (Object.keys(data[day]).length === 0) delete data[day];
-  }
-  await setConfigDoc('class_absence', data);
-}
-
-export async function bulkUpsertClassAbsence(ops: Array<{ day: string; period: number | string; classId: string; absentId?: string | null }>) {
-  if (!Array.isArray(ops) || ops.length === 0) return;
-  const data = await getConfigDoc('class_absence', {});
-  for (const { day, period, classId, absentId } of ops) {
-    if (!day || period === undefined || !classId) continue;
+  await updateConfigDoc('class_absence', {}, (data) => {
     if (!data[day]) data[day] = {};
     if (!data[day][period]) data[day][period] = {};
     if (absentId) {
       data[day][period][classId] = absentId;
     } else {
       delete data[day][period][classId];
-      if (Object.keys(data[day][period]).length === 0) delete data[day][period];
-      if (Object.keys(data[day]).length === 0) delete data[day];
+      pruneEmpty(data, day, period);
     }
-  }
-  await setConfigDoc('class_absence', data);
+  });
+}
+
+export async function bulkUpsertClassAbsence(ops: Array<{ day: string; period: number | string; classId: string; absentId?: string | null }>) {
+  if (!Array.isArray(ops) || ops.length === 0) return;
+  await updateConfigDoc('class_absence', {}, (data) => {
+    for (const { day, period, classId, absentId } of ops) {
+      if (!day || period === undefined || !classId) continue;
+      if (!data[day]) data[day] = {};
+      if (!data[day][period]) data[day][period] = {};
+      if (absentId) {
+        data[day][period][classId] = absentId;
+      } else {
+        delete data[day][period][classId];
+        pruneEmpty(data, day, period);
+      }
+    }
+  });
 }
 
 export async function upsertLock({ day, period, classId, teacherId }: any) {
-  const data = await getConfigDoc('locks', {});
-  const key = `${day}|${period}|${classId}`;
-  if (teacherId) {
-    data[key] = teacherId;
-  } else {
-    delete data[key];
-  }
-  await setConfigDoc('locks', data);
+  await updateConfigDoc('locks', {}, (data) => {
+    const key = `${day}|${period}|${classId}`;
+    if (teacherId) data[key] = teacherId;
+    else delete data[key];
+  });
 }
 
 export async function resetAllForClasses() {
@@ -450,27 +476,29 @@ export async function resetTeacherFreeData() {
 }
 
 export async function deleteLocksByTeacher(teacherId: string) {
-  const data = await getConfigDoc('locks', {});
-  let changed = false;
-  Object.keys(data).forEach(key => {
-    if (data[key] === teacherId) {
-      delete data[key];
-      changed = true;
-    }
+  await updateConfigDoc('locks', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(key => {
+      if (data[key] === teacherId) {
+        delete data[key];
+        changed = true;
+      }
+    });
+    return changed;
   });
-  if (changed) await setConfigDoc('locks', data);
 }
 
 export async function deleteLocksByClass(classId: string) {
-  const data = await getConfigDoc('locks', {});
-  let changed = false;
-  Object.keys(data).forEach(key => {
-    if (key.endsWith(`|${classId}`)) {
-      delete data[key];
-      changed = true;
-    }
+  await updateConfigDoc('locks', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(key => {
+      if (key.endsWith(`|${classId}`)) {
+        delete data[key];
+        changed = true;
+      }
+    });
+    return changed;
   });
-  if (changed) await setConfigDoc('locks', data);
 }
 
 export async function clearLocksData() {
@@ -478,15 +506,16 @@ export async function clearLocksData() {
 }
 
 export async function clearAdminLocks() {
-  const data = await getConfigDoc('locks', {});
-  let changed = false;
-  Object.keys(data).forEach(key => {
-    if (data[key] === MANUAL_ADMIN_TEACHER_ID) {
-      delete data[key];
-      changed = true;
-    }
+  await updateConfigDoc('locks', {}, (data) => {
+    let changed = false;
+    Object.keys(data).forEach(key => {
+      if (data[key] === MANUAL_ADMIN_TEACHER_ID) {
+        delete data[key];
+        changed = true;
+      }
+    });
+    return changed;
   });
-  if (changed) await setConfigDoc('locks', data);
 }
 
 export async function replacePdfSchedule(schedule: any) {

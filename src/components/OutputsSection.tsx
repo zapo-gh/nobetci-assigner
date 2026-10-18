@@ -3,6 +3,8 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import PrintableDailyList from './PrintableDailyList.jsx';
 import PrintableAssignmentList from './PrintableAssignmentList.jsx';
 import AssignmentText from './AssignmentText.jsx';
+import { decodeClassAbsenceValue, COMMON_LESSON_LABEL } from '../utils/classAbsence.js';
+import { MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
 
 const STORAGE_KEY_NOTES = 'nobetci_print_notes';
 const STORAGE_KEY_NOTES_ENABLED = 'nobetci_print_notes_enabled';
@@ -20,6 +22,7 @@ export default function OutputsSection({
   teachersForCurrentDay = [],
   classes = [],
   classAbsence = {},
+  filteredClassAbsence,
   absentPeopleForCurrentDay = [],
   commonLessons = {},
   classLocations = {},
@@ -32,6 +35,8 @@ export default function OutputsSection({
   if (!IconComponent) {
     throw new Error('OutputsSection requires IconComponent prop');
   }
+
+  const effectiveClassAbsence = filteredClassAbsence || classAbsence;
 
   // View Mode: 'matrix' (Çizelge) | 'list' (Görevlendirme Listesi)
   const [viewMode, setViewMode] = useState('matrix');
@@ -156,20 +161,29 @@ export default function OutputsSection({
     onExportJPG?.();
   };
 
-  // Calculate duty statistics (respecting showMergedLessons)
-  const totalAssignedCount = useMemo(() => {
-    let count = 0;
+  // Calculate duty and merge statistics (respecting showMergedLessons)
+  const { totalAssignedCount, totalMergedCount } = useMemo(() => {
+    let duties = 0;
     (periods || []).forEach((p) => {
-      count += (assignment?.[day]?.[p] || []).length;
+      duties += (assignment?.[day]?.[p] || []).length;
     });
+
+    let merged = 0;
     if (showMergedLessons && commonLessons?.[day]) {
       (periods || []).forEach((p) => {
         const commonMap = commonLessons[day]?.[p] || {};
-        count += Object.keys(commonMap).length;
+        Object.entries(commonMap).forEach(([classId, teacherVal]) => {
+          if ((assignment?.[day]?.[p] || []).some(a => a.classId === classId)) return;
+          if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return;
+          const rawAbs = effectiveClassAbsence?.[day]?.[p]?.[classId];
+          const { commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs || '');
+          if (commonLessonOwnerId && !absentPeopleForCurrentDay.some(a => a.absentId === commonLessonOwnerId)) return;
+          merged++;
+        });
       });
     }
-    return count;
-  }, [assignment, day, periods, showMergedLessons, commonLessons]);
+    return { totalAssignedCount: duties, totalMergedCount: merged };
+  }, [assignment, day, periods, showMergedLessons, commonLessons, effectiveClassAbsence, absentPeopleForCurrentDay]);
 
   return (
     <div id="panel-outputs" role="tabpanel" aria-labelledby="tab-outputs" style={{ width: '100%' }}>
@@ -226,6 +240,14 @@ export default function OutputsSection({
               <strong style={{ color: totalAssignedCount > 0 ? '#166534' : 'inherit' }}>
                 {totalAssignedCount} Görevlendirme
               </strong>
+              {showMergedLessons && totalMergedCount > 0 ? (
+                <>
+                  <span>•</span>
+                  <strong style={{ color: '#4338ca' }}>
+                    {totalMergedCount} Birleştirildi
+                  </strong>
+                </>
+              ) : null}
               <span>•</span>
               <span>{teachersForCurrentDay.length} Nöbetçi Öğretmen</span>
             </div>
@@ -532,10 +554,11 @@ export default function OutputsSection({
           locked={locked}
           teachers={teachersForCurrentDay}
           classes={classes}
-          classAbsence={classAbsence}
+          classAbsence={effectiveClassAbsence}
           absentPeople={absentPeopleForCurrentDay}
           commonLessons={commonLessons}
           showMergedLessons={showMergedLessons}
+          teacherSchedules={teacherSchedules}
           notes={notes}
           notesEnabled={notesEnabled}
           onNotesChange={handleNotesChange}
@@ -551,7 +574,7 @@ export default function OutputsSection({
           locked={locked}
           teachers={teachersForCurrentDay}
           classes={classes}
-          classAbsence={classAbsence}
+          classAbsence={effectiveClassAbsence}
           absentPeople={absentPeopleForCurrentDay}
           commonLessons={commonLessons}
           showMergedLessons={showMergedLessons}
@@ -576,7 +599,7 @@ export default function OutputsSection({
           locked={locked}
           teachers={teachersForCurrentDay}
           classes={classes}
-          classAbsence={classAbsence}
+          classAbsence={effectiveClassAbsence}
           absentPeople={absentPeopleForCurrentDay}
           commonLessons={commonLessons}
           showMergedLessons={showMergedLessons}

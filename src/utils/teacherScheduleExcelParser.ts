@@ -400,7 +400,7 @@ function parseScheduleTable(teacherData, gunlerRowIndex) {
   });
   
   if (totalClasses === 0) {
-    console.warn('⚠️ No classes were parsed from this teacher\'s schedule!');
+    logger.warn('⚠️ No classes were parsed from this teacher\'s schedule!');
   }
   
   return schedule;
@@ -471,6 +471,7 @@ function extractClassFromCell(cell) {
   }
 
   // Check for specific known non-standard class names
+  if (text.includes('PBO')) return 'PBO';
   if (text.includes('İMES') || text.includes('IMES')) return 'İMES';
   if (text.includes('REHBER')) return 'REHBERLİK';
   if (text.includes('KULÜP') || text.includes('KULUP')) return 'KULÜP';
@@ -499,10 +500,6 @@ function isEmptyOrFree(cellValue) {
   const text = String(cellValue).trim().toUpperCase();
   
   if (text === 'NULL' || text === 'UNDEFINED' || text === '') {
-    return true;
-  }
-  
-  if (text === '(PBO)' || text === 'PBO') {
     return true;
   }
   

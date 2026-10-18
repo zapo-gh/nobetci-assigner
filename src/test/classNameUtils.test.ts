@@ -7,6 +7,7 @@ import {
   abbreviateDutyLocation,
   getClassroomName,
   isImesLesson,
+  isPboLesson,
   truncateClassName
 } from '../utils/classNameUtils';
 
@@ -168,6 +169,28 @@ describe('classNameUtils', () => {
       expect(isImesLesson('')).toBe(false);
       expect(isImesLesson(null)).toBe(false);
       expect(isImesLesson(undefined)).toBe(false);
+    });
+  });
+
+  describe('isPboLesson', () => {
+    it('correctly identifies PBO lesson forms', () => {
+      expect(isPboLesson('PBO')).toBe(true);
+      expect(isPboLesson('(PBO)')).toBe(true);
+      expect(isPboLesson('P.B.O.')).toBe(true);
+      expect(isPboLesson('(P.B.O.)')).toBe(true);
+      expect(isPboLesson('pbo')).toBe(true);
+      expect(isPboLesson('PLANLAMA BAKIM ONARIM')).toBe(true);
+      expect(isPboLesson('PLANLAMA BAKIM')).toBe(true);
+    });
+
+    it('returns false for regular classes and other subjects', () => {
+      expect(isPboLesson('AMP 10-A')).toBe(false);
+      expect(isPboLesson('10 MOT')).toBe(false);
+      expect(isPboLesson('ATP 11-B')).toBe(false);
+      expect(isPboLesson('İMES')).toBe(false);
+      expect(isPboLesson('')).toBe(false);
+      expect(isPboLesson(null)).toBe(false);
+      expect(isPboLesson(undefined)).toBe(false);
     });
   });
 

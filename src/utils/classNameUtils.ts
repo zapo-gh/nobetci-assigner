@@ -317,6 +317,24 @@ export const isImesLesson = (name?: string | null): boolean => {
 };
 
 /**
+ * Checks whether a class or lesson name represents a PBO (Planlama Bakım Onarım) course.
+ * PBO is NOT a common lesson; it belongs to each teacher individually as an exceptional duty.
+ * No merging (birleştirme) or duty assignment (nöbet atama) should be performed for it.
+ */
+export const isPboLesson = (name?: string | null): boolean => {
+  if (!name || typeof name !== 'string') return false;
+  const upper = name.toLocaleUpperCase('tr-TR').trim();
+  return (
+    upper === 'PBO' ||
+    upper === '(PBO)' ||
+    upper === 'P.B.O.' ||
+    upper === '(P.B.O.)' ||
+    upper.includes('PLANLAMA BAKIM') ||
+    /(?:^|[^A-ZÇĞİÖŞÜ0-9])PBO(?:$|[^A-ZÇĞİÖŞÜ0-9])/i.test(upper)
+  );
+};
+
+/**
  * Shortens a class name if it exceeds maxLen characters to prevent UI overflow in compact table cells.
  * e.g. "AMP 10 PAZARLAMA" -> "AMP 10 PA…" (at maxLen = 10)
  * Uses single-character ellipsis '…' for compact display and clean presentation.

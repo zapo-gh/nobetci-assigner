@@ -4,9 +4,14 @@ import {
   verifyPassword,
   setSessionAuthenticated,
   cacheAdminHashLocally,
-  getCachedAdminHash
+  getCachedAdminHash,
+  getLockoutState,
+  recordFailedAttempt,
+  resetFailedAttempts,
+  LockoutState
 } from '../utils/authUtils';
 import { getAdminAuthConfig, setAdminAuthConfig } from '../services/firebaseDataService';
+import { loginWithFirebaseAuth, logoutFirebaseAuth } from '../services/firebaseAuthService';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -23,8 +28,22 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [shake, setShake] = useState(false);
   const [storedHash, setStoredHash] = useState<string | null>(null);
+  const [lockout, setLockout] = useState<LockoutState>(() => getLockoutState());
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Kaba kuvvet (brute-force) kilitleme sayacı
+  useEffect(() => {
+    if (!lockout.isLocked) return;
+    const timer = setInterval(() => {
+      const state = getLockoutState();
+      setLockout(state);
+      if (!state.isLocked) {
+        setErrorMsg('');
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockout.isLocked]);
 
   // İlk yüklemede Firebase veya yerel önbellekten mevcut şifre hashini kontrol et
   useEffect(() => {
@@ -82,6 +101,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   // Normal Giriş
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Kilitleme aktifse girişi engelle
+    if (lockout.isLocked) {
+      setErrorMsg(`Güvenlik kilidi devrede. Lütfen ${lockout.remainingSeconds} saniye bekleyiniz.`);
+      triggerShake();
+      return;
+    }
+
     if (!password.trim()) {
       setErrorMsg('Lütfen yönetici şifresini giriniz.');
       triggerShake();
@@ -95,7 +122,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     try {
       let currentHash = storedHash;
 
-      // Eğer henüz hash yoksa (örneğin ilk açılışta ağ gecikmesi olduysa) tekrar sorgula
+      // Eğer henüz hash yoksa tekrar sorgula
       if (!currentHash) {
         const fbConfig = await getAdminAuthConfig();
         if (fbConfig?.passwordHash) {
@@ -116,10 +143,27 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       const isValid = await verifyPassword(password.trim(), currentHash);
       if (isValid) {
+        // Firebase Auth oturumunu açmayı dene (konsolda aktifse Firestore request.auth != null sağlar)
+        try {
+          await loginWithFirebaseAuth();
+        } catch {
+          // Konsolda Auth açık değilse dahi şifresi doğru olan yöneticiyi engelleme
+        }
+        resetFailedAttempts();
+        setLockout(getLockoutState());
         setSessionAuthenticated(rememberMe);
         onLoginSuccess();
       } else {
-        setErrorMsg('Girdiğiniz yönetici şifresi hatalı. Lütfen tekrar deneyiniz.');
+        try {
+          await logoutFirebaseAuth();
+        } catch {}
+        const newLockout = recordFailedAttempt();
+        setLockout(newLockout);
+        if (newLockout.isLocked) {
+          setErrorMsg(`5 kez hatalı şifre girdiniz. Güvenlik nedeniyle ${newLockout.remainingSeconds} saniye kilitlendi.`);
+        } else {
+          setErrorMsg(`Girdiğiniz yönetici şifresi hatalı. (${newLockout.attempts}/5 deneme)`);
+        }
         triggerShake();
         setPassword('');
         inputRef.current?.focus();
@@ -161,10 +205,16 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         return;
       }
 
+      // Firebase Auth oturumu açmayı dene
+      try {
+        await loginWithFirebaseAuth();
+      } catch {}
       const newHash = await hashPassword(password.trim());
       await setAdminAuthConfig({ passwordHash: newHash });
       cacheAdminHashLocally(newHash);
       setStoredHash(newHash);
+      resetFailedAttempts();
+      setLockout(getLockoutState());
       setSessionAuthenticated(rememberMe);
       onLoginSuccess();
     } catch (err: any) {
@@ -225,7 +275,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   placeholder={isFirstSetup ? 'En az 4 karakter giriniz' : 'Yönetici şifrenizi giriniz'}
                   className="login-input"
                   autoComplete="current-password"
-                  disabled={isLoading}
+                  disabled={isLoading || lockout.isLocked}
                 />
                 <button
                   type="button"
@@ -253,9 +303,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Şifrenizi tekrar yazınız"
                     className="login-input"
-                    disabled={isLoading}
+                    disabled={isLoading || lockout.isLocked}
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Güvenlik Kilidi Bilgisi */}
+            {lockout.isLocked && (
+              <div className="login-lockout-banner" role="alert">
+                <span className="lockout-icon">⏱️</span>
+                <span>Güvenlik kilidi devrede. Kalan bekleme süresi: <strong>{lockout.remainingSeconds}</strong> sn</span>
               </div>
             )}
 
@@ -274,7 +332,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  disabled={isLoading}
+                  disabled={isLoading || lockout.isLocked}
                 />
                 <span>Bu cihazda oturumu açık tut</span>
               </label>
@@ -284,13 +342,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <button
               type="submit"
               className="login-submit-btn"
-              disabled={isLoading}
+              disabled={isLoading || lockout.isLocked}
             >
               {isLoading ? (
                 <div className="btn-loading-content">
                   <div className="login-spinner-sm" />
                   <span>Doğrulanıyor...</span>
                 </div>
+              ) : lockout.isLocked ? (
+                <span>⏳ Bekleyiniz ({lockout.remainingSeconds}s)</span>
               ) : isFirstSetup ? (
                 <span>🛡️ Şifreyi Kaydet ve Başla</span>
               ) : (
@@ -550,6 +610,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           font-size: 0.82rem;
           font-weight: 600;
           animation: fadeIn 0.2s ease;
+        }
+
+        .login-lockout-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          background: #fffbeb;
+          border: 1.5px solid #fde68a;
+          border-radius: 12px;
+          color: #b45309;
+          font-size: 0.82rem;
+          font-weight: 600;
+          animation: fadeIn 0.2s ease;
+        }
+        .lockout-icon {
+          font-size: 1rem;
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-4px); }

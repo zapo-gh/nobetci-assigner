@@ -15,9 +15,11 @@ import { sanitizeInputAdvanced } from '../utils/security.js';
 import {
   COMMON_LESSON_LABEL,
   encodeClassAbsenceValue,
+  decodeClassAbsenceValue,
+  mergeAbsentIdValues,
 } from '../utils/classAbsence.js';
 import { normalizeAbsentPeople } from '../utils/migrations';
-import { normalizeClassName, isImesLesson } from '../utils/classNameUtils.js';
+import { normalizeClassName, isImesLesson, isPboLesson } from '../utils/classNameUtils.js';
 
 export function useAbsentManager({
   day,
@@ -30,6 +32,7 @@ export function useAbsentManager({
   normalizeCommonLessonTeacherName,
   absentPeople,
   filteredAbsentPeople = [],
+  commonLessons = {},
   setAbsentPeople,
   setClasses,
   setClassFree,
@@ -266,7 +269,7 @@ export function useAbsentManager({
 
         const findOverlappingTeachers = (scheduleDayKey, period, normalizedClassKey) => {
           if (!scheduleDayKey || !normalizedClassKey) return [];
-          if (isImesLesson(normalizedClassKey)) return [];
+          if (isImesLesson(normalizedClassKey) || isPboLesson(normalizedClassKey)) return [];
           return peerTeacherSchedules
             .filter((entry) => entry.normalizedName !== targetNameNorm)
             .map((entry) => {
@@ -276,7 +279,7 @@ export function useAbsentManager({
               
               const classNames = typeof otherClassName === 'string' ? otherClassName.split(',').map(s => s.trim()) : [otherClassName];
               const isMatch = classNames.some(cName => {
-                if (isImesLesson(cName)) return false;
+                if (isImesLesson(cName) || isPboLesson(cName)) return false;
                 return normalizeClassKey(cName) === normalizedClassKey;
               });
               
@@ -473,6 +476,7 @@ export function useAbsentManager({
         const classFreeOps = [];
         const classAbsenceOps = [];
         const commonLessonOps = [];
+        const commonLessonOpsToDelete = [];
         const pendingAssignments = [];
 
         effectiveDays.forEach((uiDay) => {
@@ -517,17 +521,18 @@ export function useAbsentManager({
                 );
                 return;
               }
-              const isImes = isImesLesson(canonical) || isImesLesson(cName) || isImesLesson(normalizedKey);
+              const isExcluded = isImesLesson(canonical) || isImesLesson(cName) || isImesLesson(normalizedKey) ||
+                isPboLesson(canonical) || isPboLesson(cName) || isPboLesson(normalizedKey);
               const baseFreeOp = { day: uiDay, period, classId: id };
-              const baseAbsenceOp = { day: uiDay, period, classId: id, absentId, allowDuty: !isImes };
-              const overlaps = isImes ? [] : findOverlappingTeachers(scheduleDayKey, period, normalizedKey);
+              const baseAbsenceOp = { day: uiDay, period, classId: id, absentId, allowDuty: !isExcluded };
+              const overlaps = isExcluded ? [] : findOverlappingTeachers(scheduleDayKey, period, normalizedKey);
               pendingAssignments.push({
                 baseFreeOp,
                 baseAbsenceOp,
                 className: canonical,
                 overlaps,
                 dayLabel: dayLabelMap.get(uiDay) || uiDay,
-                isImes,
+                isImes: isExcluded,
               });
               logger.log(
                 `[addAbsent] Pending ops for day ${uiDay}, period ${period}, classId ${id}, isImes: ${isImes}, overlaps:`,
@@ -536,6 +541,21 @@ export function useAbsentManager({
             });
           });
         });
+
+        const isPeerTeacherAbsentOnDay = (peerEntry, dayKey) => {
+          if (!peerEntry) return false;
+          const peerId = peerEntry.teacherId ? String(peerEntry.teacherId) : null;
+          const peerNameNorm = normalizeForComparison(peerEntry.displayName || '');
+          return (absentPeople || []).some((p) => {
+            if (!p) return false;
+            if (Array.isArray(p.days) && p.days.length > 0 && !p.days.includes(dayKey)) {
+              return false;
+            }
+            if (peerId && (String(p.absentId) === peerId || String(p.teacherId) === peerId)) return true;
+            const pNorm = normalizeForComparison(p.name || p.teacherName || p.displayName || '');
+            return pNorm && peerNameNorm && pNorm === peerNameNorm;
+          });
+        };
 
         for (const assignment of pendingAssignments) {
           if (assignment.isImes) {
@@ -549,7 +569,12 @@ export function useAbsentManager({
             continue;
           }
 
-          const overlapNames = assignment.overlaps
+          // Yalnızca o gün mazeretli/izinli OLMAYAN öğretmenler birleştirme adayıdır
+          const availableOverlaps = (assignment.overlaps || []).filter(
+            (entry) => !isPeerTeacherAbsentOnDay(entry, assignment.baseFreeOp.day)
+          );
+
+          const overlapNames = availableOverlaps
             .map(resolveOverlapDisplayName)
             .filter((name) => typeof name === 'string' && name.trim().length > 0);
 
@@ -583,8 +608,19 @@ export function useAbsentManager({
             }
           }
 
+          // Ortak giren öğretmenlerin tamamı mazeretliyse veya birleştirme onaylanmadıysa:
+          // Sınıf boş kabul edilir, nöbetçi öğretmen atanmalıdır!
           classFreeOps.push(assignment.baseFreeOp);
           classAbsenceOps.push(assignment.baseAbsenceOp);
+
+          // Varsa bu slot için daha önce kaydedilmiş birleştirme bilgisini temizle
+          if (commonLessons?.[assignment.baseFreeOp.day]?.[assignment.baseFreeOp.period]?.[assignment.baseFreeOp.classId]) {
+            commonLessonOpsToDelete.push({
+              day: assignment.baseFreeOp.day,
+              period: assignment.baseFreeOp.period,
+              classId: assignment.baseFreeOp.classId,
+            });
+          }
         }
 
         logger.log(`[addAbsent] classFreeOps length: ${classFreeOps.length}`, classFreeOps);
@@ -611,15 +647,39 @@ export function useAbsentManager({
           logger.warn('[addAbsent] No classFreeOps generated');
         }
 
+        const finalClassAbsenceOps: Array<{ day: string; period: number | string; classId: string; absentId: string }> = [];
+        const baseAbsenceState = classAbsenceStateRef?.current || {};
+
         if (classAbsenceOps.length > 0) {
+          classAbsenceOps.forEach(({ day: dKey, period: per, classId: cId, absentId: aId, allowDuty, commonLessonOwnerId }) => {
+            let encodedValue: string;
+            if (aId === COMMON_LESSON_LABEL) {
+              encodedValue = (encodeClassAbsenceValue(aId, allowDuty !== false, { commonLessonOwnerId }) || COMMON_LESSON_LABEL) as string;
+            } else {
+              const existing = baseAbsenceState[dKey]?.[per]?.[cId];
+              encodedValue = mergeAbsentIdValues(existing, aId, allowDuty !== false);
+            }
+            finalClassAbsenceOps.push({
+              day: dKey,
+              period: per,
+              classId: cId,
+              absentId: encodedValue,
+            });
+          });
+
           setClassAbsence((prev) => {
             const next = { ...prev };
 
-            classAbsenceOps.forEach(({ day: dKey, period: per, classId: cId, absentId: aId, allowDuty, commonLessonOwnerId }) => {
+            finalClassAbsenceOps.forEach(({ day: dKey, period: per, classId: cId, absentId: encodedValue }) => {
               if (!next[dKey]) next[dKey] = {};
               if (!next[dKey][per]) next[dKey][per] = {};
-              const encodedValue = encodeClassAbsenceValue(aId, allowDuty !== false, { commonLessonOwnerId });
-              next[dKey][per][cId] = encodedValue;
+              const existing = next[dKey][per][cId];
+              if (existing && existing !== encodedValue) {
+                const decodedEncoded = decodeClassAbsenceValue(encodedValue);
+                next[dKey][per][cId] = mergeAbsentIdValues(existing, decodedEncoded.absentId || '', decodedEncoded.allowDuty);
+              } else {
+                next[dKey][per][cId] = encodedValue;
+              }
             });
 
             return next;
@@ -635,6 +695,21 @@ export function useAbsentManager({
               if (!next[dKey]) next[dKey] = {};
               if (!next[dKey][per]) next[dKey][per] = {};
               next[dKey][per][cId] = teacherName;
+            });
+            return next;
+          });
+        }
+
+        if (commonLessonOpsToDelete.length > 0) {
+          setCommonLessons((prev) => {
+            const next = { ...prev };
+            commonLessonOpsToDelete.forEach(({ day: dKey, period: per, classId: cId }) => {
+              if (next[dKey]?.[per]?.[cId]) {
+                next[dKey][per] = { ...next[dKey][per] };
+                delete next[dKey][per][cId];
+                if (Object.keys(next[dKey][per]).length === 0) delete next[dKey][per];
+              }
+              if (next[dKey] && Object.keys(next[dKey]).length === 0) delete next[dKey];
             });
             return next;
           });
@@ -657,15 +732,8 @@ export function useAbsentManager({
         }
 
         try {
-          if (classAbsenceOps.length > 0) {
-            await bulkUpsertClassAbsence(
-              classAbsenceOps.map(({ day: dKey, period: per, classId: cId, absentId: aId, allowDuty, commonLessonOwnerId }) => ({
-                day: dKey,
-                period: per,
-                classId: cId,
-                absentId: encodeClassAbsenceValue(aId, allowDuty !== false, { commonLessonOwnerId }),
-              }))
-            );
+          if (finalClassAbsenceOps.length > 0) {
+            await bulkUpsertClassAbsence(finalClassAbsenceOps);
           }
         } catch (err) {
           logger.error('Class absence bulk insert error:', err);

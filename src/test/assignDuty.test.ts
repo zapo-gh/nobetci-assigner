@@ -32,6 +32,52 @@ describe('assignDuties Engine Basics', () => {
     expect(assigned).toBeDefined();
     expect(assigned?.teacherId).toBe('t1');
   });
+
+  it('does not assign duty to a teacher who is leading a merged group in the same period', () => {
+    const result = assignDuties({
+      teachers: [
+        { teacherId: 't_rahmi', teacherName: 'RAHMİ TEKİN', maxDutyPerDay: 6, source: 'manual' },
+        { teacherId: 't_cemal', teacherName: 'CEMAL PAYLAN', maxDutyPerDay: 6, source: 'manual' },
+      ],
+      freeTeachers: { Tue: { 8: new Set(['t_rahmi', 't_cemal']) } },
+      classes: [
+        { classId: 'c_9g', className: 'AMP 9-G' },
+        { classId: 'c_10a', className: 'AMP 10-A' },
+      ],
+      freeClasses: { Tue: { 8: new Set(['c_9g', 'c_10a']) } },
+      locked: {},
+      options: { preventConsecutive: false, maxClassesPerSlot: 1, ignoreConsecutiveLimit: false },
+      commonLessons: { Tue: { 8: { c_10a: 'RAHMİ TEKİN' } } }
+    });
+
+    const rows = result.schedule.Tue?.[8] ?? [];
+    expect(rows.find((a: any) => a.classId === 'c_10a')).toBeUndefined();
+    const nineG = rows.find((a: any) => a.classId === 'c_9g');
+    expect(nineG?.teacherId).toBe('t_cemal');
+    expect(rows.some((a: any) => a.teacherId === 't_rahmi')).toBe(false);
+  });
+
+  it('ignores a manual lock that would put a merge-group teacher on duty in the same period', () => {
+    const result = assignDuties({
+      teachers: [
+        { teacherId: 't_rahmi', teacherName: 'RAHMİ TEKİN', maxDutyPerDay: 6, source: 'manual' },
+        { teacherId: 't_cemal', teacherName: 'CEMAL PAYLAN', maxDutyPerDay: 6, source: 'manual' },
+      ],
+      freeTeachers: { Tue: { 8: new Set(['t_rahmi', 't_cemal']) } },
+      classes: [
+        { classId: 'c_9g', className: 'AMP 9-G' },
+        { classId: 'c_10a', className: 'AMP 10-A' },
+      ],
+      freeClasses: { Tue: { 8: new Set(['c_9g', 'c_10a']) } },
+      locked: { 'Tue|8|c_9g': 't_rahmi' },
+      options: { preventConsecutive: false, maxClassesPerSlot: 1, ignoreConsecutiveLimit: false },
+      commonLessons: { Tue: { 8: { c_10a: 'RAHMİ TEKİN' } } }
+    });
+
+    const rows = result.schedule.Tue?.[8] ?? [];
+    expect(rows.some((a: any) => a.teacherId === 't_rahmi')).toBe(false);
+    expect(rows.find((a: any) => a.classId === 'c_9g')?.teacherId).toBe('t_cemal');
+  });
 });
 
 describe('Zone Floor and Distance Calculations', () => {

@@ -40,22 +40,61 @@ export function useClassFreeForDay({ classFree, day, periods }) {
   }, [classFree, day, periods]);
 }
 
-export function useFilteredClassAbsence({ classAbsence, day, absentIdsForCurrentDay }) {
+export function useFilteredClassAbsence({
+  classAbsence,
+  day,
+  absentIdsForCurrentDay,
+  commonLessons,
+  absentPeople = []
+}) {
   return useMemo(() => {
+    const absentTeacherNames = new Set(
+      absentPeople
+        .filter(p => !Array.isArray(p.days) || p.days.length === 0 || p.days.includes(day))
+        .map(p => normalizeForComparison(p?.name || p?.teacherName || p?.displayName || ''))
+        .filter(Boolean)
+    );
+
+    const isTeacherAbsent = (tNameOrId) => {
+      if (!tNameOrId) return false;
+      const s = String(tNameOrId);
+      if (absentIdsForCurrentDay.has(s)) return true;
+      const norm = normalizeForComparison(s);
+      return norm && absentTeacherNames.has(norm);
+    };
+
     const result = { [day]: {} };
     const dayAbsences = classAbsence?.[day] || {};
     Object.entries(dayAbsences).forEach(([periodKey, classesForPeriod]) => {
       const filtered = Object.entries(classesForPeriod || {}).reduce((acc, [classId, rawValue]) => {
-        const { absentId, allowDuty, commonLessonOwnerId } = decodeClassAbsenceValue(rawValue);
+        const { absentId, absentIds, allowDuty, commonLessonOwnerId } = decodeClassAbsenceValue(rawValue);
+        const mergeTeacher = commonLessons?.[day]?.[periodKey]?.[classId];
+        const isMergedAndPresent = mergeTeacher && !isTeacherAbsent(mergeTeacher);
+
+        if (isMergedAndPresent) {
+          acc[classId] = COMMON_LESSON_LABEL;
+          return acc;
+        }
+
         const isCommonLesson = absentId === COMMON_LESSON_LABEL;
         if (isCommonLesson) {
           // Ortak ders belirli bir mazeretliye bağlıysa, o mazeretli bugün izinli değilse filtrele
-          if (commonLessonOwnerId && !absentIdsForCurrentDay.has(commonLessonOwnerId)) {
+          const hasActiveOwner = (absentIds || []).length === 0 || (absentIds || []).some((id) => absentIdsForCurrentDay.has(id));
+          if (commonLessonOwnerId && !hasActiveOwner) {
             return acc;
           }
-          acc[classId] = COMMON_LESSON_LABEL;
-        } else if (allowDuty && absentIdsForCurrentDay.has(absentId)) {
-          acc[classId] = absentId;
+          // Derse ortak giren diğer öğretmen de bugün izinliyse, gruplar birleştirilemez!
+          if (mergeTeacher && isTeacherAbsent(mergeTeacher)) {
+            // İki öğretmen de izinli! Nöbetçi öğretmen görevlendirmesine dahil et
+            acc[classId] = commonLessonOwnerId || absentId;
+          } else {
+            acc[classId] = COMMON_LESSON_LABEL;
+          }
+        } else if (allowDuty) {
+          const activeAbsentIds = (absentIds || []).filter((id) => absentIdsForCurrentDay.has(id));
+          if (activeAbsentIds.length > 0) {
+            acc[classId] = activeAbsentIds.join(',');
+          }
         }
         return acc;
       }, {});
@@ -64,11 +103,34 @@ export function useFilteredClassAbsence({ classAbsence, day, absentIdsForCurrent
       }
     });
     return result;
-  }, [classAbsence, day, absentIdsForCurrentDay]);
+  }, [classAbsence, day, absentIdsForCurrentDay, commonLessons, absentPeople]);
 }
 
-export function useFilteredClassFree({ classFree, classAbsence, day, periods, absentIdsForCurrentDay }) {
+export function useFilteredClassFree({
+  classFree,
+  classAbsence,
+  day,
+  periods,
+  absentIdsForCurrentDay,
+  commonLessons,
+  absentPeople = []
+}) {
   return useMemo(() => {
+    const absentTeacherNames = new Set(
+      absentPeople
+        .filter(p => !Array.isArray(p.days) || p.days.length === 0 || p.days.includes(day))
+        .map(p => normalizeForComparison(p?.name || p?.teacherName || p?.displayName || ''))
+        .filter(Boolean)
+    );
+
+    const isTeacherAbsent = (tNameOrId) => {
+      if (!tNameOrId) return false;
+      const s = String(tNameOrId);
+      if (absentIdsForCurrentDay.has(s)) return true;
+      const norm = normalizeForComparison(s);
+      return norm && absentTeacherNames.has(norm);
+    };
+
     const result = { [day]: {} };
     const dayFree = classFree?.[day] || {};
     const dayAbsences = classAbsence?.[day] || {};
@@ -84,25 +146,52 @@ export function useFilteredClassFree({ classFree, classAbsence, day, periods, ab
       const filteredSet = new Set();
       sourceIds.forEach((classId) => {
         const rawAbs = dayAbsences?.[p]?.[classId];
+        const mergeTeacher = commonLessons?.[day]?.[p]?.[classId];
+
+        // Derse ortak giren diğer öğretmen okulda ise, ders birleştirilmiştir;
+        // sınıf "boş" değildir ve nöbetçi ataması yapılmamalıdır!
+        if (mergeTeacher && !isTeacherAbsent(mergeTeacher)) {
+          return;
+        }
+
         if (rawAbs) {
-          const { absentId, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs);
+          const { absentId, absentIds, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs);
           if (absentId === COMMON_LESSON_LABEL) {
             // Başka bir tarihteki mazeretlinin ortak dersi bugün boş sayılmaz
-            if (commonLessonOwnerId && !absentIdsForCurrentDay.has(commonLessonOwnerId)) {
+            const hasActiveOwner = (absentIds || []).some((id) => absentIdsForCurrentDay.has(id));
+            if (commonLessonOwnerId && !hasActiveOwner) {
               return;
             }
-          } else if (absentId && !absentIdsForCurrentDay.has(absentId)) {
+          } else if (absentIds && absentIds.length > 0) {
             // Başka bir tarihteki mazeretlinin boş dersi bugün boş sayılmaz
-            return;
+            const hasActive = absentIds.some((id) => absentIdsForCurrentDay.has(id));
+            if (!hasActive) {
+              return;
+            }
           }
         }
         filteredSet.add(classId);
+      });
+
+      // Eğer derse ortak giren diğer öğretmen de mazeretliyse, grup birleştirilemez ve ders nöbetçi görevlendirmesine eklenmelidir!
+      Object.entries(dayAbsences[p] || {}).forEach(([classId, rawAbs]) => {
+        const { absentId, absentIds, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs);
+        const mergeTeacher = commonLessons?.[day]?.[p]?.[classId];
+        if (absentId === COMMON_LESSON_LABEL) {
+          const hasActiveOwner = (absentIds || []).some((id) => absentIdsForCurrentDay.has(id));
+          if (commonLessonOwnerId && !hasActiveOwner) return;
+          if (mergeTeacher && isTeacherAbsent(mergeTeacher)) {
+            filteredSet.add(classId);
+          }
+        } else if (mergeTeacher && isTeacherAbsent(mergeTeacher) && (absentIds || []).some((id) => absentIdsForCurrentDay.has(id))) {
+          filteredSet.add(classId);
+        }
       });
 
       result[day][p] = filteredSet;
     });
 
     return result;
-  }, [classFree, classAbsence, day, periods, absentIdsForCurrentDay]);
+  }, [classFree, classAbsence, day, periods, absentIdsForCurrentDay, commonLessons, absentPeople]);
 }
 

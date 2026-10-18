@@ -6,7 +6,7 @@ import { useAssignments } from './contexts/useAssignments';
 import { useTeacherManager } from './hooks/useTeacherManager';
 import { useClassManager } from './hooks/useClassManager';
 import { useAvailabilityManager } from './hooks/useAvailabilityManager';
-import { normalizeClassName, isImesLesson } from './utils/classNameUtils';
+import { normalizeClassName, isImesLesson, isPboLesson } from './utils/classNameUtils';
 import React, { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { DutyZone } from "./types.js";
 import Header from './components/Header.js';
@@ -80,6 +80,7 @@ import {
   COMMON_LESSON_LABEL,
   encodeClassAbsenceValue,
   decodeClassAbsenceValue,
+  removeAbsentIdFromValue,
 } from './utils/classAbsence.js';
 import { normalizeAbsentPeople } from './utils/migrations.js';
 import { useAutoSave } from './hooks/useAutoSave.js';
@@ -100,6 +101,7 @@ import EditTeacherModal from "./components/EditTeacherModal";
 import LoginScreen from "./components/LoginScreen";
 import ChangePasswordModal from "./components/ChangePasswordModal";
 import { isSessionAuthenticated, clearSession } from "./utils/authUtils";
+import { loginWithFirebaseAuth, logoutFirebaseAuth } from "./services/firebaseAuthService.js";
 const CourseScheduleSection = lazy(() => import('./components/CourseScheduleSection.jsx'));
 const ClassesSection = lazy(() => import('./components/ClassesSection.jsx'));
 const DutyZonesSection = lazy(() => import('./components/DutyZonesSection.jsx'));
@@ -792,8 +794,9 @@ export default function App() {
 
   
 
-  // İlk veri yükleme — useDataLoader hook'una taşındı
+  // İlk veri yükleme — useDataLoader hook'una taşındı (şifre arkası korumalı)
   useDataLoader({
+    enabled: isAuthenticated,
     hydratedRef,
     applyFirebaseSnapshotRef,
     storageKey: STORAGE_KEY,
@@ -815,10 +818,10 @@ export default function App() {
     setCommonLessons,
   });
 
-  // Otomatik kaydet — useAutoSave hook'una taşındı
+  // Otomatik kaydet — useAutoSave hook'una taşındı (şifre arkası korumalı)
   useAutoSave({
+    enabled: isAuthenticated,
     hydratedRef,
-    
     storageKey: STORAGE_KEY,
     day,
     periods,
@@ -886,11 +889,22 @@ export default function App() {
     }
   }, []);
 
-  const handleLockSession = useCallback(() => {
+  const handleLockSession = useCallback(async () => {
     clearSession();
+    await logoutFirebaseAuth();
+    hydratedRef.current = false;
     setIsAuthenticated(false);
     addNotification('Oturum kapatıldı ve ekran kilitlendi.', 'info');
   }, [addNotification]);
+
+  // Aktif oturum varsa Firebase Auth bağlantısını doğrula / canlı tut
+  useEffect(() => {
+    if (isAuthenticated) {
+      loginWithFirebaseAuth().catch(err => {
+        logger.warn('[App] Firebase Auth oturum senkronizasyonu:', err);
+      });
+    }
+  }, [isAuthenticated]);
 
   // History stack for planning undo/redo
   const { canUndo, canRedo, undo, redo, recordHistory } = useAssignmentHistory(locked, setLocked, addNotification);
@@ -940,6 +954,7 @@ export default function App() {
     normalizeCommonLessonTeacherName,
     absentPeople,
     filteredAbsentPeople: absentPeopleForCurrentDay,
+    commonLessons,
     setAbsentPeople,
     setClasses,
     setClassFree,
@@ -1724,34 +1739,43 @@ export default function App() {
           let changed = false;
 
           Object.keys(per).forEach(cid => {
-            const decoded = decodeClassAbsenceValue(per[cid]);
+            const rawVal = per[cid];
+            const decoded = decodeClassAbsenceValue(rawVal);
             const numericPeriod = Number(pk);
-            const shouldRemove =
+            const isTarget =
+              (decoded.absentIds || []).includes(absentIdToDelete) ||
               decoded.absentId === absentIdToDelete ||
               decoded.commonLessonOwnerId === absentIdToDelete;
 
-            if (shouldRemove) {
+            if (isTarget) {
               changed = true;
-              affectedClassIds.add(cid);
+              const { nextValue, remainingIds } = removeAbsentIdFromValue(rawVal, absentIdToDelete);
 
-              const slotKey = `${dk}|${numericPeriod}|${cid}`;
-              if (!slotKeys.has(slotKey)) {
-                slotKeys.add(slotKey);
-                slotsToClear.push({
-                  dayKey: dk,
-                  period: Number.isFinite(numericPeriod) ? numericPeriod : Number(pk) || pk,
-                  classId: cid,
-                });
-              }
+              if (nextValue && remainingIds.length > 0) {
+                // Bu sınıfta hala başka bir mazeretli öğretmen var; boş kalmaya devam eder!
+                per[cid] = nextValue;
+              } else {
+                affectedClassIds.add(cid);
 
-              if (decoded.absentId === COMMON_LESSON_LABEL) {
-                commonLessonsToDelete.push({
-                  day: dk,
-                  period: Number.isFinite(numericPeriod) ? numericPeriod : Number(pk) || pk,
-                  classId: cid,
-                });
+                const slotKey = `${dk}|${numericPeriod}|${cid}`;
+                if (!slotKeys.has(slotKey)) {
+                  slotKeys.add(slotKey);
+                  slotsToClear.push({
+                    dayKey: dk,
+                    period: Number.isFinite(numericPeriod) ? numericPeriod : Number(pk) || pk,
+                    classId: cid,
+                  });
+                }
+
+                if (decoded.absentId === COMMON_LESSON_LABEL) {
+                  commonLessonsToDelete.push({
+                    day: dk,
+                    period: Number.isFinite(numericPeriod) ? numericPeriod : Number(pk) || pk,
+                    classId: cid,
+                  });
+                }
+                delete per[cid];
               }
-              delete per[cid];
             }
           });
 
@@ -1794,8 +1818,8 @@ export default function App() {
       const dayRecords = updatedClassAbsence?.[dayKey] || {};
       Object.values(dayRecords).forEach(byClass => {
         Object.entries(byClass || {}).forEach(([cid, aId]) => {
-          const { absentId } = decodeClassAbsenceValue(aId);
-          if (absentId && absentId !== absentIdToDelete) {
+          const { absentIds } = decodeClassAbsenceValue(aId);
+          if ((absentIds || []).some((id) => id !== absentIdToDelete)) {
             stillHasAbsent.add(cid);
           }
         });
@@ -2071,36 +2095,52 @@ export default function App() {
     [absentPeopleForCurrentDay],
   );
 
-  const filteredClassAbsence = useFilteredClassAbsence({
-    classAbsence,
-    day,
-    absentIdsForCurrentDay,
-  });
-
-  const filteredClassFree = useFilteredClassFree({
-    classFree,
-    classAbsence,
-    day,
-    periods,
-    absentIdsForCurrentDay,
-  });
-
   const filteredCommonLessons = useMemo(() => {
-    const dayCommon = commonLessons?.[day];
-    if (!dayCommon || typeof dayCommon !== 'object') return commonLessons;
+    const dayCommon = commonLessons?.[day] || {};
     const dayAbsences = classAbsence?.[day] || {};
     const filteredDay = {};
 
+    const absentTeacherNames = new Set(
+      (absentPeopleForCurrentDay || [])
+        .map((p) => normalizeForComparison(p?.name || p?.teacherName || p?.displayName || ''))
+        .filter(Boolean)
+    );
+
+    const isTeacherAbsent = (tNameOrId) => {
+      if (!tNameOrId) return false;
+      const s = String(tNameOrId);
+      if (absentIdsForCurrentDay.has(s)) return true;
+      const norm = normalizeForComparison(s);
+      return norm && absentTeacherNames.has(norm);
+    };
+
+    // 1. Process explicit common lessons
     Object.entries(dayCommon).forEach(([p, classMap]) => {
       if (!classMap || typeof classMap !== 'object') return;
-      const validClassMap = {};
+      const validClassMap = { ...(filteredDay[p] || {}) };
       Object.entries(classMap).forEach(([cid, tName]) => {
         const rawAbs = dayAbsences?.[p]?.[cid];
+        const freeSetForPeriod = classFree?.[day]?.[p];
+        const isInFreeSet =
+          freeSetForPeriod instanceof Set
+            ? freeSetForPeriod.has(cid)
+            : Array.isArray(freeSetForPeriod) && freeSetForPeriod.includes(cid);
+        // Slot gerçekten boş/mazeretli değilse (yalnızca şablonda kalmış ortak ders) listeye alınmaz
+        if (!rawAbs && !isInFreeSet) return;
         if (rawAbs) {
           const { commonLessonOwnerId } = decodeClassAbsenceValue(rawAbs);
           if (commonLessonOwnerId && !absentIdsForCurrentDay.has(commonLessonOwnerId)) {
             return;
           }
+        }
+        // Eğer derse ortak giren öğretmen de bugün izinliyse, gruplar birleştirilemez!
+        if (isTeacherAbsent(tName)) {
+          return;
+        }
+        // PBO ve İMES dersleri ortak ders değildir, birleştirilemez
+        const cls = classes.find((c) => c.classId === cid);
+        if (cls && (isPboLesson(cls.className) || isImesLesson(cls.className))) {
+          return;
         }
         validClassMap[cid] = tName;
       });
@@ -2109,8 +2149,101 @@ export default function App() {
       }
     });
 
+    // 2. Auto-detect co-teachers for absent teachers' classes if not already explicitly merged
+    if (teacherSchedules && absentPeopleForCurrentDay?.length > 0) {
+      periods.forEach((p) => {
+        const freeSet = classFree?.[day]?.[p];
+        const classesToCheck = new Set([
+          ...Object.keys(dayAbsences[p] || {}),
+          ...(freeSet instanceof Set ? Array.from(freeSet) : Array.isArray(freeSet) ? freeSet : []),
+        ]);
+
+        classesToCheck.forEach((cid) => {
+          if (filteredDay[p]?.[cid]) return; // already merged
+          const cls = classes.find((c) => c.classId === cid);
+          if (!cls) return;
+          if (isPboLesson(cls.className) || isImesLesson(cls.className)) return; // PBO ve İMES birleştirilemez
+          const targetNorm = normalizeClassName(cls.className).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+          if (!targetNorm) return;
+
+          // Check if an absent teacher teaches this class at this period
+          let absentTeacherFound = null;
+          for (const absent of absentPeopleForCurrentDay) {
+            const tSched = teacherSchedules[absent.name] || teacherSchedules[absent.teacherId];
+            if (!tSched) continue;
+            for (const [dKey, pMap] of Object.entries(tSched)) {
+              if (
+                typeof pMap === 'object' &&
+                pMap !== null &&
+                (dKey.toLowerCase() === day.toLowerCase() || dKey.toLowerCase().startsWith(day.toLowerCase().slice(0, 3)))
+              ) {
+                const lessonVal = String((pMap as any)[p] || '').trim();
+                if (lessonVal) {
+                  if (isPboLesson(lessonVal) || isImesLesson(lessonVal)) continue; // PBO ortak ders değildir
+                  const lessonNorm = normalizeClassName(lessonVal).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+                  if (lessonNorm === targetNorm || lessonNorm.includes(targetNorm) || targetNorm.includes(lessonNorm)) {
+                    absentTeacherFound = absent;
+                    break;
+                  }
+                }
+              }
+            }
+            if (absentTeacherFound) break;
+          }
+
+          if (!absentTeacherFound) return;
+
+          // Check if another teacher ALSO teaches this class at this period and is NOT absent
+          for (const [tName, tSched] of Object.entries(teacherSchedules)) {
+            if (!tSched || typeof tSched !== 'object') continue;
+            if (isTeacherAbsent(tName)) continue;
+            const normName = tName.toLocaleLowerCase('tr-TR').trim();
+            if (normName === absentTeacherFound.name?.toLocaleLowerCase('tr-TR').trim()) continue;
+
+            for (const [dKey, pMap] of Object.entries(tSched)) {
+              if (
+                typeof pMap === 'object' &&
+                pMap !== null &&
+                (dKey.toLowerCase() === day.toLowerCase() || dKey.toLowerCase().startsWith(day.toLowerCase().slice(0, 3)))
+              ) {
+                const lessonVal = String((pMap as any)[p] || '').trim();
+                if (lessonVal) {
+                  if (isPboLesson(lessonVal) || isImesLesson(lessonVal)) continue; // PBO ortak ders değildir
+                  const lessonNorm = normalizeClassName(lessonVal).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+                  if (lessonNorm === targetNorm || lessonNorm.includes(targetNorm) || targetNorm.includes(lessonNorm)) {
+                    if (!filteredDay[p]) filteredDay[p] = {};
+                    filteredDay[p][cid] = tName;
+                    break;
+                  }
+                }
+              }
+            }
+            if (filteredDay[p]?.[cid]) break;
+          }
+        });
+      });
+    }
+
     return { ...commonLessons, [day]: filteredDay };
-  }, [commonLessons, day, classAbsence, absentIdsForCurrentDay]);
+  }, [commonLessons, day, classAbsence, classFree, absentIdsForCurrentDay, absentPeopleForCurrentDay, teacherSchedules, classes, periods]);
+
+  const filteredClassAbsence = useFilteredClassAbsence({
+    classAbsence,
+    day,
+    absentIdsForCurrentDay,
+    commonLessons: filteredCommonLessons,
+    absentPeople: absentPeopleForCurrentDay,
+  });
+
+  const filteredClassFree = useFilteredClassFree({
+    classFree,
+    classAbsence,
+    day,
+    periods,
+    absentIdsForCurrentDay,
+    commonLessons: filteredCommonLessons,
+    absentPeople: absentPeopleForCurrentDay,
+  });
 
   const classesForCurrentDay = useMemo(() => {
     const includedIds = new Set();
@@ -2127,7 +2260,7 @@ export default function App() {
     });
 
     return classes
-      .filter(cls => includedIds.has(cls.classId) && !isImesLesson(cls.className))
+      .filter(cls => includedIds.has(cls.classId) && !isImesLesson(cls.className) && !isPboLesson(cls.className))
       .map(cls => ({
         ...cls,
         className: normalizeClassName(cls.className) || cls.className,
@@ -2144,14 +2277,14 @@ export default function App() {
       if (freeSet instanceof Set) {
         freeSet.forEach((cid) => {
           const cls = classById.get(cid);
-          if (cls && !isImesLesson(cls.className)) {
+          if (cls && !isImesLesson(cls.className) && !isPboLesson(cls.className)) {
             combined.add(cid);
           }
         });
       } else if (Array.isArray(freeSet)) {
         freeSet.forEach((cid) => {
           const cls = classById.get(cid);
-          if (cls && !isImesLesson(cls.className)) {
+          if (cls && !isImesLesson(cls.className) && !isPboLesson(cls.className)) {
             combined.add(cid);
           }
         });
@@ -2164,9 +2297,17 @@ export default function App() {
           if (!allowDuty) return;
           if (!absentIdsForCurrentDay.has(absentId)) return;
           const cls = classById.get(classId);
-          if (cls && !isImesLesson(cls.className)) {
+          if (cls && !isImesLesson(cls.className) && !isPboLesson(cls.className)) {
             combined.add(classId);
           }
+        });
+      }
+
+      // Güvenlik katmanı: birleştirilen sınıfları boş sınıf listesinden çıkar
+      const commonForPeriod = filteredCommonLessons?.[day]?.[p];
+      if (commonForPeriod && typeof commonForPeriod === 'object') {
+        Object.keys(commonForPeriod).forEach((mergedClassId) => {
+          combined.delete(mergedClassId);
         });
       }
 
@@ -2174,7 +2315,7 @@ export default function App() {
     });
 
     return dayFree;
-  }, [classes, filteredClassFree, filteredClassAbsence, day, periods, absentIdsForCurrentDay]);
+  }, [classes, filteredClassFree, filteredClassAbsence, day, periods, absentIdsForCurrentDay, filteredCommonLessons]);
 
 
 
@@ -2354,6 +2495,64 @@ export default function App() {
     }
   }, [day, locked, validClassIdSet, syncLockedToLocalStorage]);
 
+  // Bayat kilitleri otomatik temizle:
+  //  - Artık boş/mazeretli veya birleştirilmiş olmayan saatlere ait kilitler
+  //  - O saatte grubu birleştiren öğretmenin kendi nöbet kilidi (aynı anda iki yerde olamaz)
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (!locked || Object.keys(locked).length === 0) return;
+    // Veri henüz yüklenmemiş olabilir; o gün mazeretli yoksa kilitlere dokunma
+    if (!absentPeopleForCurrentDay || absentPeopleForCurrentDay.length === 0) return;
+
+    const dayLocks = Object.entries(locked).filter(([k]) => k.startsWith(`${day}|`));
+    if (dayLocks.length === 0) return;
+
+    const dayFree = freeClassesByDay?.[day] || {};
+    const dayCommon = filteredCommonLessons?.[day] || {};
+    const norm = (s) => normalizeForComparison(String(s || ''));
+
+    const staleKeys: string[] = [];
+    dayLocks.forEach(([key, teacherId]) => {
+      const [, period, classId] = key.split('|');
+      if (!period || !classId) return;
+
+      const freeSet = dayFree[period];
+      const isFree = freeSet instanceof Set
+        ? freeSet.has(classId)
+        : Array.isArray(freeSet) && freeSet.includes(classId);
+      const isCommon = Boolean(dayCommon?.[period]?.[classId]);
+
+      if (!isFree && !isCommon) {
+        staleKeys.push(key);
+        return;
+      }
+
+      if (!teacherId || teacherId === MANUAL_EMPTY_TEACHER_ID || teacherId === MANUAL_ADMIN_TEACHER_ID) return;
+      const lockName = teacherMap.get(teacherId)?.teacherName || '';
+      const leadsMergedGroup = Object.values(dayCommon?.[period] || {}).some((v) =>
+        v && (String(v) === String(teacherId) || (lockName && norm(v) === norm(lockName)))
+      );
+      if (leadsMergedGroup) staleKeys.push(key);
+    });
+
+    if (staleKeys.length > 0) {
+      setLocked((prev) => {
+        const next = { ...prev };
+        staleKeys.forEach((key) => {
+          delete next[key];
+        });
+        syncLockedToLocalStorage(next);
+        bulkSaveLocks(next).catch((err) => logger.error('Stale lock bulk save error:', err));
+        return next;
+      });
+      addNotification({
+        message: `${staleKeys.length} güncelliğini yitirmiş kilit otomatik temizlendi`,
+        type: 'info',
+        duration: 3000,
+      });
+    }
+  }, [day, locked, freeClassesByDay, filteredCommonLessons, absentPeopleForCurrentDay, teacherMap, syncLockedToLocalStorage, addNotification]);
+
   const { schedule: rawAssignment } = useMemo(
     () =>
       assignDuties({
@@ -2367,8 +2566,9 @@ export default function App() {
         classLocations,
         locationZoneMapping,
         absentPeople: absentPeopleForCurrentDay,
+        classAbsence: filteredClassAbsence,
       }),
-    [teachersForCurrentDay, classes, freeTeachersByDay, freeClassesByDay, options, locked, filteredCommonLessons, classLocations, locationZoneMapping, absentPeopleForCurrentDay]
+    [teachersForCurrentDay, classes, freeTeachersByDay, freeClassesByDay, options, locked, filteredCommonLessons, classLocations, locationZoneMapping, absentPeopleForCurrentDay, filteredClassAbsence]
   );
   const assignment = useMemo(
     () => applyFairnessAdjustments({
@@ -3023,6 +3223,7 @@ export default function App() {
               onAddClass={() => setModals((m) => ({ ...m, class: true }))}
               onDeleteAllClasses={deleteAllClasses}
               classLocations={classLocations}
+              teacherSchedules={teacherSchedules}
               IconComponent={Icon}
             />
           )}
@@ -3100,7 +3301,7 @@ export default function App() {
               classAbsence={classAbsence}
               filteredClassAbsence={filteredClassAbsence}
               absentPeopleForCurrentDay={absentPeopleForCurrentDay}
-              commonLessons={commonLessons}
+              commonLessons={filteredCommonLessons}
               classLocations={classLocations}
               locationZoneMapping={locationZoneMapping}
               teacherSchedules={teacherSchedules}

@@ -1,5 +1,6 @@
 import { DAYS } from '../constants/index.js';
 import type { Absent } from '../types.js';
+import { decodeClassAbsenceValue } from './classAbsence.js';
 
 export function normalizeAbsentPeople(list: any[] = [], classAbsence: Record<string, any> = {}): Absent[] {
   if (!Array.isArray(list)) return [];
@@ -12,8 +13,12 @@ export function normalizeAbsentPeople(list: any[] = [], classAbsence: Record<str
       Object.values(periodObj || {}).forEach((byClass: any) => {
         Object.values(byClass || {}).forEach((absentId: any) => {
           if (typeof absentId === 'string') {
-            if (!usageMap[absentId]) usageMap[absentId] = new Set();
-            usageMap[absentId].add(dayKey);
+            const { absentIds } = decodeClassAbsenceValue(absentId);
+            const ids = absentIds.length > 0 ? absentIds : [absentId];
+            ids.forEach((id) => {
+              if (!usageMap[id]) usageMap[id] = new Set();
+              usageMap[id].add(dayKey);
+            });
           }
         });
       });

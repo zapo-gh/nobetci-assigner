@@ -36,10 +36,11 @@ const DEBOUNCE_MS = 1000;
  * @param {object}   params.options            - Uygulama seçenekleri
  * @param {object}   params.locked             - Kilitli slotlar
  * @param {object}   params.pdfSchedule        - PDF çizelge
- * @param {object}   params.teacherSchedules   - Öğretmen ders programları
+ * @param {boolean}  [params.enabled=true]    - Otomatik kaydetme aktif mi (şifre arkası koruması)
  * @param {boolean}  params.teacherSchedulesHydrated - Ders programı yüklendi mi
  */
 export function useAutoSave({
+  enabled = true,
   hydratedRef,
   storageKey,
   day,
@@ -60,6 +61,10 @@ export function useAutoSave({
   const timeoutRef = useRef(null);
 
   useEffect(() => {
+    if (!enabled) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      return;
+    }
     if (!hydratedRef.current) return;
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -120,5 +125,5 @@ export function useAutoSave({
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [teacherFree, classFree, classAbsence, commonLessons, teacherSchedules, teacherSchedulesHydrated, locked]);
+  }, [enabled, teacherFree, classFree, classAbsence, commonLessons, teacherSchedules, teacherSchedulesHydrated, locked]);
 }

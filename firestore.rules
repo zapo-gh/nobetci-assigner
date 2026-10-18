@@ -9,47 +9,54 @@ service cloud.firestore {
     }
 
     // Sistem ve Okul Yapılandırma Belgeleri (/config/*)
+    // Hassas yapılandırmalar yalnızca kimliği doğrulanmış oturumla okunabilir;
+    // admin_auth (tuzlanmış şifre özeti) giriş ekranının doğrulaması için okunabilir
     match /config/{docId} {
-      // admin_auth: Güvenlik koruması
-      // 1. Doküman asla dışarıdan silinemez (delete: false)
-      // 2. Güncelleme yapılırken passwordHash geçerli formatta olmak zorundadır
-      allow read: if true;
-      allow create: if docId != 'admin_auth' || (
-        !exists(/databases/$(database)/documents/config/admin_auth) &&
-        request.resource.data.data.passwordHash is string &&
-        request.resource.data.data.passwordHash.size() >= 32
+      allow read: if isAuthenticated() || docId == 'admin_auth';
+      // admin_auth: Doküman asla silinemez; hash formatı geçerli olmak zorundadır
+      allow create: if isAuthenticated() && (
+        docId != 'admin_auth' || (
+          !exists(/databases/$(database)/documents/config/admin_auth) &&
+          request.resource.data.data.passwordHash is string &&
+          request.resource.data.data.passwordHash.size() >= 32
+        )
       );
-      allow update: if docId != 'admin_auth' || (
-        request.resource.data.data.passwordHash is string &&
-        request.resource.data.data.passwordHash.size() >= 32
+      allow update: if isAuthenticated() && (
+        docId != 'admin_auth' || (
+          request.resource.data.data.passwordHash is string &&
+          request.resource.data.data.passwordHash.size() >= 32
+        )
       );
-      allow delete: if docId != 'admin_auth';
+      allow delete: if isAuthenticated() && docId != 'admin_auth';
     }
 
     // Öğretmen Listesi
     match /teachers/{teacherId} {
-      allow read: if true;
-      allow create, update: if request.resource.data.teacherName is string
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated()
+                            && request.resource.data.teacherName is string
                             && request.resource.data.teacherName.size() > 0
                             && request.resource.data.teacherName.size() <= 100;
-      allow delete: if true;
+      allow delete: if isAuthenticated();
     }
 
     // Sınıf Listesi
     match /classes/{classId} {
-      allow read: if true;
-      allow create, update: if request.resource.data.className is string
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated()
+                            && request.resource.data.className is string
                             && request.resource.data.className.size() > 0
                             && request.resource.data.className.size() <= 50;
-      allow delete: if true;
+      allow delete: if isAuthenticated();
     }
 
     // Mazeretli / Devamsız Kayıtları
     match /absents/{absentId} {
-      allow read: if true;
-      allow create, update: if request.resource.data.name is string
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated()
+                            && request.resource.data.name is string
                             && request.resource.data.name.size() > 0;
-      allow delete: if true;
+      allow delete: if isAuthenticated();
     }
 
     // Belirtilmeyen tüm koleksiyonlar varsayılan olarak engellenir

@@ -5,7 +5,7 @@ import { useAssignments } from '../contexts/useAssignments';
 import { upsertTeacherFree, upsertClassFree, bulkUpsertClassFree, upsertClassAbsence, upsertLock } from '../services/firebaseDataService';
 import { logger } from '../utils/logger';
 import { encodeClassAbsenceValue } from '../utils/classAbsence';
-import { isImesLesson, normalizeClassName } from '../utils/classNameUtils';
+import { isImesLesson, isPboLesson, normalizeClassName } from '../utils/classNameUtils';
 
 export function useAvailabilityManager() {
   const { teachers, teacherFree, setTeacherFree, teacherSchedules } = useTeachers();
@@ -19,18 +19,19 @@ export function useAvailabilityManager() {
     if (!obj[p]) obj[p] = new Set();
   }, []);
 
-  const findAbsentTeacherForSlot = useCallback(
+  const findAbsentTeachersForSlot = useCallback(
     (day: string, p: string | number, cid: string) => {
       const cls = classes.find((c: any) => c.classId === cid);
-      if (!cls) return null;
+      if (!cls) return [];
       const targetClassName = normalizeClassName(cls.className) || cls.className || '';
       const targetNorm = targetClassName.toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
 
       const todaysAbsents = (absentPeople || []).filter((a: any) => {
         const days = Array.isArray(a.days) ? a.days : [];
-        return days.some((d: string) => d.toLowerCase() === day.toLowerCase() || day.toLowerCase().startsWith(d.toLowerCase().slice(0, 3)));
+        return days.length === 0 || days.some((d: string) => d.toLowerCase() === day.toLowerCase() || day.toLowerCase().startsWith(d.toLowerCase().slice(0, 3)));
       });
 
+      const matched: any[] = [];
       for (const absent of todaysAbsents) {
         const tSched = teacherSchedules?.[absent.name] || teacherSchedules?.[absent.teacherId];
         if (!tSched) continue;
@@ -44,7 +45,52 @@ export function useAvailabilityManager() {
             if (lessonVal) {
               const lessonNorm = normalizeClassName(lessonVal).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
               if (lessonNorm === targetNorm || lessonNorm.includes(targetNorm) || targetNorm.includes(lessonNorm)) {
-                return absent;
+                matched.push(absent);
+                break;
+              }
+            }
+          }
+        }
+      }
+      return matched;
+    },
+    [classes, absentPeople, teacherSchedules]
+  );
+
+  const findCoTeacherForSlot = useCallback(
+    (day: string, p: string | number, cid: string, absentTeacherName?: string) => {
+      const cls = classes.find((c: any) => c.classId === cid);
+      if (!cls) return null;
+      const targetClassName = normalizeClassName(cls.className) || cls.className || '';
+      const targetNorm = targetClassName.toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+      const absentNorm = absentTeacherName ? absentTeacherName.toLocaleLowerCase('tr-TR').trim() : '';
+
+      const todaysAbsentNames = new Set(
+        (absentPeople || [])
+          .filter((a: any) => {
+            const days = Array.isArray(a.days) ? a.days : [];
+            return days.length === 0 || days.some((d: string) => d.toLowerCase() === day.toLowerCase() || day.toLowerCase().startsWith(d.toLowerCase().slice(0, 3)));
+          })
+          .map((a: any) => String(a.name || a.teacherName || '').toLocaleLowerCase('tr-TR').trim())
+          .filter(Boolean)
+      );
+
+      for (const [tName, tSched] of Object.entries(teacherSchedules || {})) {
+        if (!tSched || typeof tSched !== 'object') continue;
+        const normName = tName.toLocaleLowerCase('tr-TR').trim();
+        if (normName === absentNorm || todaysAbsentNames.has(normName)) continue;
+
+        for (const [dKey, pMap] of Object.entries(tSched)) {
+          if (
+            typeof pMap === 'object' &&
+            pMap !== null &&
+            (dKey.toLowerCase() === day.toLowerCase() || dKey.toLowerCase().startsWith(day.toLowerCase().slice(0, 3)))
+          ) {
+            const lessonVal = String((pMap as any)[p] || '').trim();
+            if (lessonVal) {
+              const lessonNorm = normalizeClassName(lessonVal).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+              if (lessonNorm === targetNorm || lessonNorm.includes(targetNorm) || targetNorm.includes(lessonNorm)) {
+                return tName;
               }
             }
           }
@@ -175,9 +221,21 @@ export function useAvailabilityManager() {
       let restoredCommonTeacher = cached?.commonTeacher;
 
       if (!restoredAbsentId && !restoredCommonTeacher) {
-        const autoAbsent = findAbsentTeacherForSlot(day, p, cid);
-        if (autoAbsent) {
-          restoredAbsentId = autoAbsent.absentId;
+        const autoAbsents = findAbsentTeachersForSlot(day, p, cid);
+        if (autoAbsents.length > 0) {
+          if (autoAbsents.length === 1) {
+            const autoAbsent = autoAbsents[0];
+            const coTeacher = findCoTeacherForSlot(day, p, cid, autoAbsent.name);
+            if (coTeacher) {
+              restoredCommonTeacher = coTeacher;
+              restoredAbsentId = (encodeClassAbsenceValue('COMMON_LESSON', false, { commonLessonOwnerId: autoAbsent.absentId }) ?? undefined) as string | undefined;
+            } else {
+              restoredAbsentId = autoAbsent.absentId;
+            }
+          } else {
+            // Birden fazla öğretmen mazeretliyse ortak birleştirme yapılamaz, tüm mazeretliler birleştirilir
+            restoredAbsentId = autoAbsents.map((a: any) => a.absentId).join(',');
+          }
         }
       }
 
@@ -207,7 +265,7 @@ export function useAvailabilityManager() {
       delete lastClearedAbsenceRef.current[slotKey];
     }
   },
-    [classFree, classAbsence, commonLessons, setClassFree, setClassAbsence, setCommonLessons, setLocked, findAbsentTeacherForSlot]
+    [classFree, classAbsence, commonLessons, setClassFree, setClassAbsence, setCommonLessons, setLocked, findAbsentTeachersForSlot, findCoTeacherForSlot]
   );
 
   const setAllTeachersFree = useCallback(
@@ -225,7 +283,7 @@ export function useAvailabilityManager() {
 
   const setAllClassesFree = useCallback(
     (day: string, p: string | number, on: boolean) => {
-      const nonImesClasses = classes.filter((c: any) => !isImesLesson(c.className));
+      const nonImesClasses = classes.filter((c: any) => !isImesLesson(c.className) && !isPboLesson(c.className));
       setClassFree((prev: any) => {
         const next = { ...prev };
         if (!next[day]) next[day] = {};
@@ -249,8 +307,10 @@ export function useAvailabilityManager() {
       if (!next[day][period]) next[day][period] = {};
       if (absentId) {
         const targetClass = classes?.find((c: any) => c.classId === classId);
-        const isImes = targetClass ? isImesLesson(targetClass.className) : false;
-        const storedValue = encodeClassAbsenceValue(absentId, !isImes);
+        const isExcluded = targetClass ? (isImesLesson(targetClass.className) || isPboLesson(targetClass.className)) : false;
+        const isCommon = absentId === 'COMMON_LESSON' || (typeof absentId === 'string' && absentId.startsWith('COMMON_LESSON'));
+        const allowDuty = !isExcluded && !isCommon;
+        const storedValue = encodeClassAbsenceValue(absentId, allowDuty);
         next[day][period][classId] = storedValue;
         upsertClassAbsence({ day, period: period as number, classId, absentId: storedValue }).catch((err) => {
           logger.error('Class absence upsert error:', err);

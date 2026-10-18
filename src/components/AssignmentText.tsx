@@ -1,8 +1,10 @@
 // @ts-nocheck
+import { logger } from '../utils/logger.js';
 import React, { useMemo, useState } from "react";
 import styles from './AssignmentText.module.css';
-import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js'
-import { decodeClassAbsenceValue } from '../utils/classAbsence.js'
+import { MANUAL_ADMIN_TEACHER_ID, MANUAL_EMPTY_TEACHER_ID } from '../utils/assignDuty.js';
+import { decodeClassAbsenceValue, COMMON_LESSON_LABEL, cleanSubjectName, resolveAllAbsentTeachers, resolveCommonLessonOwners, normalizeDayKey, isAbsentOnDay } from '../utils/classAbsence.js';
+import { normalizeClassName } from '../utils/classNameUtils.js';
 
 const REASON_LABELS = {
   "raporlu": "Raporlu",
@@ -12,6 +14,40 @@ const REASON_LABELS = {
   "mazeret-izinli": "Mazeret İzinli",
   "diger": "Diğer"
 };
+
+function findAbsentTeacherForClassSchedule(absentPeople, teacherSchedules, day, p, className, classId) {
+  if (!teacherSchedules || !Array.isArray(absentPeople)) return null;
+  const targetNorm = normalizeClassName(className || classId).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+  if (!targetNorm) return null;
+
+  return absentPeople.find((a) => {
+    if (!isAbsentOnDay(a, day)) return false;
+    const aNorm = String(a.name || a.teacherName || '').toLocaleLowerCase('tr-TR').trim();
+    const tKey = Object.keys(teacherSchedules).find(
+      (k) => String(k || '').toLocaleLowerCase('tr-TR').trim() === aNorm
+    );
+    if (!tKey) return false;
+    const tSched = teacherSchedules[tKey];
+    if (!tSched || typeof tSched !== 'object') return false;
+
+    for (const [dKey, pMap] of Object.entries(tSched)) {
+      if (
+        typeof pMap === 'object' &&
+        pMap !== null &&
+        (dKey.toLowerCase() === day.toLowerCase() || dKey.toLowerCase().startsWith(day.toLowerCase().slice(0, 3)))
+      ) {
+        const sStr = String((pMap as any)[p] || '').trim();
+        if (sStr) {
+          const sNorm = normalizeClassName(sStr).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
+          if (sNorm === targetNorm || sNorm.includes(targetNorm) || targetNorm.includes(sNorm)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  });
+}
 
 export default function AssignmentText({
   day,
@@ -36,9 +72,12 @@ export default function AssignmentText({
   const absentMap = useMemo(() => {
     const m = {};
     (absentPeople || []).forEach(a => {
-      if (!a || !a.absentId) return;
-      if (Array.isArray(a.days) && a.days.length > 0 && !a.days.includes(day)) return;
-      m[a.absentId] = { name: a.name, reason: a.reason };
+      if (!a) return;
+      if (!isAbsentOnDay(a, day)) return;
+      const record = { name: a.name, reason: a.reason };
+      if (a.absentId) m[a.absentId] = record;
+      if (a.teacherId) m[a.teacherId] = record;
+      if (a.name) m[a.name] = record;
     });
     return m;
   }, [absentPeople, day]);
@@ -54,26 +93,38 @@ export default function AssignmentText({
     const resolveSubject = (classId, clsName, period, absName, mergeName) => {
       const cLocObj = classLocations?.[classId]?.[day]?.[period] || classLocations?.[clsName]?.[day]?.[period];
       if (cLocObj && typeof cLocObj === 'object' && cLocObj.subject) {
-        return cLocObj.subject;
+        const cleaned = cleanSubjectName(cLocObj.subject, clsName);
+        if (cleaned) return cleaned;
       }
-      const systemDayMap = {
-        Sun: 'sunday', Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday', Fri: 'friday', Sat: 'saturday'
-      };
-      const sysDay = systemDayMap[day] || day;
-      const normalize = (s) => String(s || '').trim().toLocaleLowerCase('tr-TR');
+      const normTargetDay = normalizeDayKey(day);
+      const normalize = (s) => String(s || '').trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ');
 
       if (absName && teacherSchedules) {
         const tKey = Object.keys(teacherSchedules).find((k) => normalize(k) === normalize(absName));
         if (tKey && teacherSchedules[tKey]) {
-          const sched = teacherSchedules[tKey]?.[sysDay]?.[period] || teacherSchedules[tKey]?.[day]?.[period];
-          if (sched) return String(sched).trim();
+          for (const [dKey, pMap] of Object.entries(teacherSchedules[tKey])) {
+            if (typeof pMap === 'object' && pMap && normalizeDayKey(dKey) === normTargetDay) {
+              const sched = (pMap as any)[period];
+              if (sched) {
+                const cleaned = cleanSubjectName(String(sched), clsName);
+                if (cleaned) return cleaned;
+              }
+            }
+          }
         }
       }
       if (mergeName && teacherSchedules) {
         const tKey = Object.keys(teacherSchedules).find((k) => normalize(k) === normalize(mergeName));
         if (tKey && teacherSchedules[tKey]) {
-          const sched = teacherSchedules[tKey]?.[sysDay]?.[period] || teacherSchedules[tKey]?.[day]?.[period];
-          if (sched) return String(sched).trim();
+          for (const [dKey, pMap] of Object.entries(teacherSchedules[tKey])) {
+            if (typeof pMap === 'object' && pMap && normalizeDayKey(dKey) === normTargetDay) {
+              const sched = (pMap as any)[period];
+              if (sched) {
+                const cleaned = cleanSubjectName(String(sched), clsName);
+                if (cleaned) return cleaned;
+              }
+            }
+          }
         }
       }
       return '';
@@ -89,11 +140,40 @@ export default function AssignmentText({
         const mergeTeacherName = teacherById[teacherVal]?.teacherName || teacherVal;
         const clsName = classNameById[classId] || classId;
         const rawAbsValue = classAbsence?.[day]?.[p]?.[classId];
-        const { absentId, commonLessonOwnerId } = decodeClassAbsenceValue(rawAbsValue);
-        const absRecord = (absentId ? absentMap[absentId] : null) || (commonLessonOwnerId ? absentMap[commonLessonOwnerId] : null);
-        const absentTeacherName = absRecord?.name || 'Diğer grup öğretmeni';
-        const absentReason = absRecord?.reason ? (REASON_LABELS[absRecord.reason] || absRecord.reason) : 'izinli/mazeretli';
-        const subject = resolveSubject(classId, clsName, p, absRecord?.name, mergeTeacherName);
+        const owners = resolveCommonLessonOwners(rawAbsValue, absentMap);
+        if (owners.hasOwner && owners.records.length === 0) return;
+
+        // Derse ortak giren öğretmen de izinliyse bildirim gönderilmez (grup birleştirilemez)
+        const isMergeTeacherAbsent = Boolean(
+          absentMap[teacherVal] ||
+          Object.values(absentMap).some(a => String(a.name || '').trim().toLocaleLowerCase('tr-TR') === String(mergeTeacherName || '').trim().toLocaleLowerCase('tr-TR'))
+        );
+        if (isMergeTeacherAbsent) return;
+
+        const absRecords = resolveAllAbsentTeachers({
+          day,
+          period: p,
+          classId,
+          className: clsName,
+          rawAbsValue,
+          absentPeople,
+          teacherSchedules,
+          absentInfoById: absentMap,
+        });
+
+        const mergeNorm = String(mergeTeacherName || '').trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ');
+        const colleagueRecords = absRecords.filter(
+          (a) => String(a.name || '').trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ') !== mergeNorm
+        );
+
+        let absRecord = colleagueRecords[0] || owners.records[0] || null;
+        const absentTeacherName = colleagueRecords.length > 0
+          ? colleagueRecords.map((a) => a.name).filter(Boolean).join(', ')
+          : absRecord?.name || '';
+        const absentReason = colleagueRecords.length > 0
+          ? colleagueRecords.map((a) => (a.reason ? (REASON_LABELS[a.reason] || a.reason) : 'izinli/mazeretli')).join(', ')
+          : absRecord?.reason ? (REASON_LABELS[absRecord.reason] || absRecord.reason) : 'izinli/mazeretli';
+        const subject = resolveSubject(classId, clsName, p, absentTeacherName, mergeTeacherName);
 
         const teacherKey = mergeTeacherName.trim();
         if (!teacherMap.has(teacherKey)) {
@@ -124,13 +204,15 @@ export default function AssignmentText({
       if (lessons.length === 1) {
         const item = lessons[0];
         const subjectText = item.subject ? `${item.subject} dersinde` : 'dersinizde';
-        const colleagueText = `${item.absentTeacherName} Hocamız ${item.absentReason.toLocaleLowerCase('tr-TR')} olduğu için`;
-        message = `Sayın ${teacherName} Hocam,\n\n${dateLabel} günü ${item.period}. ders ${item.className} sınıfı ${subjectText}, ${colleagueText} bu derste gruplar birleştirilecektir.\n\nBilgilerinize sunar, iyi dersler dileriz.`;
+        const colleagueText = item.absentTeacherName
+          ? `${item.absentTeacherName} Hocamız ${item.absentReason.toLocaleLowerCase('tr-TR')} olduğu için`
+          : 'diğer grup öğretmeni izinli/mazeretli olduğu için';
+        message = `Sayın ${teacherName},\n\n${dateLabel} günü ${item.period}. ders ${item.className} sınıfı ${subjectText}, ${colleagueText} bu derste gruplar birleştirilecektir.\n\nBilgilerinize sunar, iyi dersler dileriz.`;
       } else {
-        message = `Sayın ${teacherName} Hocam,\n\n${dateLabel} günü aşağıdaki derslerinizde diğer grup öğretmeninin izinli/mazeretli olması sebebiyle gruplar birleştirilecektir:\n\n`;
+        message = `Sayın ${teacherName},\n\n${dateLabel} günü aşağıdaki derslerinizde diğer grup öğretmeninin izinli/mazeretli olması sebebiyle gruplar birleştirilecektir:\n\n`;
         lessons.forEach((item) => {
           const subjectText = item.subject ? ` (${item.subject})` : '';
-          const colleagueText = ` [${item.absentTeacherName} - ${item.absentReason}]`;
+          const colleagueText = item.absentTeacherName ? ` [${item.absentTeacherName} - ${item.absentReason}]` : '';
           message += `• ${item.period}. Ders: ${item.className}${subjectText}${colleagueText}\n`;
         });
         message += `\nBilgilerinize sunar, iyi dersler dileriz.`;
@@ -166,10 +248,26 @@ export default function AssignmentText({
       arr.forEach(a => {
         const c = classes.find(x => x.classId === a.classId);
         const t = teachers.find(x => x.teacherId === a.teacherId);
-        const absId = classAbsence?.[day]?.[p]?.[a.classId];
-        const abs = absId ? absentMap[absId] : null;
-        const reason = abs ? (REASON_LABELS[abs.reason] || abs.reason) : "";
-        const suffix = abs ? ` (${abs.name} - ${reason})` : "";
+        const rawAbs = classAbsence?.[day]?.[p]?.[a.classId];
+        const clsName = c?.className || a.classId;
+        const absRecords = resolveAllAbsentTeachers({
+          day,
+          period: p,
+          classId: a.classId,
+          className: clsName,
+          rawAbsValue: rawAbs,
+          absentPeople,
+          teacherSchedules,
+          absentInfoById: absentMap,
+        });
+        let suffix = '';
+        if (absRecords.length > 0) {
+          const parts = absRecords.map(abs => {
+            const reason = abs.reason ? (REASON_LABELS[abs.reason] || abs.reason) : '';
+            return `${abs.name}${reason ? ` - ${reason}` : ''}`;
+          });
+          suffix = ` (${parts.join(', ')})`;
+        }
         const teacherDisplayName = t?.teacherName || (a.teacherId.startsWith('auto_') ? 'Bilinmeyen Öğretmen' : a.teacherId);
         const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
         const systemDay = systemDayMap[day] || day;
@@ -186,14 +284,46 @@ export default function AssignmentText({
       if (showMergedLessons && commonLessons?.[day]?.[p]) {
         const mergedCommonLessonsByTeacher = {};
         Object.entries(commonLessons[day][p]).forEach(([classId, teacherVal]) => {
+          if (arr.some((a) => a.classId === classId)) return;
+          if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return;
+
+          const rawValue = classAbsence?.[day]?.[p]?.[classId];
+          const owners = resolveCommonLessonOwners(rawValue, absentMap);
+          if (owners.hasOwner && owners.records.length === 0) return;
+
           const c = classes.find(x => x.classId === classId);
           const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
-          const rawValue = classAbsence?.[day]?.[p]?.[classId];
-          const { commonLessonOwnerId } = decodeClassAbsenceValue(rawValue);
-          const ownerInfo = commonLessonOwnerId ? absentMap[commonLessonOwnerId] : null;
-          const ownerReason = ownerInfo ? (REASON_LABELS[ownerInfo.reason] || ownerInfo.reason) : '';
-          const ownerSuffix = ownerInfo ? ` (${ownerInfo.name} - ${ownerReason})` : '';
-          const classLabel = `${c?.className || classId}${ownerSuffix}`;
+
+          // Derse ortak giren öğretmen de bugün izinliyse, gruplar birleştirilemez
+          const isMergeTeacherAbsent = Boolean(
+            absentMap[teacherVal] ||
+            (absentPeople || []).some((a) => {
+              if (!a) return false;
+              if (!isAbsentOnDay(a, day)) return false;
+              const aNorm = String(a.name || a.teacherName || '').trim().toLocaleLowerCase('tr-TR');
+              const mNorm = String(teacherName || '').trim().toLocaleLowerCase('tr-TR');
+              return aNorm && mNorm && aNorm === mNorm;
+            })
+          );
+          if (isMergeTeacherAbsent) return;
+
+          const clsName = c?.className || classId;
+          const absRecords = resolveAllAbsentTeachers({
+            day,
+            period: p,
+            classId,
+            className: clsName,
+            rawAbsValue: rawValue,
+            absentPeople,
+            teacherSchedules,
+            absentInfoById: absentMap,
+          });
+          const parts = absRecords.map(abs => {
+            const reason = abs.reason ? (REASON_LABELS[abs.reason] || abs.reason) : '';
+            return `${abs.name}${reason ? ` - ${reason}` : ''}`;
+          });
+          const ownerSuffix = parts.length > 0 ? ` (${parts.join(', ')})` : '';
+          const classLabel = `${clsName}${ownerSuffix}`;
           const teacherKey = normalizeTeacherKey(teacherName);
           const mapKey = `${p}|${teacherKey}`;
           const existingLineIndex = periodTeacherLineIndex.get(mapKey);
@@ -246,15 +376,41 @@ export default function AssignmentText({
       ``
     ];
 
+    const teacherById = Object.fromEntries((teachers || []).map(t => [t.teacherId, t]));
+    const normalizeTeacherKey = (value = '') => String(value || '').trim().toLocaleUpperCase('tr-TR');
+
     let totalDuties = 0;
 
     for (const p of periods) {
       const arr = assignment[day]?.[p] || [];
-      const commonEntries = showMergedLessons ? Object.entries(commonLessons?.[day]?.[p] || {}) : [];
+      const commonEntries = showMergedLessons && commonLessons?.[day]?.[p]
+        ? Object.entries(commonLessons[day][p]).filter(([classId, teacherVal]) => {
+          if (arr.some((a) => a.classId === classId)) return false;
+          if (!teacherVal || teacherVal === MANUAL_EMPTY_TEACHER_ID) return false;
+          const rawValue = classAbsence?.[day]?.[p]?.[classId];
+          const owners = resolveCommonLessonOwners(rawValue, absentMap);
+          if (owners.hasOwner && owners.records.length === 0) return false;
+          const teacherName = teacherById[teacherVal]?.teacherName || teacherVal;
+          const isMergeTeacherAbsent = Boolean(
+            absentMap[teacherVal] ||
+            (absentPeople || []).some((a) => {
+              if (!a) return false;
+              if (!isAbsentOnDay(a, day)) return false;
+              const aNorm = String(a.name || a.teacherName || '').trim().toLocaleLowerCase('tr-TR');
+              const mNorm = String(teacherName || '').trim().toLocaleLowerCase('tr-TR');
+              return aNorm && mNorm && aNorm === mNorm;
+            })
+          );
+          if (isMergeTeacherAbsent) return false;
+          return true;
+        })
+        : [];
+
       const adminLocked = Object.entries(locked || {}).filter(([key, teacherId]) => {
         if (teacherId !== MANUAL_ADMIN_TEACHER_ID) return false;
-        const [lockDay, lockPeriod] = key.split('|');
-        return lockDay === day && Number(lockPeriod) === Number(p);
+        const [lockDay, lockPeriod, lockClassId] = key.split('|');
+        if (lockDay !== day || Number(lockPeriod) !== Number(p)) return false;
+        return Boolean(classAbsence?.[day]?.[p]?.[lockClassId]);
       });
 
       if (arr.length === 0 && commonEntries.length === 0 && adminLocked.length === 0) {
@@ -268,26 +424,58 @@ export default function AssignmentText({
         totalDuties++;
         const c = classes.find(x => x.classId === a.classId);
         const t = teachers.find(x => x.teacherId === a.teacherId);
-        const absId = classAbsence?.[day]?.[p]?.[a.classId];
-        const abs = absId ? absentMap[absId] : null;
-        const reason = abs ? (REASON_LABELS[abs.reason] || abs.reason) : "";
-        const suffix = abs ? ` _(${abs.name} - ${reason})_` : "";
+        const rawAbs = classAbsence?.[day]?.[p]?.[a.classId];
+        const clsName = c?.className || a.classId;
+        const absRecords = resolveAllAbsentTeachers({
+          day,
+          period: p,
+          classId: a.classId,
+          className: clsName,
+          rawAbsValue: rawAbs,
+          absentPeople,
+          teacherSchedules,
+          absentInfoById: absentMap,
+        });
+        let suffix = '';
+        if (absRecords.length > 0) {
+          const parts = absRecords.map(abs => {
+            const reason = abs.reason ? (REASON_LABELS[abs.reason] || abs.reason) : '';
+            return `${abs.name}${reason ? ` - ${reason}` : ''}`;
+          });
+          suffix = ` _(${parts.join(', ')})_`;
+        }
         const teacherDisplayName = t?.teacherName || (a.teacherId.startsWith('auto_') ? 'Bilinmeyen Öğretmen' : a.teacherId);
         const systemDayMap = { 'Sun': 'sunday', 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday' };
         const systemDay = systemDayMap[day] || day;
         const dutyLocation = t?.dutyLocations?.[systemDay] ? ` [${t.dutyLocations[systemDay]}]` : '';
 
-        lines.push(`• *${c?.className || a.classId}*: ${teacherDisplayName}${dutyLocation}${suffix}`);
+        lines.push(`• *${clsName}*: ${teacherDisplayName}${dutyLocation}${suffix}`);
       });
 
       // Ortak Dersler
       if (commonEntries.length > 0) {
         commonEntries.forEach(([classId, teacherVal]) => {
-          totalDuties++;
           const c = classes.find(x => x.classId === classId);
           const t = teachers.find(x => x.teacherId === teacherVal);
           const teacherName = t?.teacherName || teacherVal;
-          lines.push(`• *${c?.className || classId}*: Grup Birleştirilecek - ${teacherName}`);
+          const rawValue = classAbsence?.[day]?.[p]?.[classId];
+          const clsName = c?.className || classId;
+          const absRecords = resolveAllAbsentTeachers({
+            day,
+            period: p,
+            classId,
+            className: clsName,
+            rawAbsValue: rawValue,
+            absentPeople,
+            teacherSchedules,
+            absentInfoById: absentMap,
+          });
+          const parts = absRecords.map(abs => {
+            const reason = abs.reason ? (REASON_LABELS[abs.reason] || abs.reason) : '';
+            return `${abs.name}${reason ? ` - ${reason}` : ''}`;
+          });
+          const ownerSuffix = parts.length > 0 ? ` _(${parts.join(', ')})_` : '';
+          lines.push(`• *${clsName}*: Grup Birleştirilecek - ${teacherName}${ownerSuffix}`);
         });
       }
 
@@ -321,7 +509,7 @@ export default function AssignmentText({
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     } catch (err) {
-      console.error('Kopyalama hatası:', err);
+      logger.error('Kopyalama hatası:', err);
     }
   };
 
@@ -336,7 +524,7 @@ export default function AssignmentText({
       setCopiedMergedTeacher(teacherName);
       setTimeout(() => setCopiedMergedTeacher(null), 2500);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 
@@ -355,7 +543,7 @@ export default function AssignmentText({
       setCopiedAllMerged(true);
       setTimeout(() => setCopiedAllMerged(false), 2500);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     }
   };
 

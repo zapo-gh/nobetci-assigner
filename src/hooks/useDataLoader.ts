@@ -35,9 +35,11 @@ const ADMIN_LOCK_DATE_KEY = 'nobetci_admin_lock_date';
  * @param {Function} params.setPdfSchedule
  * @param {Function} params.setTeacherSchedules
  * @param {Function} params.setTeacherSchedulesHydrated
+ * @param {boolean}  [params.enabled=true]    - Veri yükleme aktif mi (şifre arkası koruması)
  * @param {Function} params.setCommonLessons
  */
 export function useDataLoader({
+  enabled = true,
   hydratedRef,
   applyFirebaseSnapshotRef,
   storageKey,
@@ -59,6 +61,7 @@ export function useDataLoader({
   setCommonLessons,
 }) {
   useEffect(() => {
+    if (!enabled) return;
     if (hydratedRef.current) return;
 
     let isMounted = true;
@@ -161,5 +164,5 @@ export function useDataLoader({
 
     loadData();
     return () => { isMounted = false; };
-  }, []);
+  }, [enabled]);
 }

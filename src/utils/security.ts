@@ -1,14 +1,11 @@
-// @ts-nocheck
 import { reportError } from './errorReporting.js';
 
 // Güvenlik yardımcı fonksiyonları
 
 /**
  * XSS koruması için input temizleme (gelişmiş versiyon)
- * @param {string} input - Temizlenecek input
- * @returns {string} Temizlenmiş input
  */
-const ENTITY_MAP = {
+const ENTITY_MAP: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',
   '>': '&gt;',
@@ -17,7 +14,7 @@ const ENTITY_MAP = {
   '/': '&#x2F;'
 };
 
-export const sanitizeInputAdvanced = (input) => {
+export const sanitizeInputAdvanced = (input: unknown): string => {
   if (input == null) return '';
 
   let sanitized = String(input).trim();
@@ -25,8 +22,8 @@ export const sanitizeInputAdvanced = (input) => {
   // Kontrol edilemeyen karakterleri temizle
   sanitized = Array.from(sanitized)
     .filter((char) => {
-      const code = char.charCodeAt(0)
-      return code >= 32 && code !== 127
+      const code = char.charCodeAt(0);
+      return code >= 32 && code !== 127;
     })
     .join('');
 
@@ -40,13 +37,21 @@ export const sanitizeInputAdvanced = (input) => {
   return sanitized.slice(0, 200);
 };
 
+export interface FileUploadValidationResult {
+  valid: boolean;
+  error: string | null;
+}
+
+export interface FileUploadOptions {
+  maxSize?: number;
+  allowedTypes?: string[];
+  allowedExtensions?: string[];
+}
+
 /**
  * Dosya yükleme güvenliği kontrolü
- * @param {File} file - Kontrol edilecek dosya
- * @param {Object} options - Kontrol seçenekleri
- * @returns {Object} { valid: boolean, error: string }
  */
-export const validateFileUpload = (file, options = {}) => {
+export const validateFileUpload = (file: File, options: FileUploadOptions = {}): FileUploadValidationResult => {
   const {
     maxSize = 10 * 1024 * 1024, // 10MB
     allowedTypes = ['text/csv', 'application/json', 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
@@ -95,7 +100,7 @@ export const validateFileUpload = (file, options = {}) => {
  * Güvenli localStorage işlemleri
  */
 export class SecureStorage {
-  static setItem(key, value) {
+  static setItem(key: string, value: unknown): boolean {
     try {
       const serializedValue = JSON.stringify(value);
       // Veri boyutu kontrolü (5MB limit)
@@ -110,17 +115,17 @@ export class SecureStorage {
     }
   }
 
-  static getItem(key) {
+  static getItem<T = unknown>(key: string): T | null {
     try {
       const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
+      return item ? JSON.parse(item) as T : null;
     } catch (error) {
       reportError('SecureStorage getItem error:', error);
       return null;
     }
   }
 
-  static removeItem(key) {
+  static removeItem(key: string): boolean {
     try {
       localStorage.removeItem(key);
       return true;
@@ -130,7 +135,7 @@ export class SecureStorage {
     }
   }
 
-  static clear() {
+  static clear(): boolean {
     try {
       localStorage.clear();
       return true;
@@ -143,14 +148,12 @@ export class SecureStorage {
 
 /**
  * Güvenli dosya okuma
- * @param {File} file - Okunacak dosya
- * @returns {Promise<string>} Dosya içeriği
  */
-export const readFileSecurely = async (file) => {
+export const readFileSecurely = async (file: File): Promise<string | ArrayBuffer> => {
   // Dosya validasyonu
   const validation = validateFileUpload(file);
   if (!validation.valid) {
-    throw new Error(validation.error);
+    throw new Error(validation.error || 'Geçersiz dosya');
   }
 
   // Dosya içeriğini oku
@@ -159,7 +162,11 @@ export const readFileSecurely = async (file) => {
 
     reader.onload = (e) => {
       try {
-        const content = e.target.result;
+        const content = e.target?.result;
+        if (!content) {
+          resolve('');
+          return;
+        }
 
         // Metin tabanlı dosyalar için ek kontroller
         if (typeof content === 'string') {
@@ -198,16 +205,14 @@ export const readFileSecurely = async (file) => {
 
 /**
  * CSV verisi validasyonu ve temizleme
- * @param {Array} data - CSV verisi
- * @returns {Array} Temizlenmiş veri
  */
-export const sanitizeCsvData = (data) => {
+export const sanitizeCsvData = (data: unknown[]): Array<Record<string, string>> => {
   if (!Array.isArray(data)) return [];
 
   return data.map(row => {
     if (typeof row !== 'object' || row === null) return {};
 
-    const sanitizedRow = {};
+    const sanitizedRow: Record<string, string> = {};
     for (const [key, value] of Object.entries(row)) {
       // Anahtar temizleme
       const cleanKey = String(key).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50);
@@ -223,13 +228,17 @@ export const sanitizeCsvData = (data) => {
  * Rate limiting için basit implementasyon
  */
 export class RateLimiter {
+  private maxRequests: number;
+  private windowMs: number;
+  private requests: number[];
+
   constructor(maxRequests = 10, windowMs = 60000) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
     this.requests = [];
   }
 
-  canMakeRequest() {
+  canMakeRequest(): boolean {
     const now = Date.now();
     // Eski istekleri temizle
     this.requests = this.requests.filter(time => now - time < this.windowMs);
@@ -242,7 +251,7 @@ export class RateLimiter {
     return true;
   }
 
-  getRemainingTime() {
+  getRemainingTime(): number {
     if (this.requests.length === 0) return 0;
 
     const now = Date.now();
@@ -252,5 +261,6 @@ export class RateLimiter {
     return Math.max(0, this.windowMs - timePassed);
   }
 }
+
 
 
