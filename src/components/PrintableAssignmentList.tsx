@@ -116,7 +116,7 @@ export default function PrintableAssignmentList({
       }
     }
 
-    if (!location) {
+    if (!location || location === '-' || location === '---') {
       location =
         getClassroomName(classLocations, className, day) ||
         getClassroomName(classLocations, classId, day) ||
@@ -139,8 +139,9 @@ export default function PrintableAssignmentList({
     }
 
     const cleanedSubj = cleanSubjectName(subject, className);
+    const cleanedLocation = (location && location !== '-' && location !== '---') ? String(location).trim() : '-';
     return {
-      location: location || '-',
+      location: cleanedLocation,
       subject: cleanedSubj || '-'
     };
   };
@@ -399,12 +400,12 @@ export default function PrintableAssignmentList({
           <thead>
             <tr>
               <th className="col-period" style={{ width: '8.5%' }}>Ders Saati</th>
-              <th className="col-absent" style={{ width: '21%' }}>İzinli / Mazeretli Öğretmen</th>
-              <th className="col-class" style={{ width: '12%' }}>Sınıfı</th>
-              <th className="col-room" style={{ width: '11%' }}>Derslik No</th>
-              <th className="col-subject" style={{ width: '16.5%' }}>Ders İsmi</th>
+              <th className="col-absent" style={{ width: '20%' }}>İzinli / Mazeretli Öğretmen</th>
+              <th className="col-class" style={{ width: '10.5%' }}>Sınıfı</th>
+              <th className="col-room" style={{ width: '13.5%' }}>Derslik No</th>
+              <th className="col-subject" style={{ width: '17.5%' }}>Ders İsmi</th>
               <th className="col-duty" style={{ width: '20%' }}>Görevlendirilen Öğretmen</th>
-              <th className="col-sign" style={{ width: '11%' }}>İmza</th>
+              <th className="col-sign" style={{ width: '10%' }}>İmza</th>
             </tr>
           </thead>
           <tbody>
@@ -459,9 +460,30 @@ export default function PrintableAssignmentList({
                     <span className="class-name-badge">{row.className}</span>
                   </td>
                   <td className="text-center col-room">
-                    <span className="classroom-badge">
-                      {row.classroom !== '-' ? `📍 ${row.classroom}` : '-'}
-                    </span>
+                    {row.classroom && row.classroom !== '-' ? (
+                      <span className="classroom-badge">
+                        <span className="room-pin">📍</span>
+                        <span className="room-text">
+                          {row.classroom.includes('/') ? (
+                            row.classroom.split('/').map((part, pIdx, arr) => (
+                              <React.Fragment key={pIdx}>
+                                <span>{part.trim()}</span>
+                                {pIdx < arr.length - 1 && (
+                                  <>
+                                    <span className="room-sep"> / </span>
+                                    <wbr />
+                                  </>
+                                )}
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            row.classroom
+                          )}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="room-empty">-</span>
+                    )}
                   </td>
                   <td className="text-center col-subject">
                     <span className="subject-text">{row.subject}</span>
@@ -684,17 +706,52 @@ export default function PrintableAssignmentList({
           font-size: 0.88rem;
         }
 
+        .col-room {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
         .classroom-badge {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          padding: 2px 8px;
+          justify-content: center;
+          gap: 3px;
+          padding: 2px 6px;
           background: #f1f5f9;
           color: #334155;
           border-radius: 6px;
           font-weight: 600;
-          font-size: 0.82rem;
-          white-space: nowrap;
+          font-size: 0.8rem;
+          line-height: 1.25;
+          white-space: normal;
+          word-break: break-word;
+          overflow-wrap: anywhere;
+          max-width: 100%;
+          box-sizing: border-box;
+          text-align: center;
+        }
+
+        .classroom-badge .room-pin {
+          flex-shrink: 0;
+          font-size: 0.72rem;
+          line-height: 1;
+        }
+
+        .classroom-badge .room-text {
+          word-break: break-word;
+          overflow-wrap: anywhere;
+          white-space: normal;
+          text-align: center;
+        }
+
+        .classroom-badge .room-sep {
+          color: #94a3b8;
+          font-weight: 400;
+        }
+
+        .room-empty {
+          color: #94a3b8;
+          font-weight: 500;
         }
 
         .subject-text {
@@ -802,12 +859,12 @@ export default function PrintableAssignmentList({
           }
 
           .col-period { width: 8.5% !important; text-align: center !important; }
-          .col-absent { width: 21% !important; text-align: left !important; word-break: break-word !important; }
-          .col-class { width: 12% !important; text-align: center !important; word-break: break-word !important; }
-          .col-room { width: 11% !important; text-align: center !important; word-break: break-word !important; }
-          .col-subject { width: 16.5% !important; text-align: center !important; word-break: break-word !important; }
+          .col-absent { width: 20% !important; text-align: left !important; word-break: break-word !important; }
+          .col-class { width: 10.5% !important; text-align: center !important; word-break: break-word !important; }
+          .col-room { width: 13.5% !important; text-align: center !important; word-break: break-word !important; overflow-wrap: anywhere !important; }
+          .col-subject { width: 17.5% !important; text-align: center !important; word-break: break-word !important; }
           .col-duty { width: 20% !important; text-align: left !important; word-break: break-word !important; }
-          .col-sign { width: 11% !important; text-align: center !important; }
+          .col-sign { width: 10% !important; text-align: center !important; }
 
           .table-empty-state-screen {
             display: none !important;
@@ -827,13 +884,46 @@ export default function PrintableAssignmentList({
           }
 
           .period-badge,
-          .class-name-badge,
+          .class-name-badge {
+            background: transparent !important;
+            color: #000 !important;
+            border: none !important;
+            padding: 0 !important;
+            font-weight: bold !important;
+          }
+
           .classroom-badge {
             background: transparent !important;
             color: #000 !important;
             border: none !important;
             padding: 0 !important;
             font-weight: bold !important;
+            display: inline-block !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            max-width: 100% !important;
+            font-size: 7.2pt !important;
+            line-height: 1.15 !important;
+            text-align: center !important;
+          }
+
+          .classroom-badge .room-pin {
+            display: inline-block !important;
+            font-size: 6.8pt !important;
+            margin-right: 1px !important;
+          }
+
+          .classroom-badge .room-text {
+            display: inline !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          .classroom-badge .room-sep {
+            color: #000 !important;
+            font-weight: normal !important;
           }
 
           .period-time-sub {

@@ -283,7 +283,10 @@ export const getClassroomName = (
   // Calculate frequency
   const counts = new Map<string, number>();
   dayLocs.forEach((loc) => {
-    counts.set(loc, (counts.get(loc) || 0) + 1);
+    const normalizedLoc = String(loc).replace(/\s*\/\s*/g, ' / ').trim();
+    if (normalizedLoc && normalizedLoc !== '-' && normalizedLoc !== '---') {
+      counts.set(normalizedLoc, (counts.get(normalizedLoc) || 0) + 1);
+    }
   });
 
   const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
@@ -293,7 +296,7 @@ export const getClassroomName = (
   const primary = first[0];
 
   const second = sorted[1];
-  if (second && second[1] >= 2 && second[0] !== primary) {
+  if (second && second[1] >= 2 && second[0] !== primary && !primary.includes('/') && !second[0].includes('/')) {
     return `${primary} / ${second[0]}`;
   }
 

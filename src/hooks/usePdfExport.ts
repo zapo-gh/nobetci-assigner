@@ -162,6 +162,44 @@ export function usePdfExport({ day, displayDate, addNotification }) {
           background: #f1f5f9 !important;
           font-weight: bold !important;
         }
+        #panel-outputs .col-period { width: 8.5% !important; text-align: center !important; }
+        #panel-outputs .col-absent { width: 20% !important; text-align: left !important; word-break: break-word !important; }
+        #panel-outputs .col-class { width: 10.5% !important; text-align: center !important; word-break: break-word !important; }
+        #panel-outputs .col-room { width: 13.5% !important; text-align: center !important; word-break: break-word !important; overflow-wrap: anywhere !important; }
+        #panel-outputs .col-subject { width: 17.5% !important; text-align: center !important; word-break: break-word !important; }
+        #panel-outputs .col-duty { width: 20% !important; text-align: left !important; word-break: break-word !important; }
+        #panel-outputs .col-sign { width: 10% !important; text-align: center !important; }
+
+        #panel-outputs .classroom-badge {
+          background: transparent !important;
+          color: #000000 !important;
+          border: none !important;
+          padding: 0 !important;
+          font-weight: bold !important;
+          display: inline-block !important;
+          white-space: normal !important;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
+          max-width: 100% !important;
+          font-size: 7.2pt !important;
+          line-height: 1.15 !important;
+          text-align: center !important;
+        }
+        #panel-outputs .classroom-badge .room-pin {
+          display: inline-block !important;
+          font-size: 6.8pt !important;
+          margin-right: 1px !important;
+        }
+        #panel-outputs .classroom-badge .room-text {
+          display: inline !important;
+          white-space: normal !important;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
+        }
+        #panel-outputs .classroom-badge .room-sep {
+          color: #000000 !important;
+          font-weight: normal !important;
+        }
         #panel-outputs .print-title { font-size: 11pt !important; margin-bottom: 3mm !important; }
         #panel-outputs .print-orientation-bar { display: none !important; }
         #panel-outputs [class*="assignmentTextContainer"] {

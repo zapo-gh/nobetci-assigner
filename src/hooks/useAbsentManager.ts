@@ -535,7 +535,7 @@ export function useAbsentManager({
                 isImes: isExcluded,
               });
               logger.log(
-                `[addAbsent] Pending ops for day ${uiDay}, period ${period}, classId ${id}, isImes: ${isImes}, overlaps:`,
+                `[addAbsent] Pending ops for day ${uiDay}, period ${period}, classId ${id}, isExcluded: ${isExcluded}, overlaps:`,
                 overlaps,
               );
             });
