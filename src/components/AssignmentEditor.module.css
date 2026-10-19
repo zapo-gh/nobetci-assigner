@@ -1050,3 +1050,94 @@
   }
 }
 
+/* Explicit Save Button */
+.saveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  font-family: inherit;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.saveBtn:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  background: #eff6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.16);
+}
+
+.saveBtnUnsaved {
+  background: #2563eb !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35) !important;
+  animation: pulseSaveBtn 2.2s infinite;
+}
+
+.saveBtnUnsaved:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  box-shadow: 0 3px 12px rgba(29, 78, 216, 0.45) !important;
+}
+
+.unsavedDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #facc15;
+  box-shadow: 0 0 6px #facc15;
+}
+
+@keyframes pulseSaveBtn {
+  0% { transform: scale(1); box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35); }
+  50% { transform: scale(1.02); box-shadow: 0 3px 14px rgba(37, 99, 235, 0.55); }
+  100% { transform: scale(1); box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35); }
+}
+
+.saveBtnSaving {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #64748b !important;
+  cursor: wait !important;
+}
+
+.saveSpinner {
+  display: inline-block;
+  animation: spinSave 1s linear infinite;
+}
+
+@keyframes spinSave {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.saveBtnSaved {
+  background: #ecfdf5 !important;
+  border-color: #34d399 !important;
+  color: #059669 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15) !important;
+}
+
+.saveBtnError {
+  background: #fef2f2 !important;
+  border-color: #f87171 !important;
+  color: #dc2626 !important;
+}
+
+@media (max-width: 600px) {
+  .saveBtnLabel {
+    display: none;
+  }
+}
+

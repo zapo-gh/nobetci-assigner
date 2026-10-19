@@ -93,6 +93,8 @@ function AssignmentEditor({
   canRedo = false,
   onUndo,
   onRedo,
+  saveStatus = 'idle',
+  onSave,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherSearch, setTeacherSearch] = useState('');
@@ -701,6 +703,55 @@ function AssignmentEditor({
                 <span className={styles.historyBtnLabel}>İleri Al</span>
               </button>
             </div>
+          )}
+
+          {onSave && (
+            <button
+              type="button"
+              className={`${styles.saveBtn} ${
+                saveStatus === 'unsaved'
+                  ? styles.saveBtnUnsaved
+                  : saveStatus === 'saving'
+                  ? styles.saveBtnSaving
+                  : saveStatus === 'saved'
+                  ? styles.saveBtnSaved
+                  : saveStatus === 'error'
+                  ? styles.saveBtnError
+                  : ''
+              }`}
+              onClick={onSave}
+              disabled={saveStatus === 'saving'}
+              title="Değişiklikleri Veritabanına Kaydet (Ctrl+S)"
+              aria-label="Değişiklikleri Kaydet"
+            >
+              {saveStatus === 'saving' ? (
+                <>
+                  <span className={styles.saveSpinner}>⏳</span>
+                  <span className={styles.saveBtnLabel}>Kaydediliyor...</span>
+                </>
+              ) : saveStatus === 'saved' ? (
+                <>
+                  <span>✓</span>
+                  <span className={styles.saveBtnLabel}>Kaydedildi</span>
+                </>
+              ) : saveStatus === 'unsaved' ? (
+                <>
+                  <span className={styles.unsavedDot} />
+                  <span>💾</span>
+                  <span className={styles.saveBtnLabel}>Kaydet</span>
+                </>
+              ) : saveStatus === 'error' ? (
+                <>
+                  <span>⚠️</span>
+                  <span className={styles.saveBtnLabel}>Tekrar Dene</span>
+                </>
+              ) : (
+                <>
+                  <span>💾</span>
+                  <span className={styles.saveBtnLabel}>Kaydet</span>
+                </>
+              )}
+            </button>
           )}
 
           <span className="badge badge-info" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>

@@ -35,6 +35,8 @@ export default function ScheduleSection({
   canRedo = false,
   onUndo,
   onRedo,
+  saveStatus = 'idle',
+  onSave,
 }) {
   if (!IconComponent) {
     throw new Error('ScheduleSection requires IconComponent prop');
@@ -72,6 +74,8 @@ export default function ScheduleSection({
         canRedo={canRedo}
         onUndo={onUndo}
         onRedo={onRedo}
+        saveStatus={saveStatus}
+        onSave={onSave}
       />
       <ConflictSuggestions
         assignment={assignment}

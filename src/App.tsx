@@ -704,13 +704,21 @@ export default function App() {
         }
 
         let loadedLocks = snapshotData.locked || {};
-        // Fallback: Eğer Firebase'deki kilitler boşsa ama localStorage'da kayıtlı kilitler varsa, koru ve senkronla
-        if (Object.keys(loadedLocks).length === 0 && typeof localStorage !== 'undefined') {
+        const remoteLocksUpdatedAt = Number(snapshotData.locksUpdatedAt) || 0;
+
+        // Akıllı Çakışma ve Zaman Damgası Koruması:
+        // Eğer yerelde kayıtlı kilitler varsa ve (Firebase boşsa VEYA yereldeki son kayıt Firebase'den daha yeniyse),
+        // kullanıcının güncel emeğini koru ve Firebase'e senkronla!
+        if (typeof localStorage !== 'undefined') {
           try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) {
               const parsed = JSON.parse(raw);
-              if (parsed.locked && Object.keys(parsed.locked).length > 0) {
+              const localSavedAt = Number(parsed.lastSaved) || 0;
+              const hasLocalLocks = parsed.locked && Object.keys(parsed.locked).length > 0;
+
+              if (hasLocalLocks && (Object.keys(loadedLocks).length === 0 || localSavedAt > remoteLocksUpdatedAt)) {
+                logger.info('[applyFirebaseSnapshot] Yerel kilitler korundu (Yerel:', new Date(localSavedAt).toLocaleTimeString(), 'Uzaktan:', new Date(remoteLocksUpdatedAt).toLocaleTimeString(), ')');
                 loadedLocks = parsed.locked;
                 bulkSaveLocks(loadedLocks).catch((e: any) => logger.warn('Sync locks to Firestore failed:', e));
               }
@@ -908,6 +916,19 @@ export default function App() {
 
   // History stack for planning undo/redo
   const { canUndo, canRedo, undo, redo, recordHistory } = useAssignmentHistory(locked, setLocked, addNotification);
+
+  // Manuel kayıt durumu ('idle' | 'unsaved' | 'saving' | 'saved' | 'error')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle');
+
+  const handleUndo = useCallback(() => {
+    undo();
+    setSaveStatus('unsaved');
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    redo();
+    setSaveStatus('unsaved');
+  }, [redo]);
 
   /* ===================== Manuel ekleme/silme işlemleri ===================== */
 
@@ -2935,6 +2956,7 @@ export default function App() {
 
     setLocked(prev => {
       recordHistory(prev)
+      setSaveStatus('unsaved')
       const next = { ...prev }
       const toKey = `${day}|${period}|${toClassId}`
 
@@ -2987,6 +3009,7 @@ export default function App() {
 
     setLocked((prev) => {
       recordHistory(prev)
+      setSaveStatus('unsaved')
       if (prev?.[key] === MANUAL_EMPTY_TEACHER_ID) {
         return prev
       }
@@ -3012,6 +3035,7 @@ export default function App() {
 
     setLocked((prev) => {
       recordHistory(prev)
+      setSaveStatus('unsaved')
       if (prev?.[key] === MANUAL_ADMIN_TEACHER_ID) {
         return prev
       }
@@ -3037,6 +3061,7 @@ export default function App() {
 
     setLocked((prev) => {
       recordHistory(prev)
+      setSaveStatus('unsaved')
       if (!prev || !prev[key]) {
         return prev
       }
@@ -3053,6 +3078,79 @@ export default function App() {
       duration: 2200,
     })
   }, [classes, addNotification, recordHistory, syncLockedToLocalStorage])
+
+  // Planlama değişikliklerini anında ve kesin olarak veritabanına ve yerel belleğe kaydet
+  const handleExplicitSave = useCallback(async () => {
+    setSaveStatus('saving');
+    const now = Date.now();
+
+    // 1. LocalStorage'a anında ve kesin kayıt
+    try {
+      const serializedTeacherFree = mapSetToArray(teacherFree);
+      const serializedClassFree = mapSetToArray(classFree);
+      const payload = {
+        day,
+        periods,
+        teachers,
+        classes,
+        teacherFree: serializedTeacherFree,
+        classFree: serializedClassFree,
+        absentPeople,
+        classAbsence,
+        commonLessons: filteredCommonLessons,
+        options,
+        lastSaved: now,
+        locked,
+        pdfSchedule,
+        teacherSchedules,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      logger.warn('handleExplicitSave localStorage hatası:', e);
+    }
+
+    // 2. Firebase Firestore'a yazma
+    try {
+      await Promise.race([
+        Promise.all([
+          bulkSaveLocks(locked),
+          saveCommonLessons(filteredCommonLessons),
+          bulkSaveClassAbsence(classAbsence),
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Bağlantı zaman aşımı')), 6000))
+      ]);
+
+      setSaveStatus('saved');
+      addNotification({
+        message: '✓ Planlama değişiklikleri başarıyla veritabanına kaydedildi.',
+        type: 'success',
+        duration: 3000,
+      });
+      setTimeout(() => {
+        setSaveStatus((s) => (s === 'saved' ? 'idle' : s));
+      }, 3500);
+    } catch (err: any) {
+      logger.error('handleExplicitSave Firestore error:', err);
+      setSaveStatus('error');
+      addNotification({
+        message: 'Değişiklikler tarayıcıya güvenle kaydedildi, ancak veritabanı senkronizasyonunda gecikme yaşandı.',
+        type: 'warning',
+        duration: 5000,
+      });
+    }
+  }, [day, periods, teachers, classes, teacherFree, classFree, absentPeople, classAbsence, filteredCommonLessons, options, locked, pdfSchedule, teacherSchedules, addNotification]);
+
+  // Ctrl + S / Cmd + S kısayolu ile hızlı kaydet
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleExplicitSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleExplicitSave]);
 
   // JPEG export — usePdfExport hook'una taşındı
   const { exportJPG } = usePdfExport({ day, displayDate, addNotification });
@@ -3281,8 +3379,10 @@ export default function App() {
               onManualRelease={handleManualRelease}
               canUndo={canUndo}
               canRedo={canRedo}
-              onUndo={undo}
-              onRedo={redo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              saveStatus={saveStatus}
+              onSave={handleExplicitSave}
             />
           )}
 

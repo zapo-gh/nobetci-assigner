@@ -75,9 +75,17 @@ async function getConfigDoc(docName: string, fallback: any = {}) {
   const d = await getDoc(doc(db, 'config', docName));
   return d.exists() ? ((d.data() as any)?.data ?? fallback) : fallback;
 }
+
+async function getConfigDocWithMeta(docName: string, fallback: any = {}) {
+  const d = await getDoc(doc(db, 'config', docName));
+  if (!d.exists()) return { data: fallback, updatedAt: 0 };
+  const val = d.data() as any;
+  return { data: val?.data ?? fallback, updatedAt: Number(val?.updatedAt) || 0 };
+}
+
 async function setConfigDoc(docName: string, data: any) {
   assertConfigSize(docName, data);
-  await setDoc(doc(db, 'config', docName), { data });
+  await setDoc(doc(db, 'config', docName), { data, updatedAt: Date.now() });
 }
 
 export async function getAdminAuthConfig(): Promise<{ passwordHash: string; updatedAt: number } | null> {
@@ -93,7 +101,7 @@ export async function loadInitialData() {
     const [
       teachersSnap, classesSnap, absentsSnap,
       classFree, teacherFree, classAbsence,
-      locks, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping, dutyZones
+      locksMeta, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping, dutyZones
     ] = await Promise.all([
       getDocs(collection(db, 'teachers')),
       getDocs(collection(db, 'classes')),
@@ -101,7 +109,7 @@ export async function loadInitialData() {
       getConfigDoc('class_free', {}),
       getConfigDoc('teacher_free', {}),
       getConfigDoc('class_absence', {}),
-      getConfigDoc('locks', {}),
+      getConfigDocWithMeta('locks', {}),
       getConfigDoc('pdf_schedule', {}),
       getConfigDoc('teacher_schedules', {}),
       getConfigDoc('common_lessons', {}),
@@ -130,7 +138,8 @@ export async function loadInitialData() {
       classFree,
       teacherFree,
       classAbsence,
-      locked: locks,
+      locked: locksMeta.data,
+      locksUpdatedAt: locksMeta.updatedAt,
       pdfSchedule,
       teacherSchedules,
       commonLessons,

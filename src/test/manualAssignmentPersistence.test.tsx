@@ -175,4 +175,66 @@ describe('AssignmentEditor - Manual Assignment Persistence & Selection', () => {
     // The cell should display ALİ YILMAZ (the locked teacher)
     expect(screen.getByText('ALİ YILMAZ')).toBeInTheDocument();
   });
+
+  it('renders explicit save button and responds to click and status changes', () => {
+    const handleSave = vi.fn();
+
+    const { rerender } = render(
+      <AssignmentEditor
+        day={day}
+        periods={periods}
+        classes={dummyClasses}
+        teachers={dummyTeachers}
+        availableTeachersByPeriod={{ 5: new Set(['t-ali']) }}
+        freeClassesByDay={freeClassesByDay}
+        assignment={assignment}
+        locked={{}}
+        saveStatus="unsaved"
+        onSave={handleSave}
+      />
+    );
+
+    // Save button should be visible with "Kaydet" and unsaved indicator
+    const saveBtn = screen.getByRole('button', { name: /Değişiklikleri Kaydet/i });
+    expect(saveBtn).toBeInTheDocument();
+    expect(saveBtn).not.toBeDisabled();
+
+    fireEvent.click(saveBtn);
+    expect(handleSave).toHaveBeenCalledTimes(1);
+
+    // When status changes to saving
+    rerender(
+      <AssignmentEditor
+        day={day}
+        periods={periods}
+        classes={dummyClasses}
+        teachers={dummyTeachers}
+        availableTeachersByPeriod={{ 5: new Set(['t-ali']) }}
+        freeClassesByDay={freeClassesByDay}
+        assignment={assignment}
+        locked={{}}
+        saveStatus="saving"
+        onSave={handleSave}
+      />
+    );
+    expect(screen.getByText(/Kaydediliyor/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Değişiklikleri Kaydet/i })).toBeDisabled();
+
+    // When status changes to saved
+    rerender(
+      <AssignmentEditor
+        day={day}
+        periods={periods}
+        classes={dummyClasses}
+        teachers={dummyTeachers}
+        availableTeachersByPeriod={{ 5: new Set(['t-ali']) }}
+        freeClassesByDay={freeClassesByDay}
+        assignment={assignment}
+        locked={{}}
+        saveStatus="saved"
+        onSave={handleSave}
+      />
+    );
+    expect(screen.getByText(/Kaydedildi/i)).toBeInTheDocument();
+  });
 });
