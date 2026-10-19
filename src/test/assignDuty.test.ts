@@ -57,7 +57,7 @@ describe('assignDuties Engine Basics', () => {
     expect(rows.some((a: any) => a.teacherId === 't_rahmi')).toBe(false);
   });
 
-  it('ignores a manual lock that would put a merge-group teacher on duty in the same period', () => {
+  it('honors a manual lock even if the teacher is in a merge-group in the same period', () => {
     const result = assignDuties({
       teachers: [
         { teacherId: 't_rahmi', teacherName: 'RAHMİ TEKİN', maxDutyPerDay: 6, source: 'manual' },
@@ -75,8 +75,7 @@ describe('assignDuties Engine Basics', () => {
     });
 
     const rows = result.schedule.Tue?.[8] ?? [];
-    expect(rows.some((a: any) => a.teacherId === 't_rahmi')).toBe(false);
-    expect(rows.find((a: any) => a.classId === 'c_9g')?.teacherId).toBe('t_cemal');
+    expect(rows.find((a: any) => a.classId === 'c_9g')?.teacherId).toBe('t_rahmi');
   });
 });
 

@@ -310,15 +310,11 @@ export function assignDuties({
         if (!validTeacherIds.has(tId)) {
           continue;
         }
-        // Bu saatte grubu birleştiren öğretmen nöbet göreviyle çakışamaz (eski kilit olsa bile)
-        const lockTeacherName = teacherMapById.get(String(tId))?.teacherName || '';
-        if (
-          mergeBusyIds.has(String(tId)) ||
-          (lockTeacherName && mergeBusyNames.has(normalizeForComparison(lockTeacherName)))
-        ) {
-          continue;
-        }
-        if (freeC.has(classId)) {
+        const isCommonClass = Boolean(
+          commonLessons?.[day]?.[period]?.[classId] ||
+          commonLessons?.[day]?.[p]?.[classId]
+        );
+        if (freeC.has(classId) || isCommonClass) {
           pushAssign(day, p, classId, tId, byDay, dutyCount, slotUsage, lastAssignedPeriod);
           freeC.delete(classId);
         }

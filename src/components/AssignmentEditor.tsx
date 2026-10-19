@@ -264,7 +264,7 @@ function AssignmentEditor({
         mergedClassName,
       };
 
-      if (isFree && !leadsMergedGroup) {
+      if (isFree) {
         freeList.push(item);
       } else {
         busyList.push(item);
@@ -1211,6 +1211,15 @@ function AssignmentEditor({
                                             </div>
 
                                             <div className={styles.teacherBadgeCol}>
+                                              {teacher.leadsMergedGroup && (
+                                                <span
+                                                  className={styles.busyLessonBadge}
+                                                  style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)' }}
+                                                  title={`Bu saatte ${teacher.mergedClassName || 'ortak ders'} birleştirilmiş grubundadır`}
+                                                >
+                                                  🔗 Grup Birleştirme ({teacher.mergedClassName || 'Derste'})
+                                                </span>
+                                              )}
                                               {teacher.proximityBadge && (
                                                 <span
                                                   className={`${styles.proximityBadge} ${
@@ -1265,7 +1274,7 @@ function AssignmentEditor({
                                             }}
                                             onDoubleClick={() => handleManualSave(teacher.teacherId)}
                                             title={teacher.leadsMergedGroup
-                                              ? `${teacher.teacherName}, bu saatte birleştirilmiş grup dersindedir (${teacher.mergedClassName || 'Ortak Ders'}), aynı anda nöbet görevi alamaz.`
+                                              ? `${teacher.teacherName}, bu saatte birleştirilmiş grup dersindedir (${teacher.mergedClassName || 'Ortak Ders'}). Görevi bu öğretmene ata ve kaydet.`
                                               : "Dersi olmasına rağmen görevi bu öğretmene ata ve kaydet"}
                                           >
                                             <div
@@ -1299,10 +1308,10 @@ function AssignmentEditor({
                                               {teacher.leadsMergedGroup ? (
                                                 <span
                                                   className={styles.busyLessonBadge}
-                                                  style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                                                  style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)' }}
                                                   title={`Bu saatte ${teacher.mergedClassName || 'ortak ders'} birleştirilmiş grubundadır`}
                                                 >
-                                                  ⛔ Grup Birleştirme ({teacher.mergedClassName || 'Derste'})
+                                                  🔗 Grup Birleştirme ({teacher.mergedClassName || 'Derste'})
                                                 </span>
                                               ) : (
                                                 <span

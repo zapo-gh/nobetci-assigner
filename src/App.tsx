@@ -2529,11 +2529,6 @@ export default function App() {
       }
 
       if (!teacherId || teacherId === MANUAL_EMPTY_TEACHER_ID || teacherId === MANUAL_ADMIN_TEACHER_ID) return;
-      const lockName = teacherMap.get(teacherId)?.teacherName || '';
-      const leadsMergedGroup = Object.values(dayCommon?.[period] || {}).some((v) =>
-        v && (String(v) === String(teacherId) || (lockName && norm(v) === norm(lockName)))
-      );
-      if (leadsMergedGroup) staleKeys.push(key);
     });
 
     if (staleKeys.length > 0) {
@@ -2937,20 +2932,6 @@ export default function App() {
     const toClass = classes.find((c) => c.classId === toClassId)
     const teacherLabel = teacher?.teacherName || 'Öğretmen'
 
-    const dayCommon = filteredCommonLessons?.[day] || {};
-    const norm = (s) => normalizeForComparison(String(s || ''));
-    const leadsMergedGroup = Object.values(dayCommon?.[period] || {}).some((v) =>
-      v && (String(v) === String(teacherId) || (teacherLabel && norm(v) === norm(teacherLabel)))
-    );
-
-    if (leadsMergedGroup) {
-      addNotification({
-        message: `${teacherLabel}, ${period}. saatte birleştirilmiş grup dersinde olduğu için aynı anda nöbet görevi alamaz.`,
-        type: 'warning',
-        duration: 4000,
-      });
-      return;
-    }
 
     setLocked(prev => {
       recordHistory(prev)
