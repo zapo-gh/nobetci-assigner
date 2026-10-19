@@ -2210,7 +2210,7 @@ export default function App() {
                 if (lessonVal) {
                   if (isPboLesson(lessonVal) || isImesLesson(lessonVal)) continue; // PBO ortak ders değildir
                   const lessonNorm = normalizeClassName(lessonVal).toLocaleLowerCase('tr-TR').replace(/[\s-]/g, '');
-                  if (lessonNorm === targetNorm || lessonNorm.includes(targetNorm) || targetNorm.includes(lessonNorm)) {
+                  if (lessonNorm && targetNorm && (lessonNorm === targetNorm || (lessonNorm.length >= 4 && targetNorm.length >= 4 && (lessonNorm.includes(targetNorm) || targetNorm.includes(lessonNorm))))) {
                     if (!filteredDay[p]) filteredDay[p] = {};
                     filteredDay[p][cid] = tName;
                     break;
@@ -2293,9 +2293,10 @@ export default function App() {
       const absenceMap = filteredClassAbsence?.[day]?.[p];
       if (absenceMap && typeof absenceMap === 'object') {
         Object.entries(absenceMap).forEach(([classId, rawValue]) => {
-          const { absentId, allowDuty } = decodeClassAbsenceValue(rawValue);
+          const { absentId, absentIds, allowDuty } = decodeClassAbsenceValue(rawValue);
           if (!allowDuty) return;
-          if (!absentIdsForCurrentDay.has(absentId)) return;
+          const hasActive = (absentIds || []).some(id => absentIdsForCurrentDay.has(id)) || (absentId ? absentIdsForCurrentDay.has(absentId) : false);
+          if (!hasActive) return;
           const cls = classById.get(classId);
           if (cls && !isImesLesson(cls.className) && !isPboLesson(cls.className)) {
             combined.add(classId);
@@ -2934,6 +2935,22 @@ export default function App() {
 
     const teacher = teachers.find((t) => t.teacherId === teacherId)
     const toClass = classes.find((c) => c.classId === toClassId)
+    const teacherLabel = teacher?.teacherName || 'Öğretmen'
+
+    const dayCommon = filteredCommonLessons?.[day] || {};
+    const norm = (s) => normalizeForComparison(String(s || ''));
+    const leadsMergedGroup = Object.values(dayCommon?.[period] || {}).some((v) =>
+      v && (String(v) === String(teacherId) || (teacherLabel && norm(v) === norm(teacherLabel)))
+    );
+
+    if (leadsMergedGroup) {
+      addNotification({
+        message: `${teacherLabel}, ${period}. saatte birleştirilmiş grup dersinde olduğu için aynı anda nöbet görevi alamaz.`,
+        type: 'warning',
+        duration: 4000,
+      });
+      return;
+    }
 
     setLocked(prev => {
       recordHistory(prev)
@@ -2962,13 +2979,12 @@ export default function App() {
 
     const dayLabel = DAYS.find((d) => d.key === day)?.label || day
     const classLabel = toClass?.className || 'Sınıf'
-    const teacherLabel = teacher?.teacherName || 'Öğretmen'
     addNotification({
       message: `${teacherLabel}, ${dayLabel} ${period}. saatte ${classLabel} sınıfına atandı`,
       type: 'success',
       duration: 2200,
     })
-  }, [addNotification, classes, teachers, syncLockedToLocalStorage, recordHistory])
+  }, [addNotification, classes, teachers, syncLockedToLocalStorage, recordHistory, filteredCommonLessons])
 
   const handleManualAssign = useCallback(({ day, period, classId, teacherId }) => {
     if (!teacherId || !classId) {

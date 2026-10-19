@@ -212,6 +212,9 @@ function AssignmentEditor({
     const freeList = [];
     const busyList = [];
 
+    const dayCommon = commonLessons?.[day]?.[period] || {};
+    const norm = (s) => normalizeForComparison(String(s || ''));
+
     teachers.forEach((teacher) => {
       if (!teacher?.teacherId) return;
       const isFree = freeSet.has(teacher.teacherId);
@@ -239,6 +242,14 @@ function AssignmentEditor({
       const lessonClass = !isFree ? getTeacherLesson(teacher) : null;
       const lessonInfo = lessonClass ? `Dersi Var (${lessonClass})` : 'Dersi Var';
 
+      const teacherName = teacher.teacherName || '';
+      const mergedEntry = Object.entries(dayCommon).find(([, v]) =>
+        v && (String(v) === String(teacher.teacherId) || (teacherName && norm(v) === norm(teacherName)))
+      );
+      const leadsMergedGroup = Boolean(mergedEntry);
+      const mergedClass = mergedEntry ? classes.find(c => c.classId === mergedEntry[0]) : null;
+      const mergedClassName = mergedClass?.className || (mergedEntry ? mergedEntry[0] : '');
+
       const item = {
         teacherId: teacher.teacherId,
         teacherName: teacher.teacherName || 'İsimsiz',
@@ -248,9 +259,11 @@ function AssignmentEditor({
         dutyCountToday,
         isFree,
         lessonInfo,
+        leadsMergedGroup,
+        mergedClassName,
       };
 
-      if (isFree) {
+      if (isFree && !leadsMergedGroup) {
         freeList.push(item);
       } else {
         busyList.push(item);
@@ -272,7 +285,7 @@ function AssignmentEditor({
       targetClassroom: classroom,
       targetZone,
     };
-  }, [editingContext, classes, classroomByClassId, classLocations, day, locationZoneMapping, availableTeachersByPeriod, teacherSchedules, teachers, dutiesTodayMap]);
+  }, [editingContext, classes, classroomByClassId, classLocations, day, locationZoneMapping, availableTeachersByPeriod, teacherSchedules, teachers, dutiesTodayMap, commonLessons]);
 
   const filteredFreeTeachers = useMemo(() => {
     if (!teacherSearch.trim()) return currentEditorData.freeTeachers;
@@ -1250,7 +1263,9 @@ function AssignmentEditor({
                                               handleManualSave(teacher.teacherId);
                                             }}
                                             onDoubleClick={() => handleManualSave(teacher.teacherId)}
-                                            title="Dersi olmasına rağmen görevi bu öğretmene ata ve kaydet"
+                                            title={teacher.leadsMergedGroup
+                                              ? `${teacher.teacherName}, bu saatte birleştirilmiş grup dersindedir (${teacher.mergedClassName || 'Ortak Ders'}), aynı anda nöbet görevi alamaz.`
+                                              : "Dersi olmasına rağmen görevi bu öğretmene ata ve kaydet"}
                                           >
                                             <div
                                               className={styles.teacherAvatar}
@@ -1280,12 +1295,22 @@ function AssignmentEditor({
                                             </div>
 
                                             <div className={styles.teacherBadgeCol}>
-                                              <span
-                                                className={styles.busyLessonBadge}
-                                                title={teacher.lessonInfo}
-                                              >
-                                                ⚠️ {teacher.lessonInfo}
-                                              </span>
+                                              {teacher.leadsMergedGroup ? (
+                                                <span
+                                                  className={styles.busyLessonBadge}
+                                                  style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.25)' }}
+                                                  title={`Bu saatte ${teacher.mergedClassName || 'ortak ders'} birleştirilmiş grubundadır`}
+                                                >
+                                                  ⛔ Grup Birleştirme ({teacher.mergedClassName || 'Derste'})
+                                                </span>
+                                              ) : (
+                                                <span
+                                                  className={styles.busyLessonBadge}
+                                                  title={teacher.lessonInfo}
+                                                >
+                                                  ⚠️ {teacher.lessonInfo}
+                                                </span>
+                                              )}
                                               {teacher.proximityBadge && (
                                                 <span
                                                   className={`${styles.proximityBadge} ${
