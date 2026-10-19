@@ -129,7 +129,7 @@ describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
       expect(screen.getByText('Derslik No')).toBeInTheDocument();
       expect(screen.getByText('Ders İsmi')).toBeInTheDocument();
       expect(screen.getByText('Görevlendirilen Öğretmen')).toBeInTheDocument();
-      expect(screen.getByText('İmza')).toBeInTheDocument();
+      expect(screen.queryByText('İmza')).not.toBeInTheDocument();
 
       // Empty cell standardized
       expect(

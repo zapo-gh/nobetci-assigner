@@ -399,19 +399,18 @@ export default function PrintableAssignmentList({
         <table className="assign-list-table">
           <thead>
             <tr>
-              <th className="col-period" style={{ width: '8.5%' }}>Ders Saati</th>
-              <th className="col-absent" style={{ width: '20%' }}>İzinli / Mazeretli Öğretmen</th>
-              <th className="col-class" style={{ width: '10.5%' }}>Sınıfı</th>
-              <th className="col-room" style={{ width: '13.5%' }}>Derslik No</th>
-              <th className="col-subject" style={{ width: '17.5%' }}>Ders İsmi</th>
-              <th className="col-duty" style={{ width: '20%' }}>Görevlendirilen Öğretmen</th>
-              <th className="col-sign" style={{ width: '10%' }}>İmza</th>
+              <th className="col-period" style={{ width: '9%' }}>Ders Saati</th>
+              <th className="col-absent" style={{ width: '22%' }}>İzinli / Mazeretli Öğretmen</th>
+              <th className="col-class" style={{ width: '15%' }}>Sınıfı</th>
+              <th className="col-room" style={{ width: '12%' }}>Derslik No</th>
+              <th className="col-subject" style={{ width: '18%' }}>Ders İsmi</th>
+              <th className="col-duty" style={{ width: '24%' }}>Görevlendirilen Öğretmen</th>
             </tr>
           </thead>
           <tbody>
             {listRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty-table-cell">
+                <td colSpan={6} className="empty-table-cell">
                   <div className="table-empty-state-screen no-print">
                     <EmptyState
                       IconComponent={IconComponent}
@@ -496,9 +495,6 @@ export default function PrintableAssignmentList({
                     ) : (
                       <span className="duty-teacher-text">{row.dutyTeacherName}</span>
                     )}
-                  </td>
-                  <td className="signature-cell col-sign">
-                    <div className="signature-line" />
                   </td>
                 </tr>
               ))
@@ -704,6 +700,11 @@ export default function PrintableAssignmentList({
           font-weight: 700;
           color: #0f172a;
           font-size: 0.88rem;
+          white-space: nowrap;
+        }
+
+        .col-class {
+          white-space: nowrap;
         }
 
         .col-room {
@@ -858,13 +859,12 @@ export default function PrintableAssignmentList({
             text-align: center !important;
           }
 
-          .col-period { width: 8.5% !important; text-align: center !important; }
-          .col-absent { width: 20% !important; text-align: left !important; word-break: break-word !important; }
-          .col-class { width: 10.5% !important; text-align: center !important; word-break: break-word !important; }
-          .col-room { width: 13.5% !important; text-align: center !important; word-break: break-word !important; overflow-wrap: anywhere !important; }
-          .col-subject { width: 17.5% !important; text-align: center !important; word-break: break-word !important; }
-          .col-duty { width: 20% !important; text-align: left !important; word-break: break-word !important; }
-          .col-sign { width: 10% !important; text-align: center !important; }
+          .col-period { width: 9% !important; text-align: center !important; }
+          .col-absent { width: 22% !important; text-align: left !important; word-break: break-word !important; }
+          .col-class { width: 15% !important; text-align: center !important; white-space: nowrap !important; }
+          .col-room { width: 12% !important; text-align: center !important; word-break: break-word !important; overflow-wrap: anywhere !important; }
+          .col-subject { width: 18% !important; text-align: center !important; word-break: break-word !important; }
+          .col-duty { width: 24% !important; text-align: left !important; word-break: break-word !important; }
 
           .table-empty-state-screen {
             display: none !important;
@@ -890,6 +890,7 @@ export default function PrintableAssignmentList({
             border: none !important;
             padding: 0 !important;
             font-weight: bold !important;
+            white-space: nowrap !important;
           }
 
           .classroom-badge {
