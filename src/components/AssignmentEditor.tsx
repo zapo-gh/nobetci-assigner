@@ -10,6 +10,7 @@ import {
   getTeacherDutyLocation,
   abbreviateDutyLocation
 } from '../utils/classNameUtils.js';
+import { normalizeForComparison } from '../utils/nameNormalization.js';
 
 const AUTO_OPTION = '__AUTO__';
 const DEFAULT_EDITOR_HEIGHT = 160;
