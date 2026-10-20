@@ -677,9 +677,9 @@ function AssignmentEditor({
         </div>
 
         {/* Total stats pill badge & Undo / Redo controls */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className={styles.toolbarRightActions}>
           {(onUndo || onRedo) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
+            <div className={styles.historyGroup}>
               <button
                 type="button"
                 className={styles.historyBtn}
@@ -947,6 +947,11 @@ function AssignmentEditor({
                           onDragOver={(e) => handleDragOver(e, cls.classId)}
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, p, cls.classId)}
+                          onClick={(e) => {
+                            if (!commonLessonTeacherName && !isEditing) {
+                              openEditor(p, cls.classId, manualInitialValue, e);
+                            }
+                          }}
                         >
                           <div className={styles.cellContent}>
                             {hasLock && (
@@ -1083,23 +1088,33 @@ function AssignmentEditor({
                             )}
                           </div>
 
-                          {/* Popup Manual Editor */}
+                          {/* Popup / Mobile Bottom Sheet Manual Editor */}
                           {!commonLessonTeacherName && isEditing && (
-                            <div
-                              ref={editorRef}
-                              className={styles.manualEditor}
-                              style={{
-                                position: 'fixed',
-                                top: `${editorPosition.top}px`,
-                                left: `${editorPosition.left}px`,
-                                width: `${editorPosition.width}px`,
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                            >
-                              {/* Header */}
-                              <div className={styles.manualEditorHeader}>
+                            <>
+                              <div
+                                className={styles.manualEditorBackdrop}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  closeEditor();
+                                }}
+                              />
+                              <div
+                                ref={editorRef}
+                                className={styles.manualEditor}
+                                style={{
+                                  position: 'fixed',
+                                  top: `${editorPosition.top}px`,
+                                  left: `${editorPosition.left}px`,
+                                  width: `${editorPosition.width}px`,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                              >
+                                <div className={styles.sheetHandleBar} />
+                                {/* Header */}
+                                <div className={styles.manualEditorHeader}>
                                 <div className={styles.headerTitleGroup}>
                                   <span className={styles.headerIcon}>✏️</span>
                                   <div>
@@ -1418,6 +1433,7 @@ function AssignmentEditor({
                                 </button>
                               </div>
                             </div>
+                          </>
                           )}
                         </td>
                       );

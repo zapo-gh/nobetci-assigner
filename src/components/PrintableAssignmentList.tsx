@@ -399,12 +399,12 @@ export default function PrintableAssignmentList({
         <table className="assign-list-table">
           <thead>
             <tr>
-              <th className="col-period" style={{ width: '9%' }}>Ders Saati</th>
-              <th className="col-absent" style={{ width: '22%' }}>İzinli / Mazeretli Öğretmen</th>
-              <th className="col-class" style={{ width: '15%' }}>Sınıfı</th>
-              <th className="col-room" style={{ width: '12%' }}>Derslik No</th>
-              <th className="col-subject" style={{ width: '18%' }}>Ders İsmi</th>
-              <th className="col-duty" style={{ width: '24%' }}>Görevlendirilen Öğretmen</th>
+              <th className="col-period">Ders Saati</th>
+              <th className="col-absent">İzinli / Mazeretli Öğretmen</th>
+              <th className="col-class">Sınıfı</th>
+              <th className="col-room">Derslik No</th>
+              <th className="col-subject">Ders İsmi</th>
+              <th className="col-duty">Görevlendirilen Öğretmen</th>
             </tr>
           </thead>
           <tbody>
@@ -642,6 +642,7 @@ export default function PrintableAssignmentList({
 
         .assign-list-table {
           width: 100%;
+          min-width: 820px;
           border-collapse: collapse;
           border-spacing: 0;
           font-size: 0.88rem;
@@ -677,6 +678,63 @@ export default function PrintableAssignmentList({
         .font-semibold { font-weight: 600; }
         .text-dark { color: #0f172a; }
 
+        .col-period {
+          width: 105px;
+          min-width: 100px;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .col-absent {
+          min-width: 170px;
+          text-align: left;
+        }
+
+        .col-class {
+          width: 95px;
+          min-width: 85px;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .col-room {
+          width: 115px;
+          min-width: 105px;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .col-subject {
+          min-width: 140px;
+          text-align: left;
+        }
+
+        .col-duty {
+          min-width: 170px;
+          text-align: left;
+        }
+
+        /* Sticky left column for Ders Saati */
+        .assign-list-table thead th.col-period {
+          position: sticky;
+          left: 0;
+          background: #f8fafc;
+          z-index: 3;
+          box-shadow: 2px 0 6px rgba(15, 23, 42, 0.05);
+        }
+
+        .assign-list-table tbody td.col-period {
+          position: sticky;
+          left: 0;
+          background: #ffffff;
+          z-index: 2;
+          box-shadow: 2px 0 6px rgba(15, 23, 42, 0.05);
+        }
+
+        .assign-list-table tbody tr:hover td.col-period {
+          background: #f8fafc;
+        }
+
         .period-badge {
           display: inline-block;
           padding: 3px 8px;
@@ -703,51 +761,38 @@ export default function PrintableAssignmentList({
           white-space: nowrap;
         }
 
-        .col-class {
-          white-space: nowrap;
-        }
-
-        .col-room {
-          overflow-wrap: anywhere;
-          word-break: break-word;
-        }
-
         .classroom-badge {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 3px;
-          padding: 2px 6px;
+          gap: 4px;
+          padding: 3px 8px;
           background: #f1f5f9;
           color: #334155;
           border-radius: 6px;
-          font-weight: 600;
-          font-size: 0.8rem;
-          line-height: 1.25;
-          white-space: normal;
-          word-break: break-word;
-          overflow-wrap: anywhere;
-          max-width: 100%;
+          font-weight: 700;
+          font-size: 0.82rem;
+          line-height: 1.2;
+          white-space: nowrap;
           box-sizing: border-box;
           text-align: center;
         }
 
         .classroom-badge .room-pin {
           flex-shrink: 0;
-          font-size: 0.72rem;
+          font-size: 0.76rem;
           line-height: 1;
         }
 
         .classroom-badge .room-text {
-          word-break: break-word;
-          overflow-wrap: anywhere;
-          white-space: normal;
+          white-space: nowrap;
           text-align: center;
         }
 
         .classroom-badge .room-sep {
           color: #94a3b8;
-          font-weight: 400;
+          font-weight: 500;
+          margin: 0 2px;
         }
 
         .room-empty {
@@ -758,7 +803,10 @@ export default function PrintableAssignmentList({
         .subject-text {
           font-size: 0.84rem;
           color: #475569;
-          font-weight: 500;
+          font-weight: 600;
+          line-height: 1.3;
+          white-space: normal;
+          display: block;
         }
 
         .absent-reason-text {
@@ -797,6 +845,19 @@ export default function PrintableAssignmentList({
 
         @media (max-width: 900px) {
           .print-wrap { padding: 16px; }
+          .assign-list-table { min-width: 800px; }
+        }
+
+        @media (max-width: 640px) {
+          .print-wrap { padding: 10px; border-radius: 12px; }
+          .assign-list-table { min-width: 780px; font-size: 0.82rem; }
+          .col-period { width: 95px !important; min-width: 90px !important; }
+          .col-absent { min-width: 150px !important; }
+          .col-class { width: 85px !important; min-width: 80px !important; }
+          .col-room { width: 105px !important; min-width: 95px !important; }
+          .col-subject { min-width: 130px !important; }
+          .col-duty { min-width: 150px !important; }
+          .print-orientation-bar { justify-content: space-between; }
         }
 
         /* --- YAZDIRMA (PRINT) --- */
@@ -899,12 +960,12 @@ export default function PrintableAssignmentList({
             border: none !important;
             padding: 0 !important;
             font-weight: bold !important;
-            display: inline-block !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: anywhere !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
             max-width: 100% !important;
-            font-size: 7.2pt !important;
+            font-size: 7.5pt !important;
             line-height: 1.15 !important;
             text-align: center !important;
           }
@@ -917,9 +978,7 @@ export default function PrintableAssignmentList({
 
           .classroom-badge .room-text {
             display: inline !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: anywhere !important;
+            white-space: nowrap !important;
           }
 
           .classroom-badge .room-sep {

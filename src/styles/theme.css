@@ -86,6 +86,14 @@
   /* ---- Hareket ---- */
   --transition-fast: 150ms ease;
   --transition-base: 220ms ease;
+
+  /* ---- Mobil & Güvenli Alan Token'ları ---- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --touch-target-min: 44px;
+  --header-height-mobile: 56px;
 }
 
 /* ================= Temel ================= */
@@ -111,30 +119,84 @@ body {
   max-width: var(--content-max-width);
   margin-inline: auto;
   padding: 0 var(--space-6) var(--space-8);
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--space-8) + var(--safe-bottom));
+  width: 100%;
+  box-sizing: border-box;
 }
+
+@media (max-width: 768px) {
+  .wrap {
+    padding-left: max(var(--space-3), var(--safe-left));
+    padding-right: max(var(--space-3), var(--safe-right));
+    padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+  }
+
+  input, select, textarea {
+    font-size: 16px !important; /* iOS Safari otomatik zoom engeli */
+  }
+}
+
 h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-weight); }
 .text-muted { color: var(--text-muted); }
 
-/* ================= Ãœst baÅŸlÄ±k (renkli ÅŸerit) ================= */
+/* ================= Üst başlık (renkli şerit) ================= */
 .app-header {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
   padding: var(--space-4) var(--space-6);
   margin: 0 calc(-1 * var(--space-6)) var(--section-gap);
-  background: var(--header-gradient); color: #fff;
+  background: var(--header-gradient);
+  color: #fff;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   box-shadow: 0 8px 24px rgba(79, 70, 229, .25);
 }
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
 .app-logo {
-  width: 64px; height: 64px; border-radius: var(--radius-md);
-  display: grid; place-items: center; color: var(--primary);
-  background: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
   overflow: hidden;
+  flex-shrink: 0;
 }
 .app-logo img {
-  width: 100%; height: 100%; object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
+
+.app-title-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 64px;
+  padding: 2px 0;
+  min-width: 0;
+}
+
 .app-title { font-size: 1.7rem; line-height: 1; color: #fff; margin: 0; }
 .app-subtitle { color: rgba(255, 255, 255, .85); font-size: 0.95rem; font-weight: 500; margin: 0; line-height: 1; }
+
+.app-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 
 /* ================= Gün seçici (cam efekti, beyaz aktif) ================= */
 .day-switcher {
@@ -188,7 +250,108 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
 }
 .day-pill .day-num { opacity: .75; font-weight: 600; margin-left: 4px; font-size: .8em; }
 
+@media (max-width: 768px) {
+  .app-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "brand auth"
+      "switcher switcher";
+    gap: var(--space-3);
+    padding: var(--space-3);
+    margin: 0 calc(-1 * max(var(--space-3), var(--safe-left))) var(--space-4);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  .app-brand {
+    grid-area: brand;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .app-logo {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: var(--radius-sm);
+  }
+
+  .app-title-group {
+    height: auto;
+    padding: 0;
+    gap: 2px;
+  }
+
+  .app-title {
+    font-size: 1.15rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-subtitle {
+    font-size: 0.72rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-auth-controls {
+    grid-area: auth;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-self: end;
+  }
+
+  .day-switcher-wrapper {
+    grid-area: switcher;
+    width: 100%;
+  }
+
+  .day-switcher {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 3px;
+    box-sizing: border-box;
+  }
+
+  .day-pill {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 2px;
+    font-size: 0.78rem;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+  }
+
+  .day-pill .day-num {
+    margin-left: 0;
+    font-size: 0.68rem;
+    opacity: 0.85;
+    margin-top: 1px;
+  }
+
+  .day-nav-btn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+}
+
 /* ================= Sekmeler (bütünleşik, eşit genişlikli, bölümlü çubuk) ================= */
+.tabs-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: var(--space-5);
+}
+
 .tabs {
   display: flex;
   align-items: stretch;
@@ -199,10 +362,11 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
   border-radius: var(--radius-lg);
   padding: 5px;
   box-shadow: var(--shadow-card);
-  margin-bottom: var(--space-5);
+  margin-bottom: 0;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 .tabs::-webkit-scrollbar {
   display: none;
@@ -248,6 +412,34 @@ h1, h2, h3 { letter-spacing: var(--title-tracking); font-weight: var(--title-wei
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tabs-wrapper {
+    margin-bottom: var(--space-4);
+  }
+  .tabs {
+    padding: 4px;
+    gap: 4px;
+    scroll-snap-type: x proximity;
+    border-radius: var(--radius-md);
+  }
+  .tab {
+    flex: 0 0 auto;
+    min-width: auto;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    scroll-snap-align: start;
+    gap: 5px;
+  }
+  .tab .tab-icon {
+    width: 15px;
+    height: 15px;
+  }
+  .tab-divider {
+    height: 18px;
+    margin: 0 2px;
+  }
 }
 /* Bölüm göstergesi (üst ince renkli hat) */
 .tab::before {

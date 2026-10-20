@@ -5,6 +5,8 @@ import PrintableAssignmentList from './PrintableAssignmentList.jsx';
 import AssignmentText from './AssignmentText.jsx';
 import { decodeClassAbsenceValue, COMMON_LESSON_LABEL } from '../utils/classAbsence.js';
 import { MANUAL_EMPTY_TEACHER_ID, MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
+import { loadPrintNotesConfig, savePrintNotesConfig } from '../services/firebaseDataService.js';
+import { logger } from '../utils/logger.js';
 
 const STORAGE_KEY_NOTES = 'nobetci_print_notes';
 const STORAGE_KEY_NOTES_ENABLED = 'nobetci_print_notes_enabled';
@@ -49,11 +51,13 @@ export default function OutputsSection({
   const jpegTimeoutRef = useRef<any>(null);
 
   const handlePrintMouseEnter = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
     if (printTimeoutRef.current) clearTimeout(printTimeoutRef.current);
     setPrintDropdownOpen(true);
   };
 
   const handlePrintMouseLeave = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
     if (printTimeoutRef.current) clearTimeout(printTimeoutRef.current);
     printTimeoutRef.current = setTimeout(() => {
       setPrintDropdownOpen(false);
@@ -61,11 +65,13 @@ export default function OutputsSection({
   };
 
   const handleJpegMouseEnter = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
     if (jpegTimeoutRef.current) clearTimeout(jpegTimeoutRef.current);
     setJpegDropdownOpen(true);
   };
 
   const handleJpegMouseLeave = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) return;
     if (jpegTimeoutRef.current) clearTimeout(jpegTimeoutRef.current);
     jpegTimeoutRef.current = setTimeout(() => {
       setJpegDropdownOpen(false);
@@ -73,7 +79,7 @@ export default function OutputsSection({
   };
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (printDropdownRef.current && !printDropdownRef.current.contains(e.target as Node)) {
         setPrintDropdownOpen(false);
       }
@@ -82,8 +88,10 @@ export default function OutputsSection({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
       if (printTimeoutRef.current) clearTimeout(printTimeoutRef.current);
       if (jpegTimeoutRef.current) clearTimeout(jpegTimeoutRef.current);
     };
@@ -115,11 +123,56 @@ export default function OutputsSection({
     return true;
   });
 
+  // Firestore'dan kayıtlı çizelge açıklamalarını yükle ve senkronize et
+  useEffect(() => {
+    let isMounted = true;
+    loadPrintNotesConfig()
+      .then((cfg) => {
+        if (!isMounted) return;
+        if (cfg) {
+          if (typeof cfg.notes === 'string') {
+            setNotes(cfg.notes);
+            try { localStorage.setItem(STORAGE_KEY_NOTES, cfg.notes); } catch (e) {}
+          }
+          if (typeof cfg.enabled === 'boolean') {
+            setNotesEnabled(cfg.enabled);
+            try { localStorage.setItem(STORAGE_KEY_NOTES_ENABLED, String(cfg.enabled)); } catch (e) {}
+          }
+          if (typeof cfg.showMerged === 'boolean') {
+            setShowMergedLessons(cfg.showMerged);
+            try { localStorage.setItem(STORAGE_KEY_SHOW_MERGED, String(cfg.showMerged)); } catch (e) {}
+          }
+        } else {
+          // Firestore'da henüz kayıt yoksa, mevcut yerel değeri ilk kez Firestore'a yaz
+          savePrintNotesConfig({
+            notes,
+            enabled: notesEnabled,
+            showMerged: showMergedLessons,
+          }).catch((err) => {
+            logger.warn('[OutputsSection] İlk print_notes Firestore kaydı yapılamadı:', err);
+          });
+        }
+      })
+      .catch((err) => {
+        logger.warn('[OutputsSection] print_notes Firestore\'dan yüklenemedi:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleNotesChange = (newNotes) => {
     setNotes(newNotes);
     try {
       localStorage.setItem(STORAGE_KEY_NOTES, newNotes);
     } catch (e) {}
+    savePrintNotesConfig({
+      notes: newNotes,
+      enabled: notesEnabled,
+      showMerged: showMergedLessons,
+    }).catch((err) => {
+      logger.error('[OutputsSection] Çizelge açıklamaları Firestore\'a kaydedilemedi:', err);
+    });
   };
 
   const handleNotesEnabledChange = (enabled) => {
@@ -127,6 +180,13 @@ export default function OutputsSection({
     try {
       localStorage.setItem(STORAGE_KEY_NOTES_ENABLED, String(enabled));
     } catch (e) {}
+    savePrintNotesConfig({
+      notes,
+      enabled,
+      showMerged: showMergedLessons,
+    }).catch((err) => {
+      logger.error('[OutputsSection] Çizelge açıklama durumu Firestore\'a kaydedilemedi:', err);
+    });
   };
 
   const handleShowMergedLessonsChange = (enabled) => {
@@ -134,6 +194,13 @@ export default function OutputsSection({
     try {
       localStorage.setItem(STORAGE_KEY_SHOW_MERGED, String(enabled));
     } catch (e) {}
+    savePrintNotesConfig({
+      notes,
+      enabled: notesEnabled,
+      showMerged: enabled,
+    }).catch((err) => {
+      logger.error('[OutputsSection] Birleştirilen dersler görünümü Firestore\'a kaydedilemedi:', err);
+    });
   };
 
   // Trigger print with optional viewMode switch
@@ -189,7 +256,7 @@ export default function OutputsSection({
     <div id="panel-outputs" role="tabpanel" aria-labelledby="tab-outputs" style={{ width: '100%' }}>
       {/* ---------------- Modern Toolbar ---------------- */}
       <div
-        className="toolbar no-print"
+        className="toolbar no-print outputs-toolbar"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -205,7 +272,7 @@ export default function OutputsSection({
         }}
       >
         {/* Left Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="outputs-toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
               width: '36px',
@@ -255,7 +322,7 @@ export default function OutputsSection({
         </div>
 
         {/* Center: View Mode Segmented Controls & Merged Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="outputs-toolbar-center" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div
             className="view-mode-toggle no-print"
             style={{
@@ -346,7 +413,7 @@ export default function OutputsSection({
         </div>
 
         {/* Right Actions with Hover Dropdowns */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="outputs-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* 1. Yazdır (A4) Dropdown Container */}
           <div
             ref={printDropdownRef}
@@ -666,6 +733,65 @@ export default function OutputsSection({
           font-size: 0.72rem;
           color: #64748b;
           margin-top: 1px;
+        }
+
+        @media (max-width: 768px) {
+          .outputs-toolbar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 12px 14px !important;
+            gap: 12px !important;
+          }
+          .outputs-toolbar-left {
+            width: 100%;
+          }
+          .outputs-toolbar-center {
+            width: 100%;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          .outputs-toolbar-center .view-mode-toggle {
+            width: 100%;
+            display: flex !important;
+          }
+          .outputs-toolbar-center .view-mode-tab {
+            flex: 1;
+            justify-content: center;
+            min-height: 42px;
+            font-size: 0.88rem !important;
+          }
+          .outputs-toolbar-center .merged-lessons-toggle {
+            width: 100%;
+            justify-content: center;
+            min-height: 42px;
+          }
+          .outputs-toolbar-actions {
+            width: 100%;
+            display: flex !important;
+            gap: 8px !important;
+          }
+          .outputs-toolbar-actions .dropdown-container {
+            flex: 1;
+          }
+          .outputs-toolbar-actions .dropdown-container > button {
+            width: 100%;
+            justify-content: center;
+            min-height: 44px !important;
+          }
+          .dropdown-menu-popover {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            left: 0;
+            min-width: 100% !important;
+            max-width: calc(100vw - 32px) !important;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18) !important;
+          }
+          .dropdown-action-btn {
+            min-height: 44px;
+            padding: 10px 12px !important;
+          }
         }
       `}</style>
     </div>

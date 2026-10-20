@@ -101,7 +101,8 @@ export async function loadInitialData() {
     const [
       teachersSnap, classesSnap, absentsSnap,
       classFree, teacherFree, classAbsence,
-      locksMeta, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping, dutyZones
+      locksMeta, pdfSchedule, teacherSchedules, commonLessons, locationZoneMapping, dutyZones,
+      printNotes
     ] = await Promise.all([
       getDocs(collection(db, 'teachers')),
       getDocs(collection(db, 'classes')),
@@ -114,7 +115,8 @@ export async function loadInitialData() {
       getConfigDoc('teacher_schedules', {}),
       getConfigDoc('common_lessons', {}),
       getConfigDoc('location_zone_mapping', {}),
-      getConfigDoc('duty_zones', null)
+      getConfigDoc('duty_zones', null),
+      getConfigDoc('print_notes', null)
     ]);
 
     const teachers = teachersSnap.docs.map(d => d.data());
@@ -144,7 +146,8 @@ export async function loadInitialData() {
       teacherSchedules,
       commonLessons,
       locationZoneMapping,
-      dutyZones
+      dutyZones,
+      printNotes
     };
   } catch (error) {
     reportServiceError('loadInitialData error:', error);
@@ -589,5 +592,19 @@ export async function bulkSaveTeacherFree(teacherFree: any) {
 
 export async function bulkSaveLocks(locks: any) {
   await setConfigDoc('locks', locks);
+}
+
+export interface PrintNotesConfig {
+  notes: string;
+  enabled: boolean;
+  showMerged?: boolean;
+}
+
+export async function loadPrintNotesConfig(): Promise<PrintNotesConfig | null> {
+  return await getConfigDoc('print_notes', null);
+}
+
+export async function savePrintNotesConfig(config: PrintNotesConfig): Promise<void> {
+  await setConfigDoc('print_notes', config);
 }
 

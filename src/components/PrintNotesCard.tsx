@@ -21,6 +21,7 @@ export default function PrintNotesCard({
 }: PrintNotesCardProps) {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editingText, setEditingText] = useState(notes || '');
+  const [showSavedFeedback, setShowSavedFeedback] = useState(false);
 
   useEffect(() => {
     setEditingText(notes || '');
@@ -47,6 +48,14 @@ export default function PrintNotesCard({
             <span className="notes-status-badge badge-active">Çıktıda Görünür</span>
           ) : (
             <span className="notes-status-badge badge-inactive">Çıktıda Gizli</span>
+          )}
+          {showSavedFeedback && (
+            <span
+              className="notes-status-badge badge-active"
+              style={{ background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0', animation: 'fadeIn 0.2s ease-in-out' }}
+            >
+              ✓ Kaydedildi
+            </span>
           )}
         </div>
 
@@ -158,6 +167,10 @@ export default function PrintNotesCard({
                 onClick={() => {
                   onNotesChange?.(editingText);
                   setIsEditingNotes(false);
+                  setShowSavedFeedback(true);
+                  setTimeout(() => {
+                    setShowSavedFeedback(false);
+                  }, 2500);
                 }}
               >
                 Kaydet
@@ -342,6 +355,26 @@ export default function PrintNotesCard({
         }
         .btn-save-notes:hover {
           background: #4338ca;
+        }
+
+        @media (max-width: 600px) {
+          .print-notes-card {
+            padding: 12px 14px;
+          }
+          .print-notes-header-screen {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+          }
+          .notes-edit-actions {
+            width: 100%;
+          }
+          .btn-cancel-notes,
+          .btn-save-notes {
+            flex: 1;
+            text-align: center;
+            min-height: 40px;
+          }
         }
 
         @media print {

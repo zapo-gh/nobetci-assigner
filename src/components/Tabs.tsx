@@ -17,8 +17,15 @@ function Tabs({ items, active, onChange, IconComponent }) {
         width: activeTabRef.current.offsetWidth,
         left: activeTabRef.current.offsetLeft,
       });
-      if (document.activeElement !== activeTabRef.current) {
-        activeTabRef.current.focus({ preventScroll: true });
+      // Mobilde aktif sekmenin ekran dışına kaymasını önleyerek ortaya hizala
+      try {
+        activeTabRef.current.scrollIntoView({
+          behavior: 'smooth',
+          inline: 'center',
+          block: 'nearest'
+        });
+      } catch (e) {
+        // Fallback for older browsers
       }
     }
   }, [active]);
@@ -77,54 +84,45 @@ function Tabs({ items, active, onChange, IconComponent }) {
     [focusTabAtIndex, items.length]
   );
 
-  // Gruplara ayır
-  const groupedItems = React.useMemo(() => {
-    const groups = {};
-    items.forEach(it => {
-      const g = it.group || "Diğer";
-      if (!groups[g]) groups[g] = [];
-      groups[g].push(it);
-    });
-    return groups;
-  }, [items]);
-
   return (
-    <nav className="tabs" role="tablist" aria-label="Ana Gezinme Menüsü">
-      {items.map((it, index) => {
-        const groupName = it.group || "Diğer";
-        let dataGroup = "data";
-        if (groupName === "Planlama") dataGroup = "plan";
-        if (groupName === "Çıktılar" || groupName === "Çıktı") dataGroup = "output";
+    <div className="tabs-wrapper">
+      <nav className="tabs" role="tablist" aria-label="Ana Gezinme Menüsü">
+        {items.map((it, index) => {
+          const groupName = it.group || "Diğer";
+          let dataGroup = "data";
+          if (groupName === "Planlama") dataGroup = "plan";
+          if (groupName === "Çıktılar" || groupName === "Çıktı") dataGroup = "output";
 
-        const nextItem = items[index + 1];
-        const isLastInGroup = nextItem && (nextItem.group || "Diğer") !== groupName;
+          const nextItem = items[index + 1];
+          const isLastInGroup = nextItem && (nextItem.group || "Diğer") !== groupName;
 
-        return (
-          <React.Fragment key={it.key}>
-            <button
-              ref={active === it.key ? activeTabRef : null}
-              className="tab"
-              data-group={dataGroup}
-              onClick={() => onChange(it.key)}
-              type="button"
-              role="tab"
-              aria-selected={active === it.key}
-              tabIndex={active === it.key ? 0 : -1}
-              id={`tab-${it.key}`}
-              aria-controls={`panel-${it.key}`}
-              onKeyDown={(event) => handleKeyDown(event, index)}
-              title={it.label}
-            >
-              {it.icon && IconComponent && (
-                <IconComponent name={it.icon} size={16} className="tab-icon" />
-              )}
-              <span className="tab-label">{it.label}</span>
-            </button>
-            {isLastInGroup && <div className="tab-divider" aria-hidden="true" />}
-          </React.Fragment>
-        );
-      })}
-    </nav>
+          return (
+            <React.Fragment key={it.key}>
+              <button
+                ref={active === it.key ? activeTabRef : null}
+                className="tab"
+                data-group={dataGroup}
+                onClick={() => onChange(it.key)}
+                type="button"
+                role="tab"
+                aria-selected={active === it.key}
+                tabIndex={active === it.key ? 0 : -1}
+                id={`tab-${it.key}`}
+                aria-controls={`panel-${it.key}`}
+                onKeyDown={(event) => handleKeyDown(event, index)}
+                title={it.label}
+              >
+                {it.icon && IconComponent && (
+                  <IconComponent name={it.icon} size={16} className="tab-icon" />
+                )}
+                <span className="tab-label">{it.label}</span>
+              </button>
+              {isLastInGroup && <div className="tab-divider" aria-hidden="true" />}
+            </React.Fragment>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
 

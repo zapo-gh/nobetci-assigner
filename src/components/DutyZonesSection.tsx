@@ -1716,6 +1716,56 @@ export default function DutyZonesSection({
           color: var(--primary);
           font-size: 1rem;
         }
+
+        @media (max-width: 768px) {
+          .dz-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .dz-card {
+            height: auto;
+            min-height: 120px;
+          }
+          .dz-action-btn {
+            width: 42px !important;
+            height: 42px !important;
+            min-width: 42px !important;
+            min-height: 42px !important;
+          }
+          .dz-action-btn svg {
+            width: 18px !important;
+            height: 18px !important;
+          }
+          .zone-cards-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .card-header {
+            padding: 14px !important;
+          }
+          .unassigned-pool-box {
+            padding: 12px !important;
+          }
+          .unassigned-pool-header {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 10px !important;
+          }
+          .btn-smart-match, .btn-reset-mappings {
+            flex: 1;
+            justify-content: center;
+            min-height: 42px !important;
+          }
+          .view-toggle-wrap {
+            width: 100%;
+            display: flex;
+          }
+          .view-toggle-btn {
+            flex: 1;
+            justify-content: center;
+            min-height: 42px;
+          }
+        }
       `}</style>
     </div>
   );

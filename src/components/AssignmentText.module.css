@@ -93,6 +93,91 @@
   clear: both;
 }
 
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.formatModeGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.actionButtonsRow {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mergedActionButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .assignmentTextContainer {
+    padding: 12px;
+    margin-top: var(--space-4);
+  }
+
+  .headerRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .formatModeGroup {
+    width: 100%;
+    display: flex;
+  }
+
+  .formatModeGroup button {
+    flex: 1;
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 10px !important;
+    font-size: 0.82rem !important;
+  }
+
+  .textarea {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
+    min-height: 180px;
+    padding: 12px !important;
+  }
+
+  .actionButtonsRow {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .actionButtonsRow button {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 0.92rem;
+  }
+
+  .mergedActionButtons {
+    width: 100%;
+  }
+
+  .mergedActionButtons button {
+    flex: 1;
+    justify-content: center;
+    min-height: 42px;
+  }
+}
+
 @media print {
   .assignmentTextContainer {
     display: none !important;

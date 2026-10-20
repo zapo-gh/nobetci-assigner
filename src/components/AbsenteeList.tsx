@@ -81,6 +81,52 @@ function formatDateDisplay(dateStr) {
 }
 
 /**
+ * Formats a class name for clean compact capsule display.
+ * Prevents long class names like "AMP 10 MUHASEB" or "AMP 10 PAZARLA" from overflowing.
+ * Splits into two balanced lines:
+ * e.g. "AMP 10 MUHASEB" -> line1: "AMP 10", line2: "MUHASEB"
+ * e.g. "ATP 10-A OTO" -> line1: "ATP 10-A", line2: "OTO"
+ * e.g. "AMP 9-G" -> line1: "AMP 9-G", line2: ""
+ * e.g. "ÖZEL EĞİTİM" -> line1: "ÖZEL", line2: "EĞİTİM"
+ */
+export function formatCapsuleClassName(className = '') {
+  if (!className || typeof className !== 'string') return { line1: '—', line2: '' };
+  const trimmed = className.trim();
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+
+  if (parts.length <= 1) {
+    return { line1: trimmed, line2: '' };
+  }
+
+  const firstUpper = parts[0].toUpperCase();
+
+  // If starts with school program prefix like AMP, ATP, MESEM
+  if (['AMP', 'ATP', 'MESEM'].includes(firstUpper)) {
+    if (parts.length === 2) {
+      // e.g. "AMP 9-G" or "AMP 10"
+      return { line1: `${parts[0]} ${parts[1]}`, line2: '' };
+    }
+    // e.g. ["AMP", "10", "MUHASEB"] -> line1: "AMP 10", line2: "MUHASEB"
+    // e.g. ["AMP", "10-A", "BİLİŞİM"] -> line1: "AMP 10-A", line2: "BİLİŞİM"
+    return {
+      line1: `${parts[0]} ${parts[1]}`,
+      line2: parts.slice(2).join(' ')
+    };
+  }
+
+  // e.g. ["10", "MUHASEB"]
+  if (parts.length === 2) {
+    return { line1: parts[0], line2: parts[1] };
+  }
+
+  // Multi-word fallback (e.g. "ÖZEL EĞİTİM")
+  return {
+    line1: parts[0],
+    line2: parts.slice(1).join(' ')
+  };
+}
+
+/**
  * Calculates affected lessons and classes for an absent teacher based on days and timeSlot
  */
 function getTeacherDayInfos(person, teacherSchedules, classLocations) {
@@ -488,9 +534,19 @@ function AbsenteeList({
                         {/* Impact badge */}
                         {hasSchedule ? (
                           totalLessons > 0 ? (
-                            <span className={styles.impactBadgeDanger}>
+                            <span
+                              className={styles.impactBadgeDanger}
+                              title={allDistinctClasses.length > 0 ? `Etkilenen Sınıflar: ${allDistinctClasses.join(', ')}` : undefined}
+                            >
                               ⚠️ {totalLessons} Ders Boşta
-                              {allDistinctClasses.length > 0 && ` (${allDistinctClasses.join(', ')})`}
+                              {allDistinctClasses.length > 0 && (
+                                <span className={styles.impactClassesText}>
+                                  {' '}
+                                  ({allDistinctClasses.length <= 2
+                                    ? allDistinctClasses.join(', ')
+                                    : `${allDistinctClasses.slice(0, 2).join(', ')} +${allDistinctClasses.length - 2}`})
+                                </span>
+                              )}
                             </span>
                           ) : (
                             <span className={styles.impactBadgeMuted}>
@@ -574,16 +630,20 @@ function AbsenteeList({
                             <span className={styles.capsulePeriodNum}>{p}. Saat</span>
                             <span className={styles.capsuleClassLabel}>
                               {lesson ? (
-                                <>
-                                  <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {lesson.className}
-                                  </span>
-                                  {isImes && (
-                                    <span style={{ display: 'block', fontSize: '0.62rem', fontWeight: 600, color: '#64748b', marginTop: '1px' }}>
-                                      (Okul Dışı)
+                                (() => {
+                                  const { line1, line2 } = formatCapsuleClassName(lesson.className);
+                                  return (
+                                    <span className={styles.capsuleClassText} title={lesson.className}>
+                                      <span className={styles.capsuleClassLine1}>{line1}</span>
+                                      {line2 ? <span className={styles.capsuleClassLine2}>{line2}</span> : null}
+                                      {isImes && (
+                                        <span className={styles.capsuleImesSub}>
+                                          (Okul Dışı)
+                                        </span>
+                                      )}
                                     </span>
-                                  )}
-                                </>
+                                  );
+                                })()
                               ) : (
                                 '—'
                               )}

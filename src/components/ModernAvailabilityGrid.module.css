@@ -581,3 +581,143 @@
   color: var(--text-muted, #64748b);
   max-width: 420px;
 }
+
+/* ---------------- Responsive Mobile Styles ---------------- */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+    border-radius: 12px;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .searchBox {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents iOS Safari auto-zoom */
+    padding: 10px 32px 10px 36px;
+    min-height: 44px;
+  }
+
+  .filterChips {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    width: 100%;
+    scrollbar-width: none;
+  }
+  .filterChips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filterChip {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .toolbarActions {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+    gap: 6px;
+  }
+
+  .batchBtn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 0.76rem;
+    min-height: 40px;
+  }
+
+  .gridTable {
+    min-width: 520px;
+  }
+
+  .stickyCol {
+    width: 96px !important;
+    min-width: 90px !important;
+    max-width: 102px !important;
+  }
+
+  .teacherCard {
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 4px;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .teacherMain {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+  }
+
+  .teacherMeta {
+    align-items: center;
+    width: 100%;
+  }
+
+  .teacherName {
+    font-size: 0.75rem;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 86px;
+    display: block;
+  }
+
+  .dragHandle {
+    display: none;
+  }
+
+  .dutyChip {
+    display: none;
+  }
+
+  .teacherActions {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .editBtn, .deleteBtn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+  }
+
+  .timeCapsule {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 4px 2px;
+  }
+
+  .capsuleNumber {
+    font-size: 0.85rem;
+  }
+}
+

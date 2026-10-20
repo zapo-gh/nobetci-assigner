@@ -51,6 +51,18 @@ export default function OfficialSignatures() {
           width: 100%;
         }
 
+        @media (max-width: 600px) {
+          .official-signatures {
+            flex-direction: column;
+            gap: 20px;
+            padding: 14px 16px;
+          }
+          .sig-block {
+            min-width: 100%;
+            width: 100%;
+          }
+        }
+
         @media print {
           .official-signatures {
             display: flex !important;

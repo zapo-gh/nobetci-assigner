@@ -31,18 +31,48 @@ function Header({
 
   return (
     <header className="app-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="app-brand">
         <div className="app-logo">
           <img src="/logo.png" alt="Logo" />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '64px', padding: '2px 0' }}>
+        <div className="app-title-group">
           <h1 className="app-title">Nöbetçi Öğretmen Görevlendirme</h1>
           <div className="app-subtitle">{dateString}</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        {/* Sade & Bütünleşik Gün ve Hafta Seçici */}
+      {/* Güvenlik & Oturum Yönetimi Butonları */}
+      {(onOpenChangePassword || onLockSession) && (
+        <div className="header-auth-controls">
+          {onOpenChangePassword && (
+            <button
+              type="button"
+              className="btn-header-auth"
+              onClick={onOpenChangePassword}
+              title="Yönetici Şifresini Değiştir"
+              aria-label="Yönetici Şifresini Değiştir"
+            >
+              <span aria-hidden="true">⚙️</span>
+              <span className="btn-header-auth-text">Şifre</span>
+            </button>
+          )}
+          {onLockSession && (
+            <button
+              type="button"
+              className="btn-header-auth btn-header-lock"
+              onClick={onLockSession}
+              title="Oturumu Kapat ve Ekranı Kilitle"
+              aria-label="Oturumu Kapat ve Ekranı Kilitle"
+            >
+              <span aria-hidden="true">🔒</span>
+              <span className="btn-header-auth-text">Kilitle</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Sade & Bütünleşik Gün ve Hafta Seçici */}
+      <div className="day-switcher-wrapper">
         <div className="day-switcher">
           <button 
             type="button"
@@ -68,7 +98,7 @@ function Header({
                 onClick={() => handleDayChange(dayObj.key)}
                 title={`${dayObj.label} (${dateObj?.getDate()} ${dateObj?.toLocaleDateString('tr-TR', { month: 'long' })})`}
               >
-                {dayObj.short}
+                <span className="day-name">{dayObj.short}</span>
                 <span className="day-num">{dateObj?.getDate()}</span>
               </button>
             );
@@ -86,34 +116,6 @@ function Header({
             </svg>
           </button>
         </div>
-
-        {/* Güvenlik & Oturum Yönetimi Butonları */}
-        {(onOpenChangePassword || onLockSession) && (
-          <div className="header-auth-controls" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {onOpenChangePassword && (
-              <button
-                type="button"
-                className="btn-header-auth"
-                onClick={onOpenChangePassword}
-                title="Yönetici Şifresini Değiştir"
-              >
-                <span>⚙️</span>
-                <span className="btn-header-auth-text">Şifre</span>
-              </button>
-            )}
-            {onLockSession && (
-              <button
-                type="button"
-                className="btn-header-auth btn-header-lock"
-                onClick={onLockSession}
-                title="Oturumu Kapat ve Ekranı Kilitle"
-              >
-                <span>🔒</span>
-                <span className="btn-header-auth-text">Kilitle</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       <style>{`
@@ -130,6 +132,7 @@ function Header({
           font-weight: 600;
           cursor: pointer;
           transition: all 0.15s ease;
+          min-height: 36px;
         }
         .btn-header-auth:hover {
           color: #0f172a;
@@ -141,8 +144,12 @@ function Header({
           border-color: #fecaca;
           background: #fef2f2;
         }
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
           .btn-header-auth-text { display: none; }
+          .btn-header-auth {
+            padding: 6px 9px;
+            font-size: 0.95rem;
+          }
         }
       `}</style>
     </header>

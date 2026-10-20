@@ -167,6 +167,7 @@ const Modal = memo(function Modal({
         onClick={stopPropagation}
         tabIndex={0}
       >
+        <div className={styles.modalHandleBar} aria-hidden="true" />
         <div className={styles.modalHeader}>
           <div className={styles.modalTitleWrapper}>
             <h3 className={styles.modalTitle}>{title}</h3>

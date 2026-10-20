@@ -7,6 +7,7 @@ import PrintableDailyList from '../components/PrintableDailyList';
 import PrintableAssignmentList from '../components/PrintableAssignmentList';
 import AssignmentText from '../components/AssignmentText';
 import { assignDuties } from '../utils/assignDuty';
+import { loadPrintNotesConfig, savePrintNotesConfig } from '../services/firebaseDataService';
 
 describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
   describe('PrintNotesCard', () => {
@@ -46,6 +47,26 @@ describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
       expect(screen.getByText('Standart 3 Madde')).toBeInTheDocument();
       expect(screen.getByText('Kaydet')).toBeInTheDocument();
       expect(screen.getByText('Vazgeç')).toBeInTheDocument();
+    });
+
+    it('triggers onNotesChange and displays saved feedback when saved', () => {
+      let savedResult = '';
+      render(
+        <PrintNotesCard
+          notes="Eski not"
+          notesEnabled={true}
+          titlePrefix="Çizelge Açıklamaları"
+          onNotesChange={(val) => { savedResult = val; }}
+        />
+      );
+
+      fireEvent.click(screen.getByText('✏️ Düzenle'));
+      const textarea = screen.getByPlaceholderText('Çıktının altında görünecek açıklamaları yazın...');
+      fireEvent.change(textarea, { target: { value: 'Yeni özel çizelge açıklaması' } });
+      fireEvent.click(screen.getByText('Kaydet'));
+
+      expect(savedResult).toBe('Yeni özel çizelge açıklaması');
+      expect(screen.getByText('✓ Kaydedildi')).toBeInTheDocument();
     });
   });
 
@@ -420,5 +441,15 @@ describe('Outputs Standardization (Çizelge & Görev Listesi)', () => {
       expect(assignmentsOnTuePeriod6[0].teacherId).toBe('t_nobetci');
     });
   });
+
+  describe('Print Notes Database Persistence', () => {
+    it('provides loadPrintNotesConfig and savePrintNotesConfig as valid functions', async () => {
+      expect(typeof loadPrintNotesConfig).toBe('function');
+      expect(typeof savePrintNotesConfig).toBe('function');
+      // In test mode without live firebase credentials, saving should resolve gracefully
+      await expect(savePrintNotesConfig({ notes: 'Test Açıklama', enabled: true, showMerged: false })).resolves.not.toThrow();
+    });
+  });
 });
+
 

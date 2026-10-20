@@ -191,6 +191,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .card:hover {
@@ -348,6 +351,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+
+.impactClassesText {
+  white-space: normal;
+  word-break: break-word;
 }
 
 .impactBadgeMuted {
@@ -442,6 +453,10 @@
   gap: 6px;
   padding-top: 6px;
   border-top: 1px dashed #e2e8f0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .timelineLabel {
@@ -454,13 +469,17 @@
 
 .capsulesRow {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
+  grid-template-columns: repeat(10, minmax(0, 1fr));
   gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (max-width: 900px) {
   .capsulesRow {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
   }
 }
 
@@ -469,29 +488,92 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 4px;
+  padding: 5px 2px;
   border-radius: 8px;
-  font-size: 0.74rem;
-  font-weight: 600;
   text-align: center;
   transition: all 0.15s ease;
-  min-height: 44px;
+  min-height: 48px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .capsulePeriodNum {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   opacity: 0.8;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .capsuleClassLabel {
-  font-size: 0.76rem;
-  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin-top: 2px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.capsuleClassText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  line-height: 1.15;
+  overflow: hidden;
+}
+
+.capsuleClassLine1 {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: -0.2px;
+}
+
+.capsuleClassLine2 {
+  display: block;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-align: center;
+  opacity: 0.92;
+}
+
+.capsuleImesSub {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
 }
 
 /* Capsule status states */
@@ -587,6 +669,9 @@
   font-weight: 700;
   border-radius: 6px;
   font-size: 0.78rem;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .locationChip {
@@ -631,4 +716,110 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: #1e293b;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 12px 14px;
+    margin-top: 8px;
+    border-radius: 12px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .searchBox {
+    max-width: 100%;
+    min-width: 100%;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents iOS Safari auto-zoom */
+    padding: 10px 34px 10px 38px;
+    min-height: 44px;
+  }
+
+  .filterChips {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filterChip {
+    flex-shrink: 0;
+    min-height: 38px;
+    padding: 6px 14px;
+  }
+
+  .card {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .cardActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .toggleDetailsBtn {
+    flex: 1;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  .deleteBtn {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+  }
+
+  .deleteBtn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .accordionPanel {
+    padding: 10px;
+    overflow-x: auto;
+  }
+
+  .detailTable {
+    min-width: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  .capsulesRow {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .capsule {
+    padding: 3px 1px;
+    min-height: 44px;
+  }
+
+  .capsulePeriodNum {
+    font-size: 0.62rem;
+  }
+
+  .capsuleClassLine1 {
+    font-size: 0.68rem;
+  }
+
+  .capsuleClassLine2 {
+    font-size: 0.62rem;
+  }
 }

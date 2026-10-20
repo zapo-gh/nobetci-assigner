@@ -449,19 +449,20 @@ export default function PrintableDailyList({
         }
 
         .assign-table-wrap {
-          overflow: auto;
+          overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           border: 1px solid var(--border-subtle, #e2e8f0);
           border-radius: 12px;
           background: #ffffff;
           box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+          width: 100%;
         }
         .assign-table {
           width: 100%;
           border-collapse: collapse;
           border-spacing: 0;
           table-layout: fixed;
-          min-width: 840px;
+          min-width: 1140px;
           font-size: 14px;
           line-height: 1.25;
         }
@@ -503,7 +504,16 @@ export default function PrintableDailyList({
           white-space: nowrap;
         }
 
-        .teacher-col { width: 220px; }
+        .teacher-col {
+          width: 180px;
+          min-width: 160px;
+        }
+
+        .period-col {
+          width: 96px;
+          min-width: 92px;
+        }
+
         .teacher-name { 
           vertical-align: middle;
         }
@@ -518,13 +528,15 @@ export default function PrintableDailyList({
           position: sticky;
           left: 0;
           background: #f8fafc;
-          z-index: 4;
+          z-index: 5;
+          box-shadow: 2px 0 6px rgba(15, 23, 42, 0.08);
         }
         .assign-table tbody td:first-child {
           position: sticky;
           left: 0;
           background: #ffffff;
-          z-index: 3;
+          z-index: 4;
+          box-shadow: 2px 0 6px rgba(15, 23, 42, 0.08);
         }
         .assign-table tbody tr:hover td:first-child {
           background: #f8fafc;
@@ -551,7 +563,7 @@ export default function PrintableDailyList({
           border: 1px solid var(--border-subtle, #e2e8f0);
           border-radius: var(--radius-md, 6px);
           width: 100%;
-          max-width: 100%;
+          min-width: 80px;
           box-sizing: border-box;
           overflow: hidden;
         }
@@ -569,11 +581,13 @@ export default function PrintableDailyList({
         .abs { font-size: .86em; opacity: .95; line-height: 1.18; text-align: center; width: 100%; max-width: 100%; }
         .absline {
           white-space: normal;
-          word-break: keep-all;
-          overflow-wrap: break-word;
+          word-break: normal;
+          overflow-wrap: normal;
           hyphens: none;
           display: block;
           max-width: 100%;
+          font-size: 0.74rem;
+          line-height: 1.25;
         }
 
         .common-lesson-teacher-row {
@@ -603,9 +617,18 @@ export default function PrintableDailyList({
 
         @media (max-width: 900px) {
           .print-wrap { padding: 16px; }
-          .teacher-col { width: 180px; }
-          .assign-table { min-width: 720px; }
+          .teacher-col { width: 170px; min-width: 150px; }
+          .period-col { width: 94px; min-width: 90px; }
+          .assign-table { min-width: 1100px; }
           .cell-item { padding: 4px 5px; }
+        }
+
+        @media (max-width: 640px) {
+          .print-wrap { padding: 10px; border-radius: 12px; }
+          .teacher-col { width: 150px !important; min-width: 140px !important; }
+          .period-col { width: 92px !important; min-width: 88px !important; }
+          .assign-table { min-width: 1040px; font-size: 13px; }
+          .cell-item { padding: 3px 4px; min-width: 76px; }
         }
 
         /* --- YAZDIRMA (PRINT) --- */

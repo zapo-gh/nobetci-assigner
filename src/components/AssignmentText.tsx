@@ -513,7 +513,18 @@ export default function AssignmentText({
     }
   };
 
-  const shareWhatsApp = () => {
+  const shareWhatsApp = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
+      try {
+        await navigator.share({
+          title: `Nöbetçi Görevlendirmeleri - ${displayDate || day}`,
+          text: whatsAppText,
+        });
+        return;
+      } catch (e: any) {
+        if (e.name === 'AbortError') return;
+      }
+    }
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsAppText)}`;
     window.open(url, '_blank');
   };
@@ -528,7 +539,18 @@ export default function AssignmentText({
     }
   };
 
-  const handleShareMerged = (message) => {
+  const handleShareMerged = async (teacherName, message) => {
+    if (typeof navigator !== 'undefined' && navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
+      try {
+        await navigator.share({
+          title: `${teacherName} - Ders Birleştirme Bilgisi`,
+          text: message,
+        });
+        return;
+      } catch (e: any) {
+        if (e.name === 'AbortError') return;
+      }
+    }
     const text = encodeURIComponent(message);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
@@ -572,14 +594,14 @@ export default function AssignmentText({
 
   return (
     <div className={`${styles.assignmentTextContainer} no-print`}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+      <div className={styles.headerRow}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '1.25rem' }}>📱</span>
           <h3 className={styles.title} style={{ margin: 0 }}>Görevlendirme Metni & WhatsApp Paylaşımı</h3>
         </div>
 
         {/* Biçim Seçici Butonlar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <div className={styles.formatModeGroup}>
           <button
             type="button"
             onClick={() => setFormatMode('whatsapp')}
@@ -682,7 +704,7 @@ export default function AssignmentText({
             }}
           />
 
-          <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+          <div className={styles.actionButtonsRow}>
             <button
               type="button"
               onClick={shareWhatsApp}
@@ -846,10 +868,10 @@ export default function AssignmentText({
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div className={styles.mergedActionButtons}>
                       <button
                         type="button"
-                        onClick={() => handleShareMerged(item.message)}
+                        onClick={() => handleShareMerged(item.teacherName, item.message)}
                         style={{
                           background: '#22c55e',
                           color: '#ffffff',

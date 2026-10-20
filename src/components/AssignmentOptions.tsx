@@ -264,6 +264,26 @@ export default function AssignmentOptions({
                         display: none;
                     }
                 }
+
+                @media (max-width: 768px) {
+                    .assignment-options-card {
+                        padding: 12px 14px;
+                        gap: 14px;
+                    }
+                    .option-desc {
+                        white-space: normal;
+                        line-height: 1.35;
+                    }
+                    .number-stepper {
+                        padding: 4px 10px;
+                        min-height: 38px;
+                    }
+                    .stepper-input {
+                        width: 36px;
+                        height: 30px;
+                        font-size: 1rem;
+                    }
+                }
             `}</style>
         </div>
     );

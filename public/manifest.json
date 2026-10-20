@@ -4,8 +4,8 @@
   "description": "Nöbetçi öğretmen görevlendirme uygulaması",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#4dabf7",
+  "background_color": "#e6ebff",
+  "theme_color": "#4338ca",
   "icons": [
     {
       "src": "favicon.svg",

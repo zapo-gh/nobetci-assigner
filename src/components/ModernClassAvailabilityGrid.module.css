@@ -816,3 +816,127 @@
   color: var(--text-muted, #64748b);
   max-width: 420px;
 }
+
+/* ---------------- Responsive Mobile Styles ---------------- */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+    border-radius: 12px;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .searchBox {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents iOS Safari auto-zoom */
+    padding: 10px 32px 10px 36px;
+    min-height: 44px;
+  }
+
+  .filterChips {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    width: 100%;
+    scrollbar-width: none;
+  }
+  .filterChips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filterChip {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .gridTable {
+    min-width: 520px;
+  }
+
+  .stickyCol {
+    width: 88px !important;
+    min-width: 82px !important;
+    max-width: 94px !important;
+  }
+
+  .classCard {
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 2px;
+    gap: 3px;
+    text-align: center;
+  }
+
+  .classMain {
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+  }
+
+  .classAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+  }
+
+  .classMeta {
+    align-items: center;
+    width: 100%;
+  }
+
+  .className {
+    font-size: 0.78rem;
+    text-align: center;
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .classroomChip {
+    display: none; /* Hide on mobile sticky col to save space */
+  }
+
+  .classActions {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  .freeCountBadge {
+    display: none;
+  }
+
+  .deleteBtn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+  }
+
+  .capsuleWrapper {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 4px 2px;
+  }
+
+  .capsulePeriodNum {
+    font-size: 0.82rem;
+  }
+}
+

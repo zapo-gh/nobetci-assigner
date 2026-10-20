@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import Icon from '../components/Icon';
-import AbsenteeList from '../components/AbsenteeList';
+import AbsenteeList, { formatCapsuleClassName } from '../components/AbsenteeList';
 
 describe('Icon component', () => {
   it('renders trash, edit, search, chevronUp, chevronDown, map, save', () => {
@@ -74,5 +74,32 @@ describe('AbsenteeList IMES handling and delete button icon', () => {
 
     // The capsules for 8, 9, 10 must have (Okul Dışı) note and not be in affected red state
     expect(screen.getAllByText('(Okul Dışı)').length).toBe(3);
+  });
+
+  it('formats long class names into balanced two lines for capsules', () => {
+    expect(formatCapsuleClassName('AMP 10 MUHASEB')).toEqual({
+      line1: 'AMP 10',
+      line2: 'MUHASEB'
+    });
+    expect(formatCapsuleClassName('AMP 10 PAZARLA')).toEqual({
+      line1: 'AMP 10',
+      line2: 'PAZARLA'
+    });
+    expect(formatCapsuleClassName('AMP 9-G')).toEqual({
+      line1: 'AMP 9-G',
+      line2: ''
+    });
+    expect(formatCapsuleClassName('ATP 10-A OTO')).toEqual({
+      line1: 'ATP 10-A',
+      line2: 'OTO'
+    });
+    expect(formatCapsuleClassName('ÖZEL EĞİTİM')).toEqual({
+      line1: 'ÖZEL',
+      line2: 'EĞİTİM'
+    });
+    expect(formatCapsuleClassName('11-B')).toEqual({
+      line1: '11-B',
+      line2: ''
+    });
   });
 });

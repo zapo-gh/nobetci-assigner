@@ -23,6 +23,7 @@ export default function AbsentsSection({
   return (
     <div role="tabpanel" id="panel-absents" aria-labelledby="tab-absents" style={{ width: '100%' }}>
       <div
+        className="toolbar absents-toolbar"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -63,7 +64,7 @@ export default function AbsentsSection({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="absents-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             className="btn btn-primary"
             onClick={onAddAbsent}
@@ -136,6 +137,28 @@ export default function AbsentsSection({
           classLocations={classLocations}
         />
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .absents-toolbar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 12px 14px !important;
+            gap: 12px !important;
+          }
+          .absents-toolbar-actions {
+            width: 100%;
+            display: flex !important;
+            gap: 8px !important;
+          }
+          .absents-toolbar-actions .btn {
+            flex: 1;
+            justify-content: center;
+            min-height: 44px;
+            font-size: 0.9rem;
+          }
+        }
+      `}</style>
     </div>
   );
 }

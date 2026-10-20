@@ -131,6 +131,20 @@
   box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
 }
 
+.toolbarRightActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.historyGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+}
+
 /* ---------------- Table Container ---------------- */
 .tableContainer {
   position: relative;
@@ -1140,4 +1154,225 @@
     display: none;
   }
 }
+
+/* ---------------- Manual Editor Backdrop (Mobile) ---------------- */
+.manualEditorBackdrop {
+  display: none;
+}
+
+/* ---------------- Responsive Mobile Styles ---------------- */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+    border-radius: 12px;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .searchBox {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents iOS Safari auto-zoom */
+    padding: 10px 32px 10px 36px;
+    min-height: 44px;
+  }
+
+  .filterChips {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    width: 100%;
+    scrollbar-width: none;
+  }
+  .filterChips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filterChip {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .toolbarRightActions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .historyGroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .historyBtn {
+    min-height: 42px;
+    padding: 8px 12px;
+  }
+
+  .saveBtn {
+    flex: 1;
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 14px;
+    font-size: 0.88rem;
+  }
+
+  .assignmentTable {
+    min-width: 520px;
+  }
+
+  .stickyCol {
+    width: 96px !important;
+    min-width: 90px !important;
+    max-width: 102px !important;
+  }
+
+  .periodHeaderTh {
+    width: 82px !important;
+    min-width: 82px !important;
+  }
+
+  .classCard {
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 2px;
+    gap: 3px;
+    text-align: center;
+  }
+
+  .classMain {
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+  }
+
+  .classAvatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.76rem;
+    border-radius: 8px;
+  }
+
+  .className {
+    font-size: 0.76rem;
+    text-align: center;
+    max-width: 84px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .classroomChip {
+    display: none;
+  }
+
+  .dutyCard {
+    width: 100%;
+    max-width: 76px;
+    padding: 3px 2px;
+  }
+
+  .teacherNameText {
+    font-size: 0.68rem;
+    max-width: 54px;
+  }
+
+  .dutyLocationBadge {
+    display: none;
+  }
+
+  .editBtn {
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    min-height: 22px;
+  }
+
+  .assignManualBtn {
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    min-height: 22px;
+  }
+
+  /* Mobile Bottom Sheet Transformation */
+  .manualEditorBackdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1040;
+    animation: fadeInModal 0.2s ease;
+  }
+
+  .manualEditor {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 82vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    border: none !important;
+    border-top: 2px solid var(--primary, #4338ca) !important;
+    box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.4) !important;
+    animation: slideUpBottom 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+    z-index: 1050 !important;
+  }
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.sheetHandleBar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sheetHandleBar {
+    display: block;
+    width: 40px;
+    height: 5px;
+    background: #cbd5e1;
+    border-radius: 999px;
+    margin: 8px auto 4px;
+    flex-shrink: 0;
+  }
+}
+
+
 

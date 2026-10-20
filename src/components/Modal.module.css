@@ -55,29 +55,89 @@
 .modalLarge { width: 90%; max-width: 900px; }
 .modalXLarge { width: 98%; max-width: 1300px; }
 
+.modalHandleBar {
+  display: none;
+}
+
 @media (max-width: 640px) {
+  .modalOverlay {
+    align-items: flex-end;
+  }
+
+  .modalHandleBar {
+    display: block;
+    width: 40px;
+    height: 5px;
+    background: var(--border-default, #cbd5e1);
+    border-radius: 999px;
+    margin: 8px auto 0;
+    flex-shrink: 0;
+  }
+
   .modalContent {
-    width: 95%;
-    max-height: 95vh;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin: 0 !important;
+    animation: slideUpSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
   }
   
   .modalSmall,
   .modalMedium,
-  .modalLarge {
-    width: 95%;
-    max-width: none;
+  .modalLarge,
+  .modalXLarge {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .modalHeader {
-    padding: var(--space-4);
+    padding: var(--space-3) var(--space-4);
   }
 
   .modalBody {
     padding: var(--space-4);
+    -webkit-overflow-scrolling: touch;
   }
 
   .modalTitle {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
+  }
+
+  .modalFooter {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .btnPrimary,
+  .btnSecondary {
+    flex: 1;
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    justify-content: center;
+  }
+
+  .summaryStats {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .conflictDetails {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 

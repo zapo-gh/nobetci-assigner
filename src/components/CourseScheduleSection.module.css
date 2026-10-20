@@ -345,3 +345,69 @@
   max-width: 440px;
   line-height: 1.45;
 }
+
+/* ==========================================================
+   Responsive Mobile Styles
+   ========================================================== */
+@media (max-width: 768px) {
+  .container {
+    padding: 12px 14px;
+    margin-top: 8px;
+    border-radius: 12px;
+    gap: 12px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .searchWrapper {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents iOS Safari auto-zoom */
+    padding: 10px 34px 10px 38px;
+    min-height: 44px;
+  }
+
+  .toolbarStats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .toolbarActions {
+    width: 100%;
+    margin-left: 0;
+    display: flex;
+    gap: 8px;
+  }
+
+  .uploadBtn,
+  .deleteAllBtn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 0.88rem;
+    padding: 10px 14px;
+  }
+
+  .cardGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .dayCapsule {
+    min-height: 42px;
+    padding: 4px 1px;
+  }
+}
+

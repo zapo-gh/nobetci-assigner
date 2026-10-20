@@ -754,6 +754,18 @@ export default function App() {
         setTeacherSchedules(loadedTeacherSchedules);
         setTeacherSchedulesHydrated(true);
 
+        if (snapshotData.printNotes && typeof snapshotData.printNotes === 'object') {
+          if (typeof snapshotData.printNotes.notes === 'string') {
+            try { localStorage.setItem('nobetci_print_notes', snapshotData.printNotes.notes); } catch (e) {}
+          }
+          if (typeof snapshotData.printNotes.enabled === 'boolean') {
+            try { localStorage.setItem('nobetci_print_notes_enabled', String(snapshotData.printNotes.enabled)); } catch (e) {}
+          }
+          if (typeof snapshotData.printNotes.showMerged === 'boolean') {
+            try { localStorage.setItem('nobetci_show_merged_in_outputs', String(snapshotData.printNotes.showMerged)); } catch (e) {}
+          }
+        }
+
         if (persistLocal && typeof localStorage !== 'undefined') {
           try {
             const payload = {
