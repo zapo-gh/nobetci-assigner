@@ -10,6 +10,7 @@ import { logger } from '../utils/logger.js';
 import { arrayToSetMap } from '../utils/helpers.js';
 import { normalizeAbsentPeople } from '../utils/migrations.js';
 import { loadInitialData, clearAdminLocks } from '../services/firebaseDataService.js';
+import { ensureFirebaseAuth } from '../services/firebaseAuthService.js';
 import { MANUAL_ADMIN_TEACHER_ID } from '../utils/assignDuty.js';
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 saat
@@ -109,6 +110,7 @@ export function useDataLoader({
 
         // ADIM 2: Firebase'den yükle
         try {
+          await ensureFirebaseAuth();
           const firebaseData = await loadInitialData();
           if (!isMounted) return;
 
